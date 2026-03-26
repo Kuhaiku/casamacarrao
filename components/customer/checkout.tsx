@@ -1,3 +1,4 @@
+// components/customer/checkout.tsx
 "use client"
 
 import { useState } from "react"
@@ -106,14 +107,16 @@ export function Checkout() {
     setStep,
   } = useOrder()
 
+  const [phone, setPhone] = useState("")
   const [isSubmitted, setIsSubmitted] = useState(false)
-  const [errors, setErrors] = useState<{ name?: string; address?: string }>({})
+  const [errors, setErrors] = useState<{ name?: string; address?: string; phone?: string }>({})
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
     const newErrors: typeof errors = {}
     if (!customerName.trim()) newErrors.name = "Nome é obrigatório"
+    if (!phone.trim()) newErrors.phone = "Telefone é obrigatório"
     if (!address.trim()) newErrors.address = "Endereço é obrigatório"
     
     if (Object.keys(newErrors).length > 0) {
@@ -123,6 +126,7 @@ export function Checkout() {
 
     addOrder({
       customerName: customerName.trim(),
+      phone: phone.trim(),
       address: address.trim(),
       paymentMethod,
       items,
@@ -161,6 +165,24 @@ export function Checkout() {
               />
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone / WhatsApp</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="(22) 99999-9999"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value)
+                  setErrors((prev) => ({ ...prev, phone: undefined }))
+                }}
+                className={errors.phone ? "border-destructive" : ""}
+              />
+              {errors.phone && (
+                <p className="text-sm text-destructive">{errors.phone}</p>
               )}
             </div>
 

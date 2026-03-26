@@ -1,3 +1,4 @@
+// components/customer/order-builder.tsx
 "use client"
 
 import { useStore } from "@/lib/store"
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Check, AlertCircle } from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, AlertCircle, Ban } from "lucide-react"
 import type { CategoryType, MenuItem } from "@/lib/types"
 
 function formatCurrency(value: number) {
@@ -60,6 +61,7 @@ function ItemSelector({
   max,
   extraPrice,
   isSeasoning = false,
+  isStrict = false,
 }: {
   items: MenuItem[]
   selected: string[]
@@ -67,6 +69,7 @@ function ItemSelector({
   max: number
   extraPrice: number
   isSeasoning?: boolean
+  isStrict?: boolean
 }) {
   const isOverLimit = !isSeasoning && selected.length > max
   const extraCount = Math.max(0, selected.length - max)
@@ -77,8 +80,9 @@ function ItemSelector({
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
             Selecionados: <span className="font-medium text-foreground">{selected.length}</span> / {max}
+            {isStrict && <span className="ml-1 text-xs">(Limite Fixo)</span>}
           </span>
-          {isOverLimit && (
+          {isOverLimit && !isStrict && (
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
               <AlertCircle className="h-3 w-3 mr-1" />
               +{extraCount} extra ({formatCurrency(extraCount * extraPrice)})
@@ -93,17 +97,20 @@ function ItemSelector({
         {items.map((item) => {
           const isSelected = selected.includes(item.id)
           const wouldExceed = !isSeasoning && !isSelected && selected.length >= max
-          
+          const isDisabled = isStrict && wouldExceed
+
           return (
             <button
               key={item.id}
               onClick={() => onToggle(item.id)}
+              disabled={isDisabled}
               className={cn(
-                "p-4 rounded-lg border-2 text-left transition-all",
+                "p-4 rounded-lg border-2 text-left transition-all relative overflow-hidden",
                 isSelected
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-primary/50 hover:bg-muted/50",
-                wouldExceed && "border-dashed"
+                wouldExceed && !isStrict && "border-dashed",
+                isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-transparent"
               )}
             >
               <div className="flex items-center justify-between">
@@ -111,12 +118,24 @@ function ItemSelector({
                   {item.name}
                 </span>
                 {isSelected && (
-                  <Check className="h-4 w-4 text-primary" />
+                  <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
+                )}
+                {isDisabled && (
+                   <Ban className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
                 )}
               </div>
-              {wouldExceed && !isSelected && (
-                <span className="text-xs text-muted-foreground">
+              
+              {/* Mostra o preço extra apenas se for ultrapassar e NÃO for estrito */}
+              {wouldExceed && !isSelected && !isStrict && (
+                <span className="text-xs text-muted-foreground block mt-1">
                   +{formatCurrency(extraPrice)}
+                </span>
+              )}
+
+              {/* Mostra aviso de bloqueado se for estrito */}
+              {isDisabled && (
+                <span className="text-xs text-muted-foreground block mt-1">
+                  Limite atingido
                 </span>
               )}
             </button>
@@ -189,6 +208,16 @@ export function OrderBuilder() {
     }
   }
 
+  // Nova função para checar se a categoria atual tem limite estrito
+  const getIsStrict = (): boolean => {
+    switch (currentStepConfig?.category) {
+      case "pasta": return !!size.strictMaxPastas
+      case "sauce": return !!size.strictMaxSauces
+      case "ingredient": return !!size.strictMaxIngredients
+      default: return false
+    }
+  }
+
   const handleToggle = (id: string) => {
     const selected = getSelected()
     const field = currentStepConfig?.category === "pasta" ? "pastas"
@@ -196,9 +225,20 @@ export function OrderBuilder() {
       : currentStepConfig?.category === "ingredient" ? "ingredients"
       : "seasonings"
     
+    // Se a regra for estrita e tentar adicionar além do limite, bloqueia a ação.
+    // (Isso é uma segurança extra além do 'disabled' no botão)
+    const isStrict = getIsStrict()
+    const max = getMax()
+    
     if (selected.includes(id)) {
+      // Permitir desmarcar sempre
       updateCurrentItem({ [field]: selected.filter((s) => s !== id) })
     } else {
+      // Bloquear se for estrito e já estiver no limite
+      if (isStrict && selected.length >= max && currentStepConfig?.category !== "seasoning") {
+        return
+      }
+      // Adicionar se não for estrito ou se não atingiu o limite
       updateCurrentItem({ [field]: [...selected, id] })
     }
   }
@@ -252,6 +292,7 @@ export function OrderBuilder() {
             max={getMax()}
             extraPrice={settings.extraIngredientPrice}
             isSeasoning={currentStepConfig?.category === "seasoning"}
+            isStrict={getIsStrict()}
           />
         )}
 

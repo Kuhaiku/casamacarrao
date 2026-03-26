@@ -1,4 +1,4 @@
-// Types for Casa do Macarrão ordering system
+// lib/types.ts
 
 export type CategoryType = 'pasta' | 'sauce' | 'seasoning' | 'ingredient'
 
@@ -7,8 +7,11 @@ export interface Size {
   name: string
   price: number
   maxPastas: number
+  strictMaxPastas: boolean
   maxIngredients: number
+  strictMaxIngredients: boolean
   maxSauces: number
+  strictMaxSauces: boolean
 }
 
 export interface MenuItem {
@@ -17,10 +20,10 @@ export interface MenuItem {
   category: CategoryType
   isActive: boolean
 }
-
 export interface StoreSettings {
   extraIngredientPrice: number
   extraCheesePrice: number
+  whatsappMessage?: string // NOVO CAMPO
 }
 
 export interface OrderItem {
@@ -38,6 +41,7 @@ export type PaymentMethod = 'cartao' | 'dinheiro' | 'pix'
 export interface Order {
   id: string
   customerName: string
+  phone: string // <-- NOVO CAMPO
   address: string
   paymentMethod: PaymentMethod
   items: OrderItem[]
@@ -45,6 +49,26 @@ export interface Order {
   isPaid: boolean
   total: number
   createdAt: string
+  isAccounted?: boolean
+}
+
+export interface FinancialEntry {
+  id: string
+  description: string
+  amount: number
+  date: string
+  isAccounted: boolean
+}
+
+export interface CashRegister {
+  id: string
+  openedAt: string
+  closedAt: string
+  totalSales: number
+  totalExpenses: number
+  totalTips: number
+  netTotal: number
+  orderCount: number
 }
 
 export interface StoreState {
@@ -52,4 +76,8 @@ export interface StoreState {
   menuItems: MenuItem[]
   settings: StoreSettings
   orders: Order[]
+  expenses: FinancialEntry[]
+  tips: FinancialEntry[]
+  cashRegisters: CashRegister[]
+  registerOpenedAt: string
 }

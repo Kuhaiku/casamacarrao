@@ -1,14 +1,16 @@
+// app/admin/layout.tsx
 "use client"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Settings, Package, Utensils, ClipboardList } from "lucide-react"
+import { Settings, Package, Utensils, ClipboardList, Wallet } from "lucide-react"
 
 const navItems = [
   { href: "/admin", label: "Tamanhos e Regras", icon: Settings },
   { href: "/admin/menu", label: "Cardápio", icon: Utensils },
   { href: "/admin/orders", label: "Pedidos", icon: ClipboardList },
+  { href: "/admin/financeiro", label: "Financeiro", icon: Wallet }, // NOVA ROTA ADICIONADA
 ]
 
 export default function AdminLayout({
@@ -29,7 +31,10 @@ export default function AdminLayout({
           </Link>
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href
+              // Verifica se a rota está ativa. 
+              // Usamos startsWith para o Financeiro para manter ativo se houver sub-rotas no futuro.
+              const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
+              
               return (
                 <Link
                   key={item.href}
