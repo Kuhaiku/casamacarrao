@@ -1,68 +1,48 @@
-// app/admin/layout.tsx
-"use client"
+// app/layout.tsx
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
+import { RealTimeSync } from '@/components/real-time-sync'
+import './globals.css'
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Settings, Package, Utensils, ClipboardList, Wallet } from "lucide-react"
+const geist = Geist({ subsets: ["latin"] });
+const geistMono = Geist_Mono({ subsets: ["latin"] });
 
-const navItems = [
-  { href: "/admin", label: "Tamanhos e Regras", icon: Settings },
-  { href: "/admin/menu", label: "Cardápio", icon: Utensils },
-  { href: "/admin/orders", label: "Pedidos", icon: ClipboardList },
-  { href: "/admin/financeiro", label: "Financeiro", icon: Wallet }, // NOVA ROTA ADICIONADA
-]
+export const metadata: Metadata = {
+  title: 'Casa do Macarrão - Sistema de Pedidos',
+  description: 'Monte seu macarrão do seu jeito na Casa do Macarrão',
+  generator: 'v0.app',
+  icons: {
+    icon: [
+      {
+        url: '/icon-light-32x32.png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/icon-dark-32x32.png',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+    apple: '/apple-icon.png',
+  },
+}
 
-export default function AdminLayout({
+export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
-  const pathname = usePathname()
-
+}>) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container flex h-16 items-center gap-8 px-4">
-          <Link href="/admin" className="flex items-center gap-2">
-            <Package className="h-6 w-6 text-primary" />
-            <span className="font-bold text-xl text-foreground">Casa do Macarrão</span>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full ml-2">Admin</span>
-          </Link>
-          <nav className="flex items-center gap-1">
-            {navItems.map((item) => {
-              // Verifica se a rota está ativa. 
-              // Usamos startsWith para o Financeiro para manter ativo se houver sub-rotas no futuro.
-              const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
-              
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              )
-            })}
-          </nav>
-          <div className="ml-auto">
-            <Link
-              href="/"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Ver Loja
-            </Link>
-          </div>
-        </div>
-      </header>
-      <main className="container py-8 px-4">{children}</main>
-    </div>
+    <html lang="pt-BR">
+      <body className={`${geist.className} ${geistMono.className} font-sans antialiased`}>
+        <RealTimeSync />
+        {children}
+        <Analytics />
+      </body>
+    </html>
   )
 }

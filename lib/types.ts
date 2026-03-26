@@ -20,10 +20,11 @@ export interface MenuItem {
   category: CategoryType
   isActive: boolean
 }
+
 export interface StoreSettings {
   extraIngredientPrice: number
   extraCheesePrice: number
-  whatsappMessage?: string // NOVO CAMPO
+  whatsappMessage?: string
 }
 
 export interface OrderItem {
@@ -38,13 +39,35 @@ export interface OrderItem {
 export type OrderStatus = 'novo' | 'aprovado' | 'pronto'
 export type PaymentMethod = 'cartao' | 'dinheiro' | 'pix'
 
+// NOVOS TIPOS DE PRODUTOS AVULSOS
+export interface ProductCategory {
+  id: string
+  name: string
+  isActive: boolean
+}
+
+export interface Product {
+  id: string
+  categoryId: string
+  name: string
+  price: number
+  isActive: boolean
+}
+
+export interface OrderProduct {
+  productId: string
+  quantity: number
+}
+
+// PEDIDO ATUALIZADO
 export interface Order {
   id: string
   customerName: string
-  phone: string // <-- NOVO CAMPO
+  phone: string
   address: string
   paymentMethod: PaymentMethod
   items: OrderItem[]
+  products?: OrderProduct[]
   status: OrderStatus
   isPaid: boolean
   total: number
@@ -52,6 +75,7 @@ export interface Order {
   isAccounted?: boolean
 }
 
+// TIPOS FINANCEIROS
 export interface FinancialEntry {
   id: string
   description: string
@@ -71,9 +95,12 @@ export interface CashRegister {
   orderCount: number
 }
 
+// ESTADO GLOBAL
 export interface StoreState {
   sizes: Size[]
   menuItems: MenuItem[]
+  productCategories: ProductCategory[]
+  products: Product[]
   settings: StoreSettings
   orders: Order[]
   expenses: FinancialEntry[]

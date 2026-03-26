@@ -14,6 +14,8 @@ export const pool =
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    enableKeepAlive: true,         // Evita que o servidor remoto derrube a conexão
+    keepAliveInitialDelay: 10000,
   })
 
 if (process.env.NODE_ENV !== 'production') globalForMysql.mysqlPool = pool

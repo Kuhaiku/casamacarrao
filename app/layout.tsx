@@ -1,6 +1,8 @@
+// app/layout.tsx
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { RealTimeSync } from '@/components/real-time-sync' // NOVO: Importando o sincronizador
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -35,8 +37,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <body className="font-sans antialiased">
+        <RealTimeSync /> {/* NOVO: Inicia a busca no banco de dados no momento zero */}
         {children}
         <Analytics />
       </body>
