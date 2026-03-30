@@ -1,48 +1,75 @@
-// app/layout.tsx
-import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
-import { RealTimeSync } from '@/components/real-time-sync'
-import '../globals.css'
+// app/admin/layout.tsx
+import Link from "next/link";
+import { 
+  Package, 
+  DollarSign, 
+  UtensilsCrossed, 
+  ShoppingCart, 
+  LayoutDashboard, 
+  ArrowLeft 
+} from "lucide-react";
 
-const geist = Geist({ subsets: ["latin"] });
-const geistMono = Geist_Mono({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: 'Casa do Macarrão - Sistema de Pedidos',
-  description: 'Monte seu macarrão do seu jeito na Casa do Macarrão',
-  generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
-}
-
-export default function RootLayout({
+export default function AdminLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
+  // Links de navegação baseados nas pastas do seu repositório
+  const navItems = [
+    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/orders", label: "Pedidos", icon: ShoppingCart },
+    { href: "/admin/menu", label: "Cardápio", icon: UtensilsCrossed },
+    { href: "/admin/produtos", label: "Produtos", icon: Package },
+    { href: "/admin/financeiro", label: "Financeiro", icon: DollarSign },
+  ];
+
   return (
-    <html lang="pt-BR">
-      <body className={`${geist.className} ${geistMono.className} font-sans antialiased`}>
-        <RealTimeSync />
-        {children}
-        <Analytics />
-      </body>
-    </html>
-  )
+    <div className="flex min-h-screen bg-stone-50 flex-col md:flex-row">
+      {/* Sidebar / Menu de Navegação */}
+      <aside className="w-full md:w-64 bg-stone-900 text-stone-300 border-r border-stone-800 md:min-h-screen p-4 flex flex-col">
+        <div className="mb-6 md:mb-8 flex items-center justify-between md:block">
+          <div>
+            <h2 className="text-orange-500 font-bold text-xl tracking-wide">Painel Admin</h2>
+            <p className="text-xs text-stone-500 uppercase tracking-widest mt-0.5">Casa do Macarrão</p>
+          </div>
+          {/* Botão de voltar mobile */}
+          <Link href="/" className="md:hidden text-stone-400 p-2 hover:bg-stone-800 rounded-lg">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+        </div>
+
+        {/* Links */}
+        <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 scrollbar-hide">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-stone-800 hover:text-white transition-colors whitespace-nowrap"
+            >
+              <item.icon className="w-5 h-5 text-orange-600 flex-shrink-0" />
+              <span className="text-sm font-medium">{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        {/* Botão de voltar Desktop */}
+        <div className="mt-auto pt-8 hidden md:block">
+          <Link
+            href="/"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-stone-800 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar ao Site
+          </Link>
+        </div>
+      </aside>
+
+      {/* Conteúdo Principal (Onde as páginas do Admin serão renderizadas) */}
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+        <div className="max-w-5xl mx-auto w-full">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
 }

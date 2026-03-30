@@ -1,12 +1,11 @@
 // app/admin/financeiro/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useStore } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trash2, DollarSign, TrendingDown, HeartHandshake, LockKeyhole } from "lucide-react"
 
@@ -15,15 +14,26 @@ function formatCurrency(value: number) {
 }
 
 export default function FinanceiroPage() {
+  const [isMounted, setIsMounted] = useState(false)
+
   const { 
     orders, expenses, tips, cashRegisters, registerOpenedAt, 
     addExpense, deleteExpense, addTip, deleteTip, closeRegister 
   } = useStore()
 
-  const [desc, setDesc] = useState("")
-  const [amount, setAmount] = useState("")
+  // ESTADOS SEPARADOS PARA NÃO DAR CONFLITO
+  const [expenseDesc, setExpenseDesc] = useState("")
+  const [expenseAmount, setExpenseAmount] = useState("")
+  
+  const [tipDesc, setTipDesc] = useState("")
+  const [tipAmount, setTipAmount] = useState("")
 
-  // Filtra apenas dados do caixa atual (não contabilizados)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  if (!isMounted) return null
+
   const currentOrders = orders.filter(o => !o.isAccounted && o.isPaid)
   const currentExpenses = expenses.filter(e => !e.isAccounted)
   const currentTips = tips.filter(t => !t.isAccounted)
@@ -34,12 +44,17 @@ export default function FinanceiroPage() {
   const netTotal = (totalSales + totalTips) - totalExpenses
 
   const handleAddEntry = (type: 'expense' | 'tip') => {
-    if (!desc || !amount) return
-    const value = parseFloat(amount)
-    if (type === 'expense') addExpense({ description: desc, amount: value })
-    else addTip({ description: desc, amount: value })
-    setDesc("")
-    setAmount("")
+    if (type === 'expense') {
+      if (!expenseDesc || !expenseAmount) return
+      addExpense({ description: expenseDesc, amount: parseFloat(expenseAmount) })
+      setExpenseDesc("")
+      setExpenseAmount("")
+    } else {
+      if (!tipDesc || !tipAmount) return
+      addTip({ description: tipDesc, amount: parseFloat(tipAmount) })
+      setTipDesc("")
+      setTipAmount("")
+    }
   }
 
   const handleCloseRegister = () => {
@@ -62,7 +77,6 @@ export default function FinanceiroPage() {
         </TabsList>
 
         <TabsContent value="atual" className="space-y-6 mt-6">
-          {/* RESUMO DO CAIXA ATUAL */}
           <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -100,7 +114,7 @@ export default function FinanceiroPage() {
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(netTotal)}</div>
                 <p className="text-xs text-muted-foreground">
-                  Aberto em: {new Date(registerOpenedAt).toLocaleString('pt-BR')}
+                  Aberto em: {registerOpenedAt ? new Date(registerOpenedAt).toLocaleString('pt-BR') : 'N/A'}
                 </p>
               </CardContent>
             </Card>
@@ -120,8 +134,8 @@ export default function FinanceiroPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
-                  <Input placeholder="Ex: Gás, Embalagens..." value={desc} onChange={(e) => setDesc(e.target.value)} />
-                  <Input type="number" placeholder="R$ 0,00" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-32" />
+                  <Input placeholder="Ex: Gás, Embalagens..." value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} />
+                  <Input type="number" placeholder="R$ 0,00" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} className="w-32" />
                   <Button variant="destructive" onClick={() => handleAddEntry('expense')}>Adicionar</Button>
                 </div>
                 <div className="space-y-2 mt-4">
@@ -146,9 +160,9 @@ export default function FinanceiroPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
-                  <Input placeholder="Ex: Caixinha do balcão..." value={desc} onChange={(e) => setDesc(e.target.value)} />
-                  <Input type="number" placeholder="R$ 0,00" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-32" />
-                  <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => handleAddEntry('tip')}>Adicionar</Button>
+                  <Input placeholder="Ex: Caixinha do balcão..." value={tipDesc} onChange={(e) => setTipDesc(e.target.value)} />
+                  <Input type="number" placeholder="R$ 0,00" value={tipAmount} onChange={(e) => setTipAmount(e.target.value)} className="w-32" />
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleAddEntry('tip')}>Adicionar</Button>
                 </div>
                 <div className="space-y-2 mt-4">
                   {currentTips.map(tip => (
