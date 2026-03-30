@@ -8,10 +8,13 @@ import type {
   OrderStatus, FinancialEntry, ProductCategory, Product, OrderProduct 
 } from './types'
 
+// Estendemos a interface para suportar o observation dinamicamente
+interface OrderWithObs extends Omit<Order, 'id' | 'createdAt'> {
+  observation?: string;
+}
+
 interface StoreActions {
   sync: () => Promise<void>
-  
-  // Tamanhos e Menu Self-Service
   addSize: (size: Size) => void
   updateSize: (id: string, updates: Partial<Size>) => void
   deleteSize: (id: string) => void
@@ -19,8 +22,6 @@ interface StoreActions {
   updateMenuItem: (id: string, updates: Partial<MenuItem>) => void
   toggleMenuItemActive: (id: string) => void
   deleteMenuItem: (id: string) => void
-  
-  // Produtos Avulsos
   addProductCategory: (cat: Partial<ProductCategory>) => void
   updateProductCategory: (id: string, updates: Partial<ProductCategory>) => void
   deleteProductCategory: (id: string) => void
@@ -28,21 +29,13 @@ interface StoreActions {
   updateProduct: (id: string, updates: Partial<Product>) => void
   toggleProductActive: (id: string) => void
   deleteProduct: (id: string) => void
-
-  // Configurações
   updateSettings: (updates: Partial<StoreSettings>) => void
-  
-  // Pedidos
-  addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => void
+  addOrder: (order: OrderWithObs) => void
   updateOrderStatus: (id: string, status: OrderStatus) => void
   toggleOrderPaid: (id: string) => void
-  
-  // Helpers
   getActiveMenuItems: () => MenuItem[]
   getSizeById: (id: string) => Size | undefined
   calculateOrderTotal: (items: Order['items'], products?: OrderProduct[]) => number
-  
-  // Financeiro
   addExpense: (expense: Omit<FinancialEntry, 'id' | 'date' | 'isAccounted'>) => void
   deleteExpense: (id: string) => void
   addTip: (tip: Omit<FinancialEntry, 'id' | 'date' | 'isAccounted'>) => void
@@ -70,12 +63,10 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
   addSize: async (size) => { await dbDispatch('ADD_SIZE', size); get().sync() },
   updateSize: async (id, updates) => { await dbDispatch('UPDATE_SIZE', { id, updates }); get().sync() },
   deleteSize: async (id) => { await dbDispatch('DELETE_SIZE', { id }); get().sync() },
-  
   addMenuItem: async (item) => { await dbDispatch('ADD_MENU_ITEM', item); get().sync() },
   updateMenuItem: async (id, updates) => { await dbDispatch('UPDATE_MENU_ITEM', { id, updates }); get().sync() },
   toggleMenuItemActive: async (id) => { await dbDispatch('TOGGLE_MENU_ITEM', { id }); get().sync() },
   deleteMenuItem: async (id) => { await dbDispatch('DELETE_MENU_ITEM', { id }); get().sync() },
-  
   addProductCategory: async (cat) => { await dbDispatch('ADD_PRODUCT_CATEGORY', cat); get().sync() },
   updateProductCategory: async (id, updates) => { await dbDispatch('UPDATE_PRODUCT_CATEGORY', { id, updates }); get().sync() },
   deleteProductCategory: async (id) => { await dbDispatch('DELETE_PRODUCT_CATEGORY', { id }); get().sync() },
@@ -83,14 +74,15 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
   updateProduct: async (id, updates) => { await dbDispatch('UPDATE_PRODUCT', { id, updates }); get().sync() },
   toggleProductActive: async (id) => { await dbDispatch('TOGGLE_PRODUCT', { id }); get().sync() },
   deleteProduct: async (id) => { await dbDispatch('DELETE_PRODUCT', { id }); get().sync() },
-
   updateSettings: async (updates) => { await dbDispatch('UPDATE_SETTINGS', updates); get().sync() },
   
   addOrder: async (order) => { 
-    set(state => ({ orders: [...state.orders, { ...order, id: 'loading', createdAt: new Date().toISOString() } as Order] }))
-    await dbDispatch('ADD_ORDER', order)
-    get().sync()
-  },
+      set(state => ({ 
+        orders: [...state.orders, { ...order, id: order.id || 'loading', createdAt: new Date().toISOString() } as Order] 
+      }))
+      await dbDispatch('ADD_ORDER', order)
+      get().sync()
+    },
   
   updateOrderStatus: async (id, status) => { 
     set(state => ({ orders: state.orders.map(o => o.id === id ? { ...o, status } : o) }))
@@ -99,7 +91,6 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
   },
   
   toggleOrderPaid: async (id) => { await dbDispatch('TOGGLE_ORDER_PAID', { id }); get().sync() },
-  
   addExpense: async (expense) => { await dbDispatch('ADD_EXPENSE', expense); get().sync() },
   deleteExpense: async (id) => { await dbDispatch('DELETE_EXPENSE', { id }); get().sync() },
   addTip: async (tip) => { await dbDispatch('ADD_TIP', tip); get().sync() },
@@ -113,7 +104,6 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
     const { sizes, settings, products: storeProducts } = get()
     let total = 0
     
-    // Soma Itens do Self-Service (Massas)
     for (const item of items) {
       const size = sizes.find((s) => s.id === item.sizeId)
       if (!size) continue
@@ -130,7 +120,6 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
       }
     }
 
-    // Soma Produtos Avulsos (Bebidas, Caldos, etc)
     for (const prod of products) {
       const dbProd = storeProducts.find(p => p.id === prod.productId)
       if (dbProd) {

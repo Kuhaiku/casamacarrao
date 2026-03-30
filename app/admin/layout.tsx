@@ -6,7 +6,8 @@ import {
   UtensilsCrossed, 
   ShoppingCart, 
   LayoutDashboard, 
-  ArrowLeft 
+  ArrowLeft,
+  ChefHat
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -14,8 +15,8 @@ export default function AdminLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Links de navegação baseados nas pastas do seu repositório
   const navItems = [
+    { href: "/cozinha", label: "Cozinha", icon: ChefHat },
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/orders", label: "Pedidos", icon: ShoppingCart },
     { href: "/admin/menu", label: "Cardápio", icon: UtensilsCrossed },
@@ -25,20 +26,17 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-stone-50 flex-col md:flex-row">
-      {/* Sidebar / Menu de Navegação */}
       <aside className="w-full md:w-64 bg-stone-900 text-stone-300 border-r border-stone-800 md:min-h-screen p-4 flex flex-col">
         <div className="mb-6 md:mb-8 flex items-center justify-between md:block">
           <div>
             <h2 className="text-orange-500 font-bold text-xl tracking-wide">Painel Admin</h2>
             <p className="text-xs text-stone-500 uppercase tracking-widest mt-0.5">Casa do Macarrão</p>
           </div>
-          {/* Botão de voltar mobile */}
           <Link href="/" className="md:hidden text-stone-400 p-2 hover:bg-stone-800 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </Link>
         </div>
 
-        {/* Links */}
         <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 scrollbar-hide">
           {navItems.map((item) => (
             <Link
@@ -52,7 +50,6 @@ export default function AdminLayout({
           ))}
         </nav>
 
-        {/* Botão de voltar Desktop */}
         <div className="mt-auto pt-8 hidden md:block">
           <Link
             href="/"
@@ -64,7 +61,6 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {/* Conteúdo Principal (Onde as páginas do Admin serão renderizadas) */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="max-w-5xl mx-auto w-full">
           {children}

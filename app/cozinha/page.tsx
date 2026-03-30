@@ -111,13 +111,7 @@ export default function KitchenPage() {
             </Badge>
           </div>
           <nav className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Package className="h-4 w-4" />
-              Loja
-            </Link>
+        
             <Link
               href="/admin"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
