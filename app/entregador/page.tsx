@@ -32,8 +32,9 @@ export default function EntregadorPage() {
 
   const deliveries = orders.filter(o => o.status === "pronto")
 
+  // Link corrigido para o padrão oficial do Google Maps
   const openMaps = (address: string) => {
-    window.open(`http://googleusercontent.com/maps.google.com/?q=${encodeURIComponent(address)}`, "_blank")
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, "_blank")
   }
 
   const openWhatsApp = (phone: string, name: string) => {
@@ -98,7 +99,7 @@ export default function EntregadorPage() {
                         <p className="font-medium text-stone-700 leading-snug">{order.address}</p>
                         <button 
                           onClick={() => openMaps(order.address)}
-                          className="mt-1 text-sm font-bold text-blue-600 flex items-center hover:underline"
+                          className="mt-1 text-sm font-bold text-blue-600 flex items-center hover:underline cursor-pointer"
                         >
                           Ver no Mapa
                         </button>
@@ -112,7 +113,7 @@ export default function EntregadorPage() {
                         {order.phone && (
                           <button 
                             onClick={() => openWhatsApp(order.phone, order.customerName)}
-                            className="mt-1 text-sm font-bold text-green-600 flex items-center hover:underline"
+                            className="mt-1 text-sm font-bold text-green-600 flex items-center hover:underline cursor-pointer"
                           >
                             Chamar no WhatsApp
                           </button>
