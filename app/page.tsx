@@ -278,8 +278,7 @@ export default function CustomerHome() {
           )}
         </div>
 
-        {/* CÁLCULO DINÂMICO PARA DISPOSITIVOS COM BARRA INFERIOR (pb-[calc...]) */}
-        <div className="p-4 sm:p-5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))] bg-stone-50 border-t border-stone-200 space-y-3 sm:space-y-4 shrink-0">
+        <div className="p-4 sm:p-5 bg-stone-50 border-t border-stone-200 space-y-3 sm:space-y-4 shrink-0">
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm font-bold text-stone-600">
               Total a Pagar
@@ -376,10 +375,40 @@ export default function CustomerHome() {
           </div>
         </div>
 
-        {/* ESPAÇAMENTO ADICIONAL PARA O CARDÁPIO CONSIDERANDO A SAFE AREA */}
-        <main className="flex-1 max-w-3xl mx-auto w-full p-4 lg:p-8 overflow-y-auto pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8">
+        {/* Padding inferior normal, pois removemos o botão flutuante */}
+        <main className="flex-1 max-w-3xl mx-auto w-full p-4 lg:p-8 overflow-y-auto pb-8">
           {view === "menu" ? (
             <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* NOVO: Botão da Sacola Embutido no Topo da Página (Para Mobile) */}
+              <div className="lg:hidden">
+                <button
+                  onClick={() => setIsMobileCartOpen(true)}
+                  className="w-full bg-stone-900 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between active:scale-[0.98] transition-transform"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative flex-shrink-0">
+                      <ShoppingBag className="w-6 h-6 text-stone-200" />
+                      {totalItemsCount > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-orange-600 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-stone-900">
+                          {totalItemsCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-left flex flex-col">
+                      <span className="font-bold text-sm tracking-wide">
+                        Minha Sacola
+                      </span>
+                      <span className="text-stone-400 text-xs">
+                        {totalItemsCount} item(s)
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-black text-orange-500 text-lg">
+                    {formatCurrency(cartTotal)}
+                  </span>
+                </button>
+              </div>
+
               <section>
                 <div className="mb-2 sm:mb-3">
                   <h2 className="text-base sm:text-lg font-bold text-stone-800">
@@ -464,7 +493,8 @@ export default function CustomerHome() {
         {renderCartContent()}
       </aside>
 
-      {isMobileCartOpen ? (
+      {/* Modal da Sacola em Dispositivos Móveis (Removido o div com bottom fixo) */}
+      {isMobileCartOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex flex-col bg-stone-900/50 backdrop-blur-sm animate-in fade-in">
           <div
             className="flex-1"
@@ -473,27 +503,6 @@ export default function CustomerHome() {
           <div className="h-[90vh] bg-white rounded-t-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full flex flex-col">
             {renderCartContent()}
           </div>
-        </div>
-      ) : (
-        /* MARGEM INFERIOR DINÂMICA NO BOTÃO FLUTUANTE (bottom-[calc...]) */
-        <div className="lg:hidden fixed left-4 right-4 z-40 animate-in slide-in-from-bottom-4 bottom-[calc(1rem+env(safe-area-inset-bottom))]">
-          <button
-            onClick={() => setIsMobileCartOpen(true)}
-            className="w-full bg-stone-900 text-white rounded-2xl p-3 sm:p-4 shadow-2xl flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
-                <span className="absolute -top-2 -right-2 bg-orange-600 w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[9px] sm:text-[10px] font-bold flex items-center justify-center border-2 border-stone-900">
-                  {totalItemsCount}
-                </span>
-              </div>
-              <span className="font-bold text-sm">Ver Sacola</span>
-            </div>
-            <span className="font-black text-orange-400 text-sm sm:text-base">
-              {formatCurrency(cartTotal)}
-            </span>
-          </button>
         </div>
       )}
     </div>
