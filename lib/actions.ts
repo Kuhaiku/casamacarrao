@@ -4,6 +4,7 @@
 import { pool } from "./db";
 import { randomUUID } from "crypto";
 
+
 const mapBooleans = (obj: any) => {
   const newObj = { ...obj };
   for (const key in newObj) {
@@ -27,6 +28,10 @@ const mapBooleans = (obj: any) => {
   }
   return newObj;
 };
+
+export async function verifyAdminPassword(password: string) {
+  return password === process.env.ADMIN_PASSWORD;
+}
 
 export async function getStoreData() {
   const [sizes] = await pool.query("SELECT * FROM sizes");
