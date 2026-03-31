@@ -36,10 +36,10 @@ export interface OrderItem {
   extraCheese: boolean
 }
 
-export type OrderStatus = 'novo' | 'aprovado' | 'pronto'
+// NOVO: Adicionado 'cancelado'
+export type OrderStatus = 'novo' | 'aprovado' | 'pronto' | 'cancelado'
 export type PaymentMethod = 'cartao' | 'dinheiro' | 'pix'
 
-// NOVOS TIPOS DE PRODUTOS AVULSOS
 export interface ProductCategory {
   id: string
   name: string
@@ -59,7 +59,6 @@ export interface OrderProduct {
   quantity: number
 }
 
-// PEDIDO ATUALIZADO
 export interface Order {
   id: string
   customerName: string
@@ -75,7 +74,6 @@ export interface Order {
   isAccounted?: boolean
 }
 
-// TIPOS FINANCEIROS
 export interface FinancialEntry {
   id: string
   description: string
@@ -95,7 +93,6 @@ export interface CashRegister {
   orderCount: number
 }
 
-// ESTADO GLOBAL
 export interface StoreState {
   sizes: Size[]
   menuItems: MenuItem[]

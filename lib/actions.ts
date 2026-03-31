@@ -213,7 +213,7 @@ export async function dbDispatch(action: string, payload: any) {
     case 'ADD_ORDER':
       await pool.query('INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
       [
-        payload.id || randomUUID(), // <-- CORREÇÃO AQUI
+        payload.id || randomUUID(),
         payload.customerName, 
         payload.phone, 
         payload.address, 
@@ -227,12 +227,19 @@ export async function dbDispatch(action: string, payload: any) {
       ])
       break
 
-      case "UPDATE_ORDER_STATUS":
+    case "UPDATE_ORDER_STATUS":
       await pool.query("UPDATE orders SET status = ? WHERE id = ?", [
         payload.status,
         payload.id,
       ]);
+      
+      // NOVO: Se o pedido for cancelado, garante que o 'isPaid' vire 0 (falso) 
+      // para evitar problemas contábeis caso o usuário tenha clicado sem querer
+      if (payload.status === 'cancelado') {
+        await pool.query("UPDATE orders SET isPaid = 0 WHERE id = ?", [payload.id]);
+      }
       break;
+
     case "TOGGLE_ORDER_PAID":
       await pool.query("UPDATE orders SET isPaid = NOT isPaid WHERE id = ?", [
         payload.id,
@@ -266,8 +273,10 @@ export async function dbDispatch(action: string, payload: any) {
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
+        
+        // NOVO: Garantia extra de segurança - ignorar pedidos cancelados na soma do caixa
         const [activeOrders]: any = await connection.query(
-          "SELECT total FROM orders WHERE isAccounted = 0 AND isPaid = 1",
+          "SELECT total FROM orders WHERE isAccounted = 0 AND isPaid = 1 AND status != 'cancelado'",
         );
         const [activeExpenses]: any = await connection.query(
           'SELECT amount FROM financial_entries WHERE isAccounted = 0 AND type = "expense"',
