@@ -17,21 +17,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import {
-  Check,
-  Clock,
-  ChefHat,
-  CreditCard,
-  Banknote,
-  QrCode,
-  Copy,
-  MessageCircle,
-  Settings2,
-  Receipt,
-  Ban,
-  RotateCcw,
-  Zap,
-} from "lucide-react";
+import { 
+  Check, Clock, ChefHat, CreditCard, Banknote, QrCode, 
+  Copy, MessageCircle, Settings2, Receipt, Ban, RotateCcw, Zap, Bike, CheckCheck
+} from "lucide-react"
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -46,19 +35,13 @@ function formatDate(dateString: string) {
   });
 }
 
-const statusConfig: Record<
-  string,
-  {
-    label: string;
-    variant: "default" | "secondary" | "outline" | "destructive";
-    icon: React.ElementType;
-  }
-> = {
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: React.ElementType }> = {
   novo: { label: "Aguardando Confirmação", variant: "default", icon: Clock },
   aprovado: { label: "Em Preparação", variant: "secondary", icon: ChefHat },
-  pronto: { label: "Saiu para Entrega", variant: "outline", icon: Check },
+  pronto: { label: "Saiu para Entrega", variant: "outline", icon: Bike }, // <-- TROQUE AQUI
+  entregue: { label: "Entregue ao Cliente", variant: "outline", icon: CheckCheck },
   cancelado: { label: "Cancelado", variant: "destructive", icon: Ban },
-};
+}
 
 const paymentIcons: Record<string, React.ElementType> = {
   cartao: CreditCard,
@@ -119,7 +102,9 @@ function OrderCard({ order }: { order: any }) {
   return (
     <Card
       className={
-        order.status === "pronto" || order.status === "cancelado"
+        order.status === "pronto" ||
+        order.status === "entregue" ||
+        order.status === "cancelado"
           ? "opacity-60"
           : ""
       }
@@ -298,16 +283,22 @@ function OrderCard({ order }: { order: any }) {
                   Preparação)
                 </Button>
               )}
-              {order.status === "aprovado" && (
+          {order.status === "aprovado" && (
+                <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => updateOrderStatus(order.id, "pronto")}>
+                  <Bike className="h-4 w-4 mr-2" /> Marcar como Saiu para Entrega
+                </Button>
+              )}
+              {order.status === "pronto" && (
                 <Button
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => updateOrderStatus(order.id, "pronto")}
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => updateOrderStatus(order.id, "entregue")}
                 >
-                  <Check className="h-4 w-4 mr-2" /> Marcar como Saiu para
+                  <CheckCheck className="h-4 w-4 mr-2" /> Forçar Confirmação de
                   Entrega
                 </Button>
               )}
-              {order.status !== "pronto" && (
+              {(order.status === "novo" || order.status === "aprovado") && (
                 <Button
                   variant="outline"
                   className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-900/30"
@@ -373,11 +364,10 @@ export default function AdminOrdersPage() {
   const startX = useRef(0);
   const scrollLeft = useRef(0);
 
-  // ROBOZINHO DE ATUALIZAÇÃO EM TEMPO REAL 🚀
   useEffect(() => {
-    sync(); // Sincroniza a primeira vez que a página abre
+    sync();
     const interval = setInterval(() => {
-      sync(); // Atualiza os pedidos a cada 3 segundos no fundo
+      sync();
     }, 3000);
     return () => clearInterval(interval);
   }, [sync]);
@@ -388,7 +378,10 @@ export default function AdminOrdersPage() {
 
   const newOrders = orders.filter((o) => o.status === "novo");
   const approvedOrders = orders.filter((o) => o.status === "aprovado");
-  const completedOrders = orders.filter((o) => o.status === "pronto");
+  // AGORA INCLUIMOS TANTO OS 'PRONTOS' (SAIU P/ ENTREGA) QUANTO OS 'ENTREGUES' NO ACERTO DE CONTAS
+  const completedOrders = orders.filter(
+    (o) => o.status === "pronto" || o.status === "entregue",
+  );
   const canceledOrders = orders.filter((o) => o.status === "cancelado");
 
   useEffect(() => {
@@ -466,6 +459,13 @@ export default function AdminOrdersPage() {
                   >
                     {order.isPaid ? "PAGO" : "AGUARDANDO PAGAMENTO"}
                   </div>
+
+                  {/* Mostra se o Motoboy já finalizou a entrega visualmente */}
+                  {order.status === "entregue" && (
+                    <div className="absolute top-0 left-0 px-2 py-1 text-[10px] font-black tracking-wider bg-blue-600 text-white rounded-br-lg shadow-sm flex items-center gap-1">
+                      <CheckCheck className="w-3 h-3" /> ENTREGUE
+                    </div>
+                  )}
 
                   <CardHeader className="pb-2 pt-6">
                     <div className="flex justify-between items-start">
@@ -652,7 +652,7 @@ export default function AdminOrdersPage() {
                   {completedOrders.length}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Saiu para Entrega
+                  Rota / Entregues
                 </div>
               </CardContent>
             </Card>
@@ -688,7 +688,8 @@ export default function AdminOrdersPage() {
           {completedOrders.length > 0 && (
             <div>
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-600" /> Saiu para Entrega
+                <Bike className="h-5 w-5 text-green-600" /> Entregas em
+                Andamento / Finalizadas
               </h2>
               <div className="grid gap-4 lg:grid-cols-2">
                 {completedOrders.slice(0, 6).map((order) => (
