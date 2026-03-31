@@ -1,23 +1,40 @@
 // app/admin/orders/page.tsx
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from "react"
-import { useStore } from "@/lib/store"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
-import { 
-  Check, Clock, ChefHat, CreditCard, Banknote, QrCode, 
-  Copy, MessageCircle, Settings2, Receipt, Ban, RotateCcw, Zap 
-} from "lucide-react"
+import { useState, useEffect, useRef } from "react";
+import { useStore } from "@/lib/store";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import {
+  Check,
+  Clock,
+  ChefHat,
+  CreditCard,
+  Banknote,
+  QrCode,
+  Copy,
+  MessageCircle,
+  Settings2,
+  Receipt,
+  Ban,
+  RotateCcw,
+  Zap,
+} from "lucide-react";
 
 function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function formatDate(dateString: string) {
@@ -26,61 +43,99 @@ function formatDate(dateString: string) {
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  })
+  });
 }
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: React.ElementType }> = {
+const statusConfig: Record<
+  string,
+  {
+    label: string;
+    variant: "default" | "secondary" | "outline" | "destructive";
+    icon: React.ElementType;
+  }
+> = {
   novo: { label: "Aguardando Confirmação", variant: "default", icon: Clock },
   aprovado: { label: "Em Preparação", variant: "secondary", icon: ChefHat },
   pronto: { label: "Saiu para Entrega", variant: "outline", icon: Check },
   cancelado: { label: "Cancelado", variant: "destructive", icon: Ban },
-}
+};
 
 const paymentIcons: Record<string, React.ElementType> = {
   cartao: CreditCard,
   dinheiro: Banknote,
   pix: QrCode,
-}
+};
 
 function OrderCard({ order }: { order: any }) {
-  const { updateOrderStatus, toggleOrderPaid, sizes, menuItems, products, settings } = useStore()
-  const { label, variant, icon: StatusIcon } = statusConfig[order.status] || statusConfig.novo
-  const PaymentIcon = paymentIcons[order.paymentMethod] || Banknote
+  const {
+    updateOrderStatus,
+    toggleOrderPaid,
+    sizes,
+    menuItems,
+    products,
+    settings,
+  } = useStore();
+  const {
+    label,
+    variant,
+    icon: StatusIcon,
+  } = statusConfig[order.status] || statusConfig.novo;
+  const PaymentIcon = paymentIcons[order.paymentMethod] || Banknote;
 
-  const getSizeName = (sizeId: string) => sizes.find((s) => s.id === sizeId)?.name || "Tamanho Indefinido"
-  const getItemName = (itemId: string) => menuItems.find((i) => i.id === itemId)?.name || itemId
-  const getProductName = (prodId: string) => products.find((p) => p.id === prodId)?.name || prodId
+  const getSizeName = (sizeId: string) =>
+    sizes.find((s) => s.id === sizeId)?.name || "Tamanho Indefinido";
+  const getItemName = (itemId: string) =>
+    menuItems.find((i) => i.id === itemId)?.name || itemId;
+  const getProductName = (prodId: string) =>
+    products.find((p) => p.id === prodId)?.name || prodId;
 
   const handleCopyPhone = () => {
     if (order.phone) {
-      navigator.clipboard.writeText(order.phone)
-      alert("Telefone copiado para a área de transferência!")
+      navigator.clipboard.writeText(order.phone);
+      alert("Telefone copiado para a área de transferência!");
     }
-  }
+  };
 
   const handleWhatsApp = () => {
     if (order.phone) {
-      const cleanPhone = order.phone.replace(/\D/g, '')
-      const template = settings.whatsappMessage || "Olá, {nome}, recebemos seu pedido! Acompanhe o status aqui: {link}"
-      
-      const trackingUrl = `${window.location.origin}/pedido/${order.id}`
-      
+      const cleanPhone = order.phone.replace(/\D/g, "");
+      const template =
+        settings.whatsappMessage ||
+        "Olá, {nome}, recebemos seu pedido! Acompanhe o status aqui: {link}";
+
+      const trackingUrl = `${window.location.origin}/pedido/${order.id}`;
+
       const message = template
         .replace(/{nome}/g, order.customerName)
-        .replace(/{link}/g, trackingUrl) 
+        .replace(/{link}/g, trackingUrl);
 
-      window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank")
+      window.open(
+        `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`,
+        "_blank",
+      );
     }
-  }
+  };
 
   return (
-    <Card className={order.status === "pronto" || order.status === "cancelado" ? "opacity-60" : ""}>
+    <Card
+      className={
+        order.status === "pronto" || order.status === "cancelado"
+          ? "opacity-60"
+          : ""
+      }
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <CardTitle className={`text-lg ${order.status === "cancelado" ? "text-muted-foreground line-through" : ""}`}>{order.customerName}</CardTitle>
-              <span className="text-xs text-stone-400">#{order.id.slice(0, 8)}</span>
+              <CardTitle
+                className={`text-lg ${order.status === "cancelado" ? "text-muted-foreground line-through" : ""}`}
+              >
+                {order.customerName}
+              </CardTitle>
+              <span className="text-xs text-stone-400">
+                #{order.id.slice(0, 8)}
+              </span>
             </div>
             <div className="flex items-center gap-2 mt-1 mb-1">
               <span className="text-sm font-medium text-muted-foreground">
@@ -88,10 +143,22 @@ function OrderCard({ order }: { order: any }) {
               </span>
               {order.phone && (
                 <>
-                  <Button variant="outline" size="icon" className="h-6 w-6" onClick={handleCopyPhone} title="Copiar telefone">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={handleCopyPhone}
+                    title="Copiar telefone"
+                  >
                     <Copy className="h-3 w-3" />
                   </Button>
-                  <Button variant="outline" size="icon" className="h-6 w-6 border-green-200 bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700" onClick={handleWhatsApp} title="Chamar no WhatsApp">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-6 w-6 border-green-200 bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700"
+                    onClick={handleWhatsApp}
+                    title="Chamar no WhatsApp"
+                  >
                     <MessageCircle className="h-3 w-3" />
                   </Button>
                 </>
@@ -100,35 +167,81 @@ function OrderCard({ order }: { order: any }) {
             <CardDescription>{order.address}</CardDescription>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Badge variant={variant} className="flex items-center gap-1 text-center leading-tight">
+            <Badge
+              variant={variant}
+              className="flex items-center gap-1 text-center leading-tight"
+            >
               <StatusIcon className="h-3 w-3 shrink-0" />
               {label}
             </Badge>
-            <span className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
+            <span className="text-xs text-muted-foreground">
+              {formatDate(order.createdAt)}
+            </span>
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
-        {order.items && order.items.map((item: any, idx: number) => (
-          <div key={`mac-${idx}`} className="p-3 bg-muted/50 rounded-lg text-sm space-y-2 border border-stone-100 dark:border-stone-800">
-            <div className="font-bold text-foreground">Macarrão {getSizeName(item.sizeId)}</div>
-            <div className="grid gap-1 text-muted-foreground text-xs">
-              {item.pastaId && <div><span className="font-semibold text-foreground">Massa:</span> {getItemName(item.pastaId)}</div>}
-              {item.sauces?.length > 0 && <div><span className="font-semibold text-foreground">Molhos:</span> {item.sauces.map(getItemName).join(", ")}</div>}
-              {item.temperos?.length > 0 && <div><span className="font-semibold text-foreground">Temperos:</span> {item.temperos.map(getItemName).join(", ")}</div>}
-              {item.ingredients?.length > 0 && <div><span className="font-semibold text-foreground">Ingredientes:</span> {item.ingredients.map(getItemName).join(", ")}</div>}
-              {item.extraCheese && <div className="text-amber-600 font-bold">+ Queijo Extra</div>}
+        {order.items &&
+          order.items.map((item: any, idx: number) => (
+            <div
+              key={`mac-${idx}`}
+              className="p-3 bg-muted/50 rounded-lg text-sm space-y-2 border border-stone-100 dark:border-stone-800"
+            >
+              <div className="font-bold text-foreground">
+                Macarrão {getSizeName(item.sizeId)}
+              </div>
+              <div className="grid gap-1 text-muted-foreground text-xs">
+                {item.pastaId && (
+                  <div>
+                    <span className="font-semibold text-foreground">
+                      Massa:
+                    </span>{" "}
+                    {getItemName(item.pastaId)}
+                  </div>
+                )}
+                {item.sauces?.length > 0 && (
+                  <div>
+                    <span className="font-semibold text-foreground">
+                      Molhos:
+                    </span>{" "}
+                    {item.sauces.map(getItemName).join(", ")}
+                  </div>
+                )}
+                {item.temperos?.length > 0 && (
+                  <div>
+                    <span className="font-semibold text-foreground">
+                      Temperos:
+                    </span>{" "}
+                    {item.temperos.map(getItemName).join(", ")}
+                  </div>
+                )}
+                {item.ingredients?.length > 0 && (
+                  <div>
+                    <span className="font-semibold text-foreground">
+                      Ingredientes:
+                    </span>{" "}
+                    {item.ingredients.map(getItemName).join(", ")}
+                  </div>
+                )}
+                {item.extraCheese && (
+                  <div className="text-amber-600 font-bold">+ Queijo Extra</div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
 
         {order.products && order.products.length > 0 && (
           <div className="p-3 rounded-lg text-sm space-y-1.5 border border-stone-200 dark:border-stone-800">
             <div className="font-bold text-foreground mb-1">Outros Itens:</div>
             {order.products.map((prod: any, idx: number) => (
-              <div key={`prod-${idx}`} className="flex justify-between items-center text-muted-foreground">
-                <span>{prod.quantity}x {getProductName(prod.productId)}</span>
+              <div
+                key={`prod-${idx}`}
+                className="flex justify-between items-center text-muted-foreground"
+              >
+                <span>
+                  {prod.quantity}x {getProductName(prod.productId)}
+                </span>
               </div>
             ))}
           </div>
@@ -136,8 +249,12 @@ function OrderCard({ order }: { order: any }) {
 
         {order.observation && (
           <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-sm border border-amber-200 dark:border-amber-900">
-            <div className="font-bold text-amber-800 dark:text-amber-500 mb-1">Observação do Cliente:</div>
-            <p className="text-amber-700 dark:text-amber-400 italic">{order.observation}</p>
+            <div className="font-bold text-amber-800 dark:text-amber-500 mb-1">
+              Observação do Cliente:
+            </div>
+            <p className="text-amber-700 dark:text-amber-400 italic">
+              {order.observation}
+            </p>
           </div>
         )}
 
@@ -149,18 +266,23 @@ function OrderCard({ order }: { order: any }) {
                 <span className="uppercase">{order.paymentMethod}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Checkbox 
-                  id={`paid-${order.id}`} 
-                  checked={order.isPaid} 
+                <Checkbox
+                  id={`paid-${order.id}`}
+                  checked={order.isPaid}
                   disabled={order.status === "cancelado"}
-                  onCheckedChange={() => toggleOrderPaid(order.id)} 
+                  onCheckedChange={() => toggleOrderPaid(order.id)}
                 />
-                <label htmlFor={`paid-${order.id}`} className={`text-sm font-medium ${order.status === "cancelado" ? "text-muted-foreground" : "cursor-pointer"}`}>
+                <label
+                  htmlFor={`paid-${order.id}`}
+                  className={`text-sm font-medium ${order.status === "cancelado" ? "text-muted-foreground" : "cursor-pointer"}`}
+                >
                   Pago
                 </label>
               </div>
             </div>
-            <div className={`text-xl font-bold ${order.status === "cancelado" ? "text-muted-foreground" : "text-orange-700 dark:text-orange-500"}`}>
+            <div
+              className={`text-xl font-bold ${order.status === "cancelado" ? "text-muted-foreground" : "text-orange-700 dark:text-orange-500"}`}
+            >
               {formatCurrency(order.total)}
             </div>
           </div>
@@ -168,21 +290,33 @@ function OrderCard({ order }: { order: any }) {
           {order.status !== "cancelado" ? (
             <div className="flex flex-col gap-2 mt-2">
               {order.status === "novo" && (
-                <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white" onClick={() => updateOrderStatus(order.id, "aprovado")}>
-                  <Check className="h-4 w-4 mr-2" /> Aceitar (Mover p/ Em Preparação)
+                <Button
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={() => updateOrderStatus(order.id, "aprovado")}
+                >
+                  <Check className="h-4 w-4 mr-2" /> Aceitar (Mover p/ Em
+                  Preparação)
                 </Button>
               )}
               {order.status === "aprovado" && (
-                <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => updateOrderStatus(order.id, "pronto")}>
-                  <Check className="h-4 w-4 mr-2" /> Marcar como Saiu para Entrega
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => updateOrderStatus(order.id, "pronto")}
+                >
+                  <Check className="h-4 w-4 mr-2" /> Marcar como Saiu para
+                  Entrega
                 </Button>
               )}
               {order.status !== "pronto" && (
-                <Button 
-                  variant="outline" 
-                  className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-900/30" 
+                <Button
+                  variant="outline"
+                  className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-900/30"
                   onClick={() => {
-                    if(confirm("Tem certeza que deseja cancelar este pedido? O valor não será mais contabilizado no caixa.")) {
+                    if (
+                      confirm(
+                        "Tem certeza que deseja cancelar este pedido? O valor não será mais contabilizado no caixa.",
+                      )
+                    ) {
                       updateOrderStatus(order.id, "cancelado");
                     }
                   }}
@@ -193,11 +327,15 @@ function OrderCard({ order }: { order: any }) {
             </div>
           ) : (
             <div className="flex flex-col gap-2 mt-2">
-              <Button 
-                variant="outline" 
-                className="w-full border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-900 dark:hover:bg-blue-900/30" 
+              <Button
+                variant="outline"
+                className="w-full border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-900 dark:hover:bg-blue-900/30"
                 onClick={() => {
-                  if(confirm("Deseja reverter este cancelamento? O pedido voltará para a fila Em Preparação.")) {
+                  if (
+                    confirm(
+                      "Deseja reverter este cancelamento? O pedido voltará para a fila Em Preparação.",
+                    )
+                  ) {
                     updateOrderStatus(order.id, "aprovado");
                   }
                 }}
@@ -209,91 +347,89 @@ function OrderCard({ order }: { order: any }) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export default function AdminOrdersPage() {
-  const { orders, settings, updateSettings, toggleOrderPaid, updateOrderStatus } = useStore()
-  
-  const [isEditingMsg, setIsEditingMsg] = useState(false)
-  const [msgTemplate, setMsgTemplate] = useState(settings.whatsappMessage || "Olá, {nome}, recebemos seu pedido! Acompanhe o status aqui: {link}")
-  
-  const [autoApprove, setAutoApprove] = useState(false)
+  const {
+    orders,
+    settings,
+    updateSettings,
+    toggleOrderPaid,
+    updateOrderStatus,
+  } = useStore();
 
-  // Referências para o Drag to Scroll do Carrossel
-  const carouselRef = useRef<HTMLDivElement>(null)
-  const isDragging = useRef(false)
-  const startX = useRef(0)
-  const scrollLeft = useRef(0)
+  const [isEditingMsg, setIsEditingMsg] = useState(false);
+  const [msgTemplate, setMsgTemplate] = useState(
+    settings.whatsappMessage ||
+      "Olá, {nome}, recebemos seu pedido! Acompanhe o status aqui: {link}",
+  );
 
-  // Carrega a preferência de aprovação ao iniciar
-  useEffect(() => {
-    const saved = localStorage.getItem("casamacarrao_auto_approve")
-    if (saved === "true") setAutoApprove(true)
-  }, [])
+  const autoApprove = !!settings.autoApprove;
+
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
 
   const handleToggleAutoApprove = (checked: boolean) => {
-    setAutoApprove(checked)
-    localStorage.setItem("casamacarrao_auto_approve", String(checked))
-  }
+    updateSettings({ autoApprove: checked });
+  };
 
-  const newOrders = orders.filter((o) => o.status === "novo")
-  const approvedOrders = orders.filter((o) => o.status === "aprovado")
-  const completedOrders = orders.filter((o) => o.status === "pronto")
-  const canceledOrders = orders.filter((o) => o.status === "cancelado")
+  const newOrders = orders.filter((o) => o.status === "novo");
+  const approvedOrders = orders.filter((o) => o.status === "aprovado");
+  const completedOrders = orders.filter((o) => o.status === "pronto");
+  const canceledOrders = orders.filter((o) => o.status === "cancelado");
 
+  // EFEITO REATIVO: Limpa a tela automaticamente de pedidos antigos ao ligar a chave
   useEffect(() => {
     if (autoApprove && newOrders.length > 0) {
-      newOrders.forEach(order => {
-        updateOrderStatus(order.id, "aprovado")
-      })
+      newOrders.forEach((order) => {
+        updateOrderStatus(order.id, "aprovado");
+      });
     }
-  }, [autoApprove, newOrders, updateOrderStatus])
+  }, [autoApprove, newOrders, updateOrderStatus]);
 
   const postItOrders = [...completedOrders].sort((a, b) => {
     if (a.isPaid === b.isPaid) return 0;
-    return a.isPaid ? 1 : -1; 
+    return a.isPaid ? 1 : -1;
   });
 
   const handleSaveMsg = () => {
-    updateSettings({ whatsappMessage: msgTemplate })
-    setIsEditingMsg(false)
-  }
+    updateSettings({ whatsappMessage: msgTemplate });
+    setIsEditingMsg(false);
+  };
 
-  // Funções do Drag to Scroll
   const onMouseDown = (e: React.MouseEvent) => {
-    if (!carouselRef.current) return
-    isDragging.current = true
-    startX.current = e.pageX - carouselRef.current.offsetLeft
-    scrollLeft.current = carouselRef.current.scrollLeft
-  }
-
+    if (!carouselRef.current) return;
+    isDragging.current = true;
+    startX.current = e.pageX - carouselRef.current.offsetLeft;
+    scrollLeft.current = carouselRef.current.scrollLeft;
+  };
   const onMouseLeave = () => {
-    isDragging.current = false
-  }
-
+    isDragging.current = false;
+  };
   const onMouseUp = () => {
-    isDragging.current = false
-  }
-
+    isDragging.current = false;
+  };
   const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging.current || !carouselRef.current) return
-    e.preventDefault()
-    const x = e.pageX - carouselRef.current.offsetLeft
-    const walk = (x - startX.current) * 2 // Multiplicador de velocidade
-    carouselRef.current.scrollLeft = scrollLeft.current - walk
-  }
+    if (!isDragging.current || !carouselRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - carouselRef.current.offsetLeft;
+    const walk = (x - startX.current) * 2;
+    carouselRef.current.scrollLeft = scrollLeft.current - walk;
+  };
 
   return (
     <div className="space-y-8">
-      
       {/* SEÇÃO DE ACERTO DE CONTAS (CARROSSEL DE POST-ITS) */}
       {postItOrders.length > 0 && (
         <div className="w-full select-none">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-foreground">
-            <Receipt className="h-6 w-6 text-primary" /> Acerto de Contas (Entregas)
+            <Receipt className="h-6 w-6 text-primary" /> Acerto de Contas
+            (Entregas)
           </h2>
-          <div 
+          <div
             ref={carouselRef}
             onMouseDown={onMouseDown}
             onMouseLeave={onMouseLeave}
@@ -312,15 +448,21 @@ export default function AdminOrdersPage() {
                       : "bg-red-50 border-red-300 dark:bg-red-950/20 dark:border-red-800"
                   }`}
                 >
-                  <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-black tracking-wider text-white rounded-bl-lg shadow-sm ${
-                    order.isPaid ? "bg-green-500 dark:bg-green-600" : "bg-red-500 dark:bg-red-600"
-                  }`}>
+                  <div
+                    className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-black tracking-wider text-white rounded-bl-lg shadow-sm ${
+                      order.isPaid
+                        ? "bg-green-500 dark:bg-green-600"
+                        : "bg-red-500 dark:bg-red-600"
+                    }`}
+                  >
                     {order.isPaid ? "PAGO" : "AGUARDANDO PAGAMENTO"}
                   </div>
 
                   <CardHeader className="pb-2 pt-6">
                     <div className="flex justify-between items-start">
-                      <CardTitle className={`text-lg ${order.isPaid ? "text-green-900 dark:text-green-300" : "text-red-900 dark:text-red-300"}`}>
+                      <CardTitle
+                        className={`text-lg ${order.isPaid ? "text-green-900 dark:text-green-300" : "text-red-900 dark:text-red-300"}`}
+                      >
                         {order.customerName}
                       </CardTitle>
                     </div>
@@ -337,7 +479,11 @@ export default function AdminOrdersPage() {
                           size="icon"
                           className="h-8 w-8 shrink-0 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-900/30"
                           onClick={() => {
-                            if(confirm("Tem certeza que deseja cancelar este pedido? O valor não será mais contabilizado no caixa.")) {
+                            if (
+                              confirm(
+                                "Tem certeza que deseja cancelar este pedido? O valor não será mais contabilizado no caixa.",
+                              )
+                            ) {
                               updateOrderStatus(order.id, "cancelado");
                             }
                           }}
@@ -347,7 +493,9 @@ export default function AdminOrdersPage() {
                         </Button>
                         <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground ml-2">
                           <PaymentIcon className="h-3 w-3 shrink-0" />
-                          <span className="uppercase">{order.paymentMethod}</span>
+                          <span className="uppercase">
+                            {order.paymentMethod}
+                          </span>
                         </div>
                       </div>
 
@@ -380,43 +528,68 @@ export default function AdminOrdersPage() {
 
       {/* CABEÇALHO PADRÃO DA PÁGINA COM CONTROLES */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Gestão de Pedidos</h1>
-        <p className="text-muted-foreground mt-1">Aprove pedidos, acompanhe o status e fale com o cliente.</p>
+        <h1 className="text-3xl font-bold text-foreground">
+          Gestão de Pedidos
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Aprove pedidos, acompanhe o status e fale com o cliente.
+        </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-4">
           {isEditingMsg ? (
             <Card className="p-4 border-dashed bg-muted/30 max-w-2xl w-full">
-              <Label className="mb-2 block font-semibold">Mensagem Padrão do WhatsApp</Label>
+              <Label className="mb-2 block font-semibold">
+                Mensagem Padrão do WhatsApp
+              </Label>
               <p className="text-xs text-muted-foreground mb-3">
-                Use <strong className="text-primary">{'{nome}'}</strong> e <strong className="text-primary">{'{link}'}</strong> no texto para o sistema substituir automaticamente.
+                Use <strong className="text-primary">{"{nome}"}</strong> e{" "}
+                <strong className="text-primary">{"{link}"}</strong> no texto
+                para o sistema substituir automaticamente.
               </p>
-              <Textarea 
-                value={msgTemplate} 
+              <Textarea
+                value={msgTemplate}
                 onChange={(e) => setMsgTemplate(e.target.value)}
                 className="mb-3 h-24"
               />
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleSaveMsg}>Salvar Mensagem</Button>
-                <Button size="sm" variant="outline" onClick={() => setIsEditingMsg(false)}>Cancelar</Button>
+                <Button size="sm" onClick={handleSaveMsg}>
+                  Salvar Mensagem
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsEditingMsg(false)}
+                >
+                  Cancelar
+                </Button>
               </div>
             </Card>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => setIsEditingMsg(true)}>
-              <Settings2 className="h-4 w-4 mr-2"/> 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditingMsg(true)}
+            >
+              <Settings2 className="h-4 w-4 mr-2" />
               Configurar Mensagem do WhatsApp
             </Button>
           )}
 
           {!isEditingMsg && (
             <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 px-4 py-2 rounded-lg shadow-sm">
-              <Zap className={`h-4 w-4 ${autoApprove ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
-              <Label htmlFor="auto-approve-toggle" className="text-sm font-semibold cursor-pointer">
+              <Zap
+                className={`h-4 w-4 ${autoApprove ? "text-amber-500 fill-amber-500" : "text-muted-foreground"}`}
+              />
+              <Label
+                htmlFor="auto-approve-toggle"
+                className="text-sm font-semibold cursor-pointer"
+              >
                 Aprovação Automática
               </Label>
-              <Switch 
-                id="auto-approve-toggle" 
-                checked={autoApprove} 
-                onCheckedChange={handleToggleAutoApprove} 
+              <Switch
+                id="auto-approve-toggle"
+                checked={autoApprove}
+                onCheckedChange={handleToggleAutoApprove}
               />
             </div>
           )}
@@ -427,31 +600,51 @@ export default function AdminOrdersPage() {
         <TabsList className="mb-6 w-full sm:w-auto grid grid-cols-2">
           <TabsTrigger value="ativos">Pedidos Ativos</TabsTrigger>
           <TabsTrigger value="cancelados">
-            Cancelados 
+            Cancelados
             {canceledOrders.length > 0 && (
-              <Badge variant="secondary" className="ml-2 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{canceledOrders.length}</Badge>
+              <Badge
+                variant="secondary"
+                className="ml-2 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              >
+                {canceledOrders.length}
+              </Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ativos" className="space-y-8 focus-visible:outline-none">
+        <TabsContent
+          value="ativos"
+          className="space-y-8 focus-visible:outline-none"
+        >
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardContent className="pt-6 text-center">
-                <div className="text-4xl font-bold text-primary">{newOrders.length}</div>
-                <div className="text-sm text-muted-foreground">Aguardando Confirmação</div>
+                <div className="text-4xl font-bold text-primary">
+                  {newOrders.length}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Aguardando Confirmação
+                </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6 text-center">
-                <div className="text-4xl font-bold text-orange-500">{approvedOrders.length}</div>
-                <div className="text-sm text-muted-foreground">Em Preparação</div>
+                <div className="text-4xl font-bold text-orange-500">
+                  {approvedOrders.length}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Em Preparação
+                </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6 text-center">
-                <div className="text-4xl font-bold text-green-600">{completedOrders.length}</div>
-                <div className="text-sm text-muted-foreground">Saiu para Entrega</div>
+                <div className="text-4xl font-bold text-green-600">
+                  {completedOrders.length}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Saiu para Entrega
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -459,10 +652,13 @@ export default function AdminOrdersPage() {
           {newOrders.length > 0 && (
             <div>
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" /> Aguardando Confirmação
+                <Clock className="h-5 w-5 text-primary" /> Aguardando
+                Confirmação
               </h2>
               <div className="grid gap-4 lg:grid-cols-2">
-                {newOrders.map((order) => <OrderCard key={order.id} order={order} />)}
+                {newOrders.map((order) => (
+                  <OrderCard key={order.id} order={order} />
+                ))}
               </div>
             </div>
           )}
@@ -473,7 +669,9 @@ export default function AdminOrdersPage() {
                 <ChefHat className="h-5 w-5 text-orange-500" /> Em Preparação
               </h2>
               <div className="grid gap-4 lg:grid-cols-2">
-                {approvedOrders.map((order) => <OrderCard key={order.id} order={order} />)}
+                {approvedOrders.map((order) => (
+                  <OrderCard key={order.id} order={order} />
+                ))}
               </div>
             </div>
           )}
@@ -484,26 +682,33 @@ export default function AdminOrdersPage() {
                 <Check className="h-5 w-5 text-green-600" /> Saiu para Entrega
               </h2>
               <div className="grid gap-4 lg:grid-cols-2">
-                {completedOrders.slice(0, 6).map((order) => <OrderCard key={order.id} order={order} />)}
+                {completedOrders.slice(0, 6).map((order) => (
+                  <OrderCard key={order.id} order={order} />
+                ))}
               </div>
             </div>
           )}
 
-          {orders.filter(o => o.status !== "cancelado").length === 0 && (
+          {orders.filter((o) => o.status !== "cancelado").length === 0 && (
             <Card className="p-12 text-center text-muted-foreground">
               Nenhum pedido ativo no momento.
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="cancelados" className="space-y-4 focus-visible:outline-none">
+        <TabsContent
+          value="cancelados"
+          className="space-y-4 focus-visible:outline-none"
+        >
           {canceledOrders.length > 0 ? (
             <div>
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-red-600">
                 <Ban className="h-5 w-5" /> Histórico de Cancelados
               </h2>
               <div className="grid gap-4 lg:grid-cols-2">
-                {canceledOrders.map((order) => <OrderCard key={order.id} order={order} />)}
+                {canceledOrders.map((order) => (
+                  <OrderCard key={order.id} order={order} />
+                ))}
               </div>
             </div>
           ) : (
@@ -514,5 +719,5 @@ export default function AdminOrdersPage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

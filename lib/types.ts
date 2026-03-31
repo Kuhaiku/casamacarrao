@@ -25,6 +25,7 @@ export interface StoreSettings {
   extraIngredientPrice: number
   extraCheesePrice: number
   whatsappMessage?: string
+  autoApprove?: boolean // <-- ADICIONADO AQUI
 }
 
 export interface OrderItem {
@@ -36,7 +37,6 @@ export interface OrderItem {
   extraCheese: boolean
 }
 
-// NOVO: Adicionado 'cancelado'
 export type OrderStatus = 'novo' | 'aprovado' | 'pronto' | 'cancelado'
 export type PaymentMethod = 'cartao' | 'dinheiro' | 'pix'
 

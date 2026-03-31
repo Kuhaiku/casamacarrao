@@ -25,6 +25,7 @@ export default function CustomerHome() {
   const [view, setView] = useState<"menu" | "builder">("menu")
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [cartAvulsos, setCartAvulsos] = useState<{ id: string, productId: string, product: any, quantity: number }[]>([])
   const [cartSelfService, setCartSelfService] = useState<any[]>([])
@@ -34,11 +35,17 @@ export default function CustomerHome() {
   const [address, setAddress] = useState("")
   const [payment, setPayment] = useState("pix")
   const [observation, setObservation] = useState("")
-  const [orderSuccess, setOrderSuccess] = useState(false)
 
   useEffect(() => {
     sync()
     setIsMounted(true)
+    
+    // Dispara o timer de 3 segundos para a tela de loading
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 3000)
+    
+    return () => clearTimeout(timer)
   }, [sync])
 
   const cartTotal = calculateOrderTotal(cartSelfService, cartAvulsos)
@@ -95,7 +102,25 @@ export default function CustomerHome() {
 
   if (!isMounted) return null
 
-  // CORREÇÃO: Transformado em função de renderização direta para não perder o foco
+  // TELA DE LOADING INICIAL DO CLIENTE
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-stone-50 animate-in fade-in duration-300">
+        <div className="relative flex flex-col items-center justify-center animate-pulse">
+          <img 
+            src="/icon.svg" 
+            alt="Casa do Macarrão" 
+            className="w-32 h-32 sm:w-40 sm:h-40 object-contain drop-shadow-xl mb-6"
+          />
+          <h1 className="text-2xl sm:text-3xl font-black text-orange-600 tracking-wider text-center">
+            CASA DO MACARRÃO
+          </h1>
+          <p className="text-stone-500 mt-2 font-medium text-sm">Preparando o cardápio...</p>
+        </div>
+      </div>
+    )
+  }
+
   const renderCartContent = () => {
     const isCartEmpty = totalItemsCount === 0;
     return (
@@ -182,7 +207,7 @@ export default function CustomerHome() {
   }
 
   return (
-    <div className="flex h-screen bg-stone-50 font-sans overflow-hidden">
+    <div className="flex h-screen bg-stone-50 font-sans overflow-hidden animate-in fade-in duration-500">
       <div className={`flex-1 flex flex-col h-full transition-all duration-300 ${isMobileCartOpen ? 'hidden lg:flex' : 'flex w-full'}`}>
         <div className="bg-stone-900 text-white px-4 sm:px-6 py-4 sm:py-6 shadow-md z-10 shrink-0">
           <div className="max-w-3xl mx-auto flex items-center justify-between">

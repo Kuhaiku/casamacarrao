@@ -68,6 +68,7 @@ export async function getStoreData() {
       extraIngredientPrice: Number(settings.extraIngredientPrice),
       extraCheesePrice: Number(settings.extraCheesePrice),
       whatsappMessage: settings.whatsappMessage,
+      autoApprove: settings.autoApprove === 1 || settings.autoApprove === true, // Puxa do banco corretamente
     },
     registerOpenedAt: new Date(settings.registerOpenedAt).toISOString(),
     orders: (orders as any[]).map(mapBooleans).map((o) => ({
@@ -81,20 +82,16 @@ export async function getStoreData() {
           : o.products
         : [],
     })),
-    expenses: (expenses as any[])
-      .map(mapBooleans)
-      .map((e) => ({
-        ...e,
-        amount: Number(e.amount),
-        date: new Date(e.date).toISOString(),
-      })),
-    tips: (tips as any[])
-      .map(mapBooleans)
-      .map((t) => ({
-        ...t,
-        amount: Number(t.amount),
-        date: new Date(t.date).toISOString(),
-      })),
+    expenses: (expenses as any[]).map(mapBooleans).map((e) => ({
+      ...e,
+      amount: Number(e.amount),
+      date: new Date(e.date).toISOString(),
+    })),
+    tips: (tips as any[]).map(mapBooleans).map((t) => ({
+      ...t,
+      amount: Number(t.amount),
+      date: new Date(t.date).toISOString(),
+    })),
     cashRegisters: (registers as any[]).map((r) => ({
       ...r,
       totalSales: Number(r.totalSales),
@@ -163,7 +160,6 @@ export async function dbDispatch(action: string, payload: any) {
     case "UPDATE_SETTINGS":
       await pool.query("UPDATE store_settings SET ? WHERE id = 1", [payload]);
       break;
-
     case "ADD_PRODUCT_CATEGORY":
       await pool.query(
         "INSERT INTO product_categories (id, name, isActive) VALUES (?, ?, ?)",
@@ -181,7 +177,6 @@ export async function dbDispatch(action: string, payload: any) {
         payload.id,
       ]);
       break;
-
     case "ADD_PRODUCT":
       await pool.query(
         "INSERT INTO products (id, categoryId, name, price, isActive) VALUES (?, ?, ?, ?, ?)",
@@ -210,36 +205,46 @@ export async function dbDispatch(action: string, payload: any) {
       await pool.query("DELETE FROM products WHERE id = ?", [payload.id]);
       break;
 
-    case 'ADD_ORDER':
-      await pool.query('INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-      [
-        payload.id || randomUUID(),
-        payload.customerName, 
-        payload.phone, 
-        payload.address, 
-        payload.paymentMethod, 
-        payload.status, 
-        payload.isPaid, 
-        payload.total, 
-        JSON.stringify(payload.items), 
-        JSON.stringify(payload.products || []), 
-        payload.observation || ''
-      ])
-      break
+    case "ADD_ORDER": {
+      // MAGICA NO BACKEND: Força o status correto com base na configuração da loja global
+      const [settingRows]: any = await pool.query(
+        "SELECT autoApprove FROM store_settings WHERE id = 1",
+      );
+      const isAutoApprove =
+        settingRows[0]?.autoApprove === 1 ||
+        settingRows[0]?.autoApprove === true;
+      const finalStatus = isAutoApprove ? "aprovado" : payload.status || "novo";
+
+      await pool.query(
+        "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+          payload.id || randomUUID(),
+          payload.customerName,
+          payload.phone,
+          payload.address,
+          payload.paymentMethod,
+          finalStatus,
+          payload.isPaid,
+          payload.total,
+          JSON.stringify(payload.items),
+          JSON.stringify(payload.products || []),
+          payload.observation || "",
+        ],
+      );
+      break;
+    }
 
     case "UPDATE_ORDER_STATUS":
       await pool.query("UPDATE orders SET status = ? WHERE id = ?", [
         payload.status,
         payload.id,
       ]);
-      
-      // NOVO: Se o pedido for cancelado, garante que o 'isPaid' vire 0 (falso) 
-      // para evitar problemas contábeis caso o usuário tenha clicado sem querer
-      if (payload.status === 'cancelado') {
-        await pool.query("UPDATE orders SET isPaid = 0 WHERE id = ?", [payload.id]);
+      if (payload.status === "cancelado") {
+        await pool.query("UPDATE orders SET isPaid = 0 WHERE id = ?", [
+          payload.id,
+        ]);
       }
       break;
-
     case "TOGGLE_ORDER_PAID":
       await pool.query("UPDATE orders SET isPaid = NOT isPaid WHERE id = ?", [
         payload.id,
@@ -273,8 +278,6 @@ export async function dbDispatch(action: string, payload: any) {
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
-        
-        // NOVO: Garantia extra de segurança - ignorar pedidos cancelados na soma do caixa
         const [activeOrders]: any = await connection.query(
           "SELECT total FROM orders WHERE isAccounted = 0 AND isPaid = 1 AND status != 'cancelado'",
         );
@@ -284,7 +287,7 @@ export async function dbDispatch(action: string, payload: any) {
         const [activeTips]: any = await connection.query(
           'SELECT amount FROM financial_entries WHERE isAccounted = 0 AND type = "tip"',
         );
-        const [settings]: any = await connection.query(
+        const [settingsResult]: any = await connection.query(
           "SELECT registerOpenedAt FROM store_settings WHERE id = 1",
         );
         const totalSales = activeOrders.reduce(
@@ -299,11 +302,12 @@ export async function dbDispatch(action: string, payload: any) {
           (acc: number, t: any) => acc + Number(t.amount),
           0,
         );
+
         await connection.query(
           "INSERT INTO cash_registers (id, openedAt, totalSales, totalExpenses, totalTips, netTotal, orderCount) VALUES (?, ?, ?, ?, ?, ?, ?)",
           [
             randomUUID(),
-            settings[0].registerOpenedAt,
+            settingsResult[0].registerOpenedAt,
             totalSales,
             totalExpenses,
             totalTips,
@@ -320,6 +324,7 @@ export async function dbDispatch(action: string, payload: any) {
         await connection.query(
           "UPDATE store_settings SET registerOpenedAt = CURRENT_TIMESTAMP WHERE id = 1",
         );
+
         await connection.commit();
       } catch (err) {
         await connection.rollback();
