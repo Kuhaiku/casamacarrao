@@ -357,6 +357,7 @@ export default function AdminOrdersPage() {
     updateSettings,
     toggleOrderPaid,
     updateOrderStatus,
+    sync,
   } = useStore();
 
   const [isEditingMsg, setIsEditingMsg] = useState(false);
@@ -372,6 +373,15 @@ export default function AdminOrdersPage() {
   const startX = useRef(0);
   const scrollLeft = useRef(0);
 
+  // ROBOZINHO DE ATUALIZAÇÃO EM TEMPO REAL 🚀
+  useEffect(() => {
+    sync(); // Sincroniza a primeira vez que a página abre
+    const interval = setInterval(() => {
+      sync(); // Atualiza os pedidos a cada 3 segundos no fundo
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [sync]);
+
   const handleToggleAutoApprove = (checked: boolean) => {
     updateSettings({ autoApprove: checked });
   };
@@ -381,7 +391,6 @@ export default function AdminOrdersPage() {
   const completedOrders = orders.filter((o) => o.status === "pronto");
   const canceledOrders = orders.filter((o) => o.status === "cancelado");
 
-  // EFEITO REATIVO: Limpa a tela automaticamente de pedidos antigos ao ligar a chave
   useEffect(() => {
     if (autoApprove && newOrders.length > 0) {
       newOrders.forEach((order) => {
