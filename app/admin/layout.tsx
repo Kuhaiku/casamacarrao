@@ -63,8 +63,8 @@ export default function AdminLayout({
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/orders", label: "Pedidos", icon: ShoppingCart },
     { href: "/admin/menu", label: "Cardápio", icon: UtensilsCrossed },
-    { href: "/admin/produtos", label: "Produtos", icon: Package },
     { href: "/admin/financeiro", label: "Financeiro", icon: DollarSign },
+    // { href: "/admin/produtos", label: "Produtos", icon: Package },
   ];
 
   // Tela de bloqueio temporária enquanto verifica a senha
