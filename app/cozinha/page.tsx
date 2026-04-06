@@ -26,6 +26,15 @@ function getTimeSince(dateString: string) {
   return `${hours}h ${minutes % 60}min`;
 }
 
+// Função para identificar se o pedido é no local ou entrega
+function getOrderType(address: string) {
+  if (!address) return "ENTREGA";
+  const trimmed = address.trim().toLowerCase();
+  // É local se começar com a palavra "mesa" ou se for apenas números (ex: "01", "5")
+  const isMesa = trimmed.startsWith("mesa") || /^\d+$/.test(trimmed);
+  return isMesa ? "LOCAL" : "ENTREGA";
+}
+
 function KitchenOrderCard({ order }: { order: any }) {
   const { updateOrderStatus, sizes, menuItems, products } = useStore();
 
@@ -36,6 +45,19 @@ function KitchenOrderCard({ order }: { order: any }) {
   const getProductName = (prodId: string) =>
     products.find((p) => p.id === prodId)?.name || prodId;
 
+  const orderType = getOrderType(order.address);
+
+  // Define a ação do botão dependendo do tipo do pedido
+  const handleMarkAsReady = () => {
+    if (orderType === "LOCAL") {
+      // Se for local (mesa), já pula o status "pronto" e vai direto para "entregue"
+      updateOrderStatus(order.id, "entregue");
+    } else {
+      // Se for entrega normal, vai para a fila do motoboy (pronto)
+      updateOrderStatus(order.id, "pronto");
+    }
+  };
+
   return (
     <Card className="border-2 border-primary/20 bg-card shadow-md flex flex-col h-full">
       <CardHeader className="pb-3 bg-primary/5 border-b border-primary/10">
@@ -44,13 +66,26 @@ function KitchenOrderCard({ order }: { order: any }) {
             <CardTitle className="text-2xl font-black text-stone-800 dark:text-stone-100">
               {order.customerName}
             </CardTitle>
-            <div className="flex items-center gap-2 mt-2 text-stone-600 dark:text-stone-400 font-medium">
+            
+            <div className="flex items-center gap-2 mt-2 mb-3 text-stone-600 dark:text-stone-400 font-medium">
               <Clock className="h-4 w-4" />
               <span className="text-sm">{formatTime(order.createdAt)}</span>
               <Badge variant="secondary" className="font-bold">
                 {getTimeSince(order.createdAt)}
               </Badge>
             </div>
+
+            {/* SELO DE IDENTIFICAÇÃO (MESA OU ENTREGA) */}
+            {orderType === "LOCAL" ? (
+              <span className="bg-blue-100 text-blue-800 border border-blue-300 font-black px-3 py-1.5 rounded-lg text-xs sm:text-sm uppercase flex items-center gap-2 w-fit shadow-sm">
+                🍽️ Consumo no Local ({order.address})
+              </span>
+            ) : (
+              <span className="bg-purple-100 text-purple-800 border border-purple-300 font-black px-3 py-1.5 rounded-lg text-xs sm:text-sm uppercase flex items-center gap-2 w-fit shadow-sm">
+                🛵 Entrega
+              </span>
+            )}
+
           </div>
           <Badge
             variant="outline"
@@ -159,10 +194,10 @@ function KitchenOrderCard({ order }: { order: any }) {
         <Button
           size="lg"
           className="w-full text-lg py-7 font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg transition-transform active:scale-[0.98] mt-4"
-          onClick={() => updateOrderStatus(order.id, "pronto")}
+          onClick={handleMarkAsReady}
         >
           <Check className="h-7 w-7 mr-2" />
-          Marcar como Pronto
+          {orderType === "LOCAL" ? "Marcar como Entregue" : "Marcar como Pronto"}
         </Button>
       </CardContent>
     </Card>
