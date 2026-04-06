@@ -7,25 +7,16 @@ import {
   ChefHat,
   ShoppingBag,
   Plus,
-  Utensils,
   ArrowRight,
   Trash2,
-  CheckCircle2,
-  CreditCard,
-  Banknote,
-  Smartphone,
+  MapPin,
   ArrowLeft,
   Check,
   AlertCircle,
-  MapPin,
+  Lock,
+  Unlock
 } from "lucide-react";
 import { useStore } from "@/lib/store";
-
-const PAY_META = {
-  pix: { label: "PIX", icon: Smartphone },
-  cartao: { label: "Cartão", icon: CreditCard },
-  dinheiro: { label: "Dinheiro", icon: Banknote },
-};
 
 function MesaContent() {
   const router = useRouter();
@@ -53,24 +44,24 @@ function MesaContent() {
   const [cartSelfService, setCartSelfService] = useState<any[]>([]);
 
   const [customerName, setCustomerName] = useState("");
-  const [phone, setPhone] = useState("");
   const [mesa, setMesa] = useState("");
-  const [payment, setPayment] = useState("pix");
   const [observation, setObservation] = useState("");
+  const [isMesaLocked, setIsMesaLocked] = useState(false); // Estado do Cadeado
 
   useEffect(() => {
     sync();
     setIsMounted(true);
 
-    // Captura o número da mesa via URL (ex: ?n=5 ou ?mesa=12)
+    // Captura o número da mesa via URL e ativa o bloqueio por padrão
     const urlMesa = searchParams.get("n") || searchParams.get("mesa");
     if (urlMesa) {
       setMesa(urlMesa);
+      setIsMesaLocked(true); // Vem travado (vermelho)
     }
 
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2000); // Reduzi o tempo de loading para 2s para ser mais ágil na mesa
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [sync, searchParams]);
@@ -128,17 +119,16 @@ function MesaContent() {
     setCartSelfService((prev) => prev.filter((item) => item.id !== cartId));
 
   const handleFinalize = () => {
-    // Para pedidos na mesa, telefone é opcional, mas Nome e Mesa são obrigatórios
     if (!customerName || !mesa || totalItemsCount === 0) return;
 
-  const trackingId = crypto.randomUUID();
+    const trackingId = crypto.randomUUID();
 
     addOrder({
       id: trackingId,
       customerName,
-      phone: phone || "Não informado", 
+      phone: "Não informado", // Removido do front, setado fixo
       address: `Mesa ${mesa}`, 
-      paymentMethod: payment as any,
+      paymentMethod: "dinheiro" as any, // Fixo, pois vão pagar no caixa
       items: cartSelfService,
       products: cartAvulsos.map((p) => ({
         productId: p.productId,
@@ -149,7 +139,7 @@ function MesaContent() {
       status: "novo",
       isPaid: false,
       isAccounted: false,
-    } as any); // <-- Basta adicionar 'as any' aqui no fechamento
+    } as any);
 
     router.push(`/pedido/${trackingId}`);
   };
@@ -262,7 +252,7 @@ function MesaContent() {
 
         <div className="p-4 sm:p-5 bg-stone-50 border-t border-stone-200 space-y-3 sm:space-y-4 shrink-0">
           <div className="flex justify-between items-center mb-1">
-            <span className="text-sm font-bold text-stone-600">Total a Pagar</span>
+            <span className="text-sm font-bold text-stone-600">Total</span>
             <span className={`text-xl sm:text-2xl font-black ${isCartEmpty ? "text-stone-400" : "text-orange-700"}`}>
               {formatCurrency(cartTotal)}
             </span>
@@ -275,26 +265,34 @@ function MesaContent() {
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               disabled={isCartEmpty}
-              className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
+              className="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
             />
             
-            <div className="flex gap-2">
+            {/* CAMPO DA MESA COM CADEADO INTELIGENTE */}
+            <div className="relative">
               <input
                 type="text"
                 placeholder="Nº da Mesa (Ex: 05)"
-                value={mesa}
+                value={mesa ? `Mesa ${mesa.replace('Mesa ', '')}` : ''}
                 onChange={(e) => setMesa(e.target.value)}
-                disabled={isCartEmpty}
-                className="w-1/2 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60 bg-orange-50 font-bold"
+                disabled={isMesaLocked || isCartEmpty}
+                className={`w-full border rounded-lg px-3 py-2.5 text-sm font-bold outline-none pr-12 transition-all ${
+                  isMesaLocked 
+                    ? "bg-red-50 border-red-300 text-red-900 cursor-not-allowed opacity-100" 
+                    : "bg-green-50 border-green-300 text-green-900 focus:ring-2 focus:ring-green-500"
+                } disabled:opacity-100`}
               />
-              <input
-                type="tel"
-                placeholder="Telefone (Opcional)"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={isCartEmpty}
-                className="w-1/2 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
-              />
+              {(searchParams.get("n") || searchParams.get("mesa")) && (
+                <button
+                  type="button"
+                  onClick={() => setIsMesaLocked(!isMesaLocked)}
+                  disabled={isCartEmpty}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white rounded-md shadow-sm border border-stone-200 hover:bg-stone-100 transition-colors"
+                  title={isMesaLocked ? "Destravar Mesa" : "Travar Mesa"}
+                >
+                  {isMesaLocked ? <Lock className="w-4 h-4 text-red-600" /> : <Unlock className="w-4 h-4 text-green-600" />}
+                </button>
+              )}
             </div>
 
             <textarea
@@ -302,29 +300,15 @@ function MesaContent() {
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
               disabled={isCartEmpty}
-              className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60 resize-none h-14"
+              className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60 resize-none h-16"
             />
-
-            <div className="grid grid-cols-3 gap-1 sm:gap-2">
-              {Object.entries(PAY_META).map(([key, { label, icon: Icon }]) => (
-                <button
-                  key={key}
-                  onClick={() => setPayment(key)}
-                  disabled={isCartEmpty}
-                  className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all disabled:opacity-50 ${payment === key && !isCartEmpty ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-500"}`}
-                >
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase">{label}</span>
-                </button>
-              ))}
-            </div>
 
             <button
               onClick={handleFinalize}
               disabled={isCartEmpty || !customerName || !mesa}
-              className="w-full py-3 sm:py-3.5 mt-2 rounded-xl text-white font-bold text-sm bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-400 transition-colors"
+              className="w-full py-3.5 sm:py-4 mt-2 rounded-xl text-white font-black text-base bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-400 transition-transform active:scale-[0.98] shadow-lg"
             >
-              Fazer Pedido
+              ENVIAR PEDIDO
             </button>
           </div>
         </div>
@@ -346,7 +330,7 @@ function MesaContent() {
                   Casa do Macarrão
                 </h1>
                 <p className="text-orange-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> Pedido na Mesa {mesa ? `(Mesa ${mesa})` : ""}
+                  <MapPin className="w-3 h-3" /> Pedido Local {mesa ? `(Mesa ${mesa.replace('Mesa ', '')})` : ""}
                 </p>
               </div>
             </div>
@@ -450,7 +434,6 @@ function MesaContent() {
   );
 }
 
-// O componente OrderBuilder é idêntico ao da página inicial. Mantive integrado para tudo rodar fácil.
 function OrderBuilder({ db, onFinish, formatCurrency }: any) {
   const [step, setStep] = useState(0);
   const STEPS = ["Tamanho", "Massa", "Molhos", "Temperos", "Ingredientes"];
@@ -648,7 +631,6 @@ function OrderBuilder({ db, onFinish, formatCurrency }: any) {
   );
 }
 
-// Wrapper Suspense necessário no Next.js para usar useSearchParams em Client Components
 export default function MesaPage() {
   return (
     <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-stone-50 text-orange-600 font-bold">Carregando Cardápio...</div>}>

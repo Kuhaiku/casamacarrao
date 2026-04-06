@@ -30,7 +30,7 @@ function getTimeSince(dateString: string) {
 function getOrderType(address: string) {
   if (!address) return "ENTREGA";
   const trimmed = address.trim().toLowerCase();
-  // É local se começar com a palavra "mesa" ou se for apenas números (ex: "01", "5")
+  // É local se começar com a palavra "mesa" ou se for apenas números
   const isMesa = trimmed.startsWith("mesa") || /^\d+$/.test(trimmed);
   return isMesa ? "LOCAL" : "ENTREGA";
 }
@@ -47,13 +47,10 @@ function KitchenOrderCard({ order }: { order: any }) {
 
   const orderType = getOrderType(order.address);
 
-  // Define a ação do botão dependendo do tipo do pedido
   const handleMarkAsReady = () => {
     if (orderType === "LOCAL") {
-      // Se for local (mesa), já pula o status "pronto" e vai direto para "entregue"
       updateOrderStatus(order.id, "entregue");
     } else {
-      // Se for entrega normal, vai para a fila do motoboy (pronto)
       updateOrderStatus(order.id, "pronto");
     }
   };
@@ -75,7 +72,6 @@ function KitchenOrderCard({ order }: { order: any }) {
               </Badge>
             </div>
 
-            {/* SELO DE IDENTIFICAÇÃO (MESA OU ENTREGA) */}
             {orderType === "LOCAL" ? (
               <span className="bg-blue-100 text-blue-800 border border-blue-300 font-black px-3 py-1.5 rounded-lg text-xs sm:text-sm uppercase flex items-center gap-2 w-fit shadow-sm">
                 🍽️ Consumo no Local ({order.address})
@@ -97,7 +93,6 @@ function KitchenOrderCard({ order }: { order: any }) {
       </CardHeader>
 
       <CardContent className="pt-4 space-y-4 flex-1 flex flex-col">
-        {/* SEÇÃO DO MACARRÃO SELF-SERVICE */}
         {order.items &&
           order.items.map((item: any, idx: number) => (
             <div
@@ -154,7 +149,6 @@ function KitchenOrderCard({ order }: { order: any }) {
             </div>
           ))}
 
-        {/* SEÇÃO DE PRODUTOS AVULSOS (BEBIDAS, ETC) */}
         {order.products && order.products.length > 0 && (
           <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900">
             <div className="text-sm font-black mb-2 text-blue-800 dark:text-blue-400 uppercase tracking-wider">
@@ -176,7 +170,6 @@ function KitchenOrderCard({ order }: { order: any }) {
           </div>
         )}
 
-        {/* SEÇÃO DE OBSERVAÇÃO DO CLIENTE */}
         {order.observation && (
           <div className="p-4 bg-amber-100 dark:bg-amber-950/50 rounded-xl border-2 border-amber-400 dark:border-amber-700 shadow-sm">
             <div className="text-sm font-black mb-2 text-amber-900 dark:text-amber-500 uppercase flex items-center gap-1.5 tracking-wider">
@@ -207,7 +200,7 @@ function KitchenOrderCard({ order }: { order: any }) {
 export default function KitchenPage() {
   const { orders, sync } = useStore();
 
-  // ROBOZINHO DA COZINHA 👨‍🍳 (Atualiza a cada 3 segundos)
+  // ATUALIZAÇÃO AUTOMÁTICA DA COZINHA (a cada 3 segundos)
   useEffect(() => {
     sync();
     const interval = setInterval(() => {
