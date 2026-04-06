@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   Clock, ChefHat, CreditCard, Banknote, QrCode, 
   Ban, Bike, CheckCircle2, MapPin, Phone, AlertCircle, 
-  ShoppingBag, Info, DollarSign, MessageCircle, Settings2
+  ShoppingBag, Info, DollarSign, MessageCircle, Settings2,
+  ChevronDown, ChevronUp
 } from "lucide-react";
 import type { Order } from "@/lib/types";
 
@@ -55,17 +56,46 @@ function OrderHistoryCard({ order }: { order: Order }) {
   const getItemName = (itemId: string) => menuItems.find((i) => i.id === itemId)?.name || itemId;
   const getProductName = (prodId: string) => products.find((p) => p.id === prodId)?.name || prodId;
 
-  // Função para chamar no WhatsApp
+  // Gerador do Texto Completo do Pedido para o WhatsApp
   const handleWhatsApp = () => {
     if (!order.phone) return;
     
-    let msg = settings.whatsappMessage || "Olá {{nome}}, seu pedido #{{pedido}} foi atualizado.";
+    let descPedido = "";
+    
+    // Lista os macarrões
+    order.items?.forEach((item: any) => {
+      descPedido += `\n🍝 *Macarrão ${getSizeName(item.sizeId)}*`;
+      if (item.pastaId) descPedido += `\n  - Massa: ${getItemName(item.pastaId)}`;
+      if (item.sauces?.length) descPedido += `\n  - Molhos: ${item.sauces.map(getItemName).join(', ')}`;
+      if (item.temperos?.length) descPedido += `\n  - Temperos: ${item.temperos.map(getItemName).join(', ')}`;
+      if (item.ingredients?.length) descPedido += `\n  - Ingredientes: ${item.ingredients.map(getItemName).join(', ')}`;
+      if (item.extraCheese) descPedido += `\n  - 🧀 + Queijo Extra`;
+      descPedido += "\n";
+    });
+
+    // Lista os produtos avulsos
+    if (order.products && order.products.length > 0) {
+      descPedido += `\n🛍️ *Outros Itens*`;
+      order.products.forEach((prod: any) => {
+        descPedido += `\n  - ${prod.quantity}x ${getProductName(prod.productId)}`;
+      });
+      descPedido += "\n";
+    }
+
+    if (order.observation) descPedido += `\n⚠️ *Obs:* ${order.observation}\n`;
+
+    // Limpa espaços extras no início e fim
+    descPedido = descPedido.trim();
+
+    // Aplica o template
+    let msg = settings.whatsappMessage || "Olá {{nome}}, seu pedido:\n{{pedido}}\n\nTotal: {{total}}\nStatus: {{status}}";
     msg = msg.replace(/{{nome}}/g, order.customerName)
-             .replace(/{{pedido}}/g, order.id.slice(0, 6))
+             .replace(/{{pedido}}/g, descPedido)
              .replace(/{{total}}/g, formatCurrency(order.total))
              .replace(/{{status}}/g, label);
              
     const cleanPhone = order.phone.replace(/\D/g, "");
+    // Codifica para URL
     window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -104,9 +134,9 @@ function OrderHistoryCard({ order }: { order: Order }) {
               {order.phone && order.phone !== "Não informado" && (
                 <button 
                   onClick={handleWhatsApp}
-                  className="bg-green-100 text-green-700 hover:bg-green-200 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
+                  className="bg-green-100 text-green-700 hover:bg-green-200 px-2.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors shadow-sm"
                 >
-                  <MessageCircle className="w-3.5 h-3.5" /> Chamar
+                  <MessageCircle className="w-4 h-4" /> Chamar
                 </button>
               )}
             </div>
@@ -242,12 +272,27 @@ function OrderHistoryCard({ order }: { order: Order }) {
 export default function AdminOrdersHistoryPage() {
   const { orders, sync, settings, updateSettings } = useStore();
   const [activeTab, setActiveTab] = useState("todos");
+  
+  // Controle de Interface (Sanfona e Textarea local)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Sanfona começa fechada
+  const [localWhatsappMsg, setLocalWhatsappMsg] = useState(""); 
 
   useEffect(() => {
     sync();
     const interval = setInterval(() => sync(), 10000); 
     return () => clearInterval(interval);
   }, [sync]);
+
+  // Alimenta o state local quando carrega as settings
+  useEffect(() => {
+    setLocalWhatsappMsg(settings.whatsappMessage || "");
+  }, [settings.whatsappMessage]);
+
+  const handleMsgBlur = () => {
+    if (localWhatsappMsg !== settings.whatsappMessage) {
+      updateSettings({ whatsappMessage: localWhatsappMsg });
+    }
+  };
 
   const sortedOrders = useMemo(() => {
     return [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -282,52 +327,65 @@ export default function AdminOrdersHistoryPage() {
         </div>
       </div>
 
-      {/* PAINEL DE CONFIGURAÇÕES (NOVO) */}
-      <Card className="bg-stone-50 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-800 shadow-sm">
-        <CardHeader className="pb-3 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 rounded-t-xl">
-          <CardTitle className="text-lg font-bold text-stone-800 dark:text-stone-100 flex items-center gap-2">
-            <Settings2 className="w-5 h-5 text-orange-600" /> Configurações de Operação
-          </CardTitle>
-          <CardDescription>Gerencie a automação de recebimento e os avisos pelo WhatsApp.</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-5 flex flex-col md:flex-row gap-6 md:gap-12">
-          
-          <div className="space-y-3 md:w-1/3">
-            <div>
-              <Label className="text-sm font-bold text-stone-800 dark:text-stone-200">Aprovação Automática</Label>
-              <p className="text-xs text-stone-500 mt-1 mb-3">
-                Se ativado, os pedidos entram direto para "Em Preparo" (Cozinha), pulando a etapa de "Novo".
-              </p>
+      {/* PAINEL DE CONFIGURAÇÕES (AGORA É RETRÁTIL E SEGURO) */}
+      <Card className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden transition-all">
+        {/* Clique para abrir/fechar */}
+        <div 
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors"
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+        >
+          <div>
+            <CardTitle className="text-lg font-bold text-stone-800 dark:text-stone-100 flex items-center gap-2">
+              <Settings2 className="w-5 h-5 text-orange-600" /> Configurações de Operação
+            </CardTitle>
+            <CardDescription className="mt-0.5">Gerencie aprovação automática e avisos do WhatsApp.</CardDescription>
+          </div>
+          <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-full">
+            {isSettingsOpen ? <ChevronUp className="w-5 h-5 text-stone-600" /> : <ChevronDown className="w-5 h-5 text-stone-600" />}
+          </div>
+        </div>
+
+        {/* Conteúdo que abre/fecha */}
+        {isSettingsOpen && (
+          <CardContent className="pt-2 pb-5 border-t border-stone-100 dark:border-stone-800 flex flex-col md:flex-row gap-6 md:gap-12 animate-in slide-in-from-top-4 duration-300 bg-stone-50/50 dark:bg-stone-900/30">
+            <div className="space-y-3 md:w-1/3 mt-3">
+              <div>
+                <Label className="text-sm font-bold text-stone-800 dark:text-stone-200">Aprovação Automática</Label>
+                <p className="text-xs text-stone-500 mt-1 mb-3">
+                  Se ativado, os pedidos entram direto para "Em Preparo" (Cozinha), pulando a etapa de "Aguardando".
+                </p>
+              </div>
+              <div className="flex items-center space-x-2 bg-white dark:bg-stone-800 p-3 rounded-lg border border-stone-200 dark:border-stone-700 shadow-sm">
+                <Switch 
+                  id="auto-approve" 
+                  checked={settings.autoApprove} 
+                  onCheckedChange={(val) => updateSettings({ autoApprove: val })}
+                  className="data-[state=checked]:bg-orange-600"
+                />
+                <Label htmlFor="auto-approve" className="font-bold cursor-pointer">
+                  {settings.autoApprove ? "LIGADA (Rápido)" : "DESLIGADA (Manual)"}
+                </Label>
+              </div>
             </div>
-            <div className="flex items-center space-x-2 bg-white dark:bg-stone-800 p-3 rounded-lg border border-stone-200 dark:border-stone-700">
-              <Switch 
-                id="auto-approve" 
-                checked={settings.autoApprove} 
-                onCheckedChange={(val) => updateSettings({ autoApprove: val })}
-                className="data-[state=checked]:bg-orange-600"
+
+            <div className="space-y-3 flex-1 mt-3">
+              <div>
+                <Label className="text-sm font-bold text-stone-800 dark:text-stone-200">Template do WhatsApp</Label>
+                <p className="text-xs text-stone-500 mt-1 mb-2">
+                  Use as tags: <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{nome}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{pedido}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{total}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{status}}"}</code>.
+                </p>
+              </div>
+              <Textarea 
+                className="resize-none h-24 bg-white dark:bg-stone-800 shadow-sm focus:ring-orange-500"
+                value={localWhatsappMsg}
+                onChange={(e) => setLocalWhatsappMsg(e.target.value)}
+                onBlur={handleMsgBlur} // Salva no banco APENAS quando clica fora, evitando bugs!
+                placeholder="Ex: Olá {{nome}}, seu pedido:\n{{pedido}}\nNo valor de {{total}} está {{status}}!"
               />
-              <Label htmlFor="auto-approve" className="font-bold cursor-pointer">
-                {settings.autoApprove ? "LIGADA (Rápido)" : "DESLIGADA (Manual)"}
-              </Label>
+              <p className="text-[10px] text-stone-400 text-right">O texto é salvo automaticamente ao clicar fora da caixa.</p>
             </div>
-          </div>
-
-          <div className="space-y-3 flex-1">
-            <div>
-              <Label className="text-sm font-bold text-stone-800 dark:text-stone-200">Template do WhatsApp</Label>
-              <p className="text-xs text-stone-500 mt-1 mb-2">
-                Use as tags: <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{nome}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{pedido}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{total}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{status}}"}</code>.
-              </p>
-            </div>
-            <Textarea 
-              className="resize-none h-20 bg-white dark:bg-stone-800"
-              value={settings.whatsappMessage || ""}
-              onChange={(e) => updateSettings({ whatsappMessage: e.target.value })}
-              placeholder="Ex: Olá {{nome}}, seu pedido #{{pedido}} no valor de {{total}} está: {{status}}!"
-            />
-          </div>
-
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       {/* FILTROS E LISTAGEM */}

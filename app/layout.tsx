@@ -41,7 +41,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <RealTimeSync /> {/* NOVO: Inicia a busca no banco de dados no momento zero */}
         {children}
-        <Analytics />
+        
       </body>
     </html>
   )
