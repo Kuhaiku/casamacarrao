@@ -16,7 +16,11 @@ import type {
   OrderProduct,
 } from "./types";
 
+// interface OrderWithObs extends Omit<Order, "id" | "createdAt"> {
+//   observation?: string;
+// }
 interface OrderWithObs extends Omit<Order, "id" | "createdAt"> {
+  id?: string; // <-- Adicione esta linha
   observation?: string;
 }
 

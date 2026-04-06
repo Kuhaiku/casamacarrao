@@ -131,13 +131,13 @@ function MesaContent() {
     // Para pedidos na mesa, telefone é opcional, mas Nome e Mesa são obrigatórios
     if (!customerName || !mesa || totalItemsCount === 0) return;
 
-    const trackingId = crypto.randomUUID();
+  const trackingId = crypto.randomUUID();
 
     addOrder({
       id: trackingId,
       customerName,
-      phone: phone || "Não informado", // Telefone opcional
-      address: `Mesa ${mesa}`, // Salva como "Mesa X" no banco de dados existente
+      phone: phone || "Não informado", 
+      address: `Mesa ${mesa}`, 
       paymentMethod: payment as any,
       items: cartSelfService,
       products: cartAvulsos.map((p) => ({
@@ -149,7 +149,7 @@ function MesaContent() {
       status: "novo",
       isPaid: false,
       isAccounted: false,
-    });
+    } as any);
 
     router.push(`/pedido/${trackingId}`);
   };
