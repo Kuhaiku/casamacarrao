@@ -260,7 +260,7 @@ export default function KitchenPage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 items-start">
             {approvedOrders.map((order) => (
-              <KitchenOrderCard key={order.id} order={order} />
+              <KitchenOrderCard key={order.id} order={order}/>
             ))}
           </div>
         )}
