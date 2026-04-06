@@ -53,120 +53,134 @@ function OrderHistoryCard({ order }: { order: Order }) {
   const getProductName = (prodId: string) => products.find((p) => p.id === prodId)?.name || prodId;
 
   return (
-    <Card className="shadow-lg rounded-2xl overflow-hidden flex flex-col bg-white dark:bg-stone-900 border-none">
+    // Altura travada em 520px para todos os cards
+    <Card className="shadow-lg rounded-2xl overflow-hidden flex flex-col bg-white dark:bg-stone-900 border-none h-[520px]">
       
-      {/* HEADER DA FICHA (Estilo Colorido) */}
-      <div className={`${headerClass} text-white px-4 py-2.5 flex justify-between items-center text-xs sm:text-sm font-medium`}>
+      {/* HEADER DA FICHA (Fixo no topo) */}
+      <div className={`${headerClass} shrink-0 text-white px-4 py-2.5 flex justify-between items-center text-xs sm:text-sm font-medium`}>
         <span>Ficha Pedido: #{order.id.slice(0, 8)}</span>
         <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> {formatDate(order.createdAt)}</span>
       </div>
 
-      <CardContent className="p-4 sm:p-5 flex-1 flex flex-col space-y-5">
+      <CardContent className="p-4 sm:p-5 flex-1 flex flex-col overflow-hidden">
         
-        {/* NOME E STATUS */}
-        <div className="flex justify-between items-start gap-2">
-          <h2 className={`text-2xl sm:text-3xl font-black leading-none tracking-tight ${order.status === "cancelado" ? "line-through text-stone-400" : "text-stone-800 dark:text-stone-100"}`}>
-            {order.customerName}
-          </h2>
-          <Badge variant="outline" className={`${badgeClass} font-bold flex items-center gap-1.5 py-1 px-2.5 whitespace-nowrap`}>
-            <StatusIcon className="w-3.5 h-3.5" /> {label}
-          </Badge>
+        {/* DADOS DO CLIENTE (Fixo) */}
+        <div className="shrink-0 space-y-3 mb-4">
+          <div className="flex justify-between items-start gap-2">
+            <h2 className={`text-2xl font-black leading-none tracking-tight ${order.status === "cancelado" ? "line-through text-stone-400" : "text-stone-800 dark:text-stone-100"}`}>
+              {order.customerName}
+            </h2>
+            <Badge variant="outline" className={`${badgeClass} font-bold flex items-center gap-1.5 py-1 px-2.5 whitespace-nowrap`}>
+              <StatusIcon className="w-3.5 h-3.5" /> {label}
+            </Badge>
+          </div>
+
+          <div className="space-y-1 text-sm text-stone-600 dark:text-stone-400 font-medium">
+            <div className="flex items-start gap-2">
+              <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-stone-400" />
+              <span className="leading-snug line-clamp-2">{order.address}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 shrink-0 text-stone-400" />
+              <span>{order.phone || "Não informado"}</span>
+            </div>
+          </div>
         </div>
 
-        {/* ENDEREÇO E TELEFONE */}
-        <div className="space-y-1.5 text-sm text-stone-600 dark:text-stone-400 font-medium">
-          <div className="flex items-start gap-2">
-            <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-stone-400" />
-            <span className="leading-snug">{order.address}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Phone className="w-4 h-4 shrink-0 text-stone-400" />
-            <span>{order.phone || "Não informado"}</span>
-          </div>
-        </div>
-
-        {/* BOX RESUMO DO PEDIDO (Gordinho e sem cortes) */}
-        <div className="border-2 border-stone-200 dark:border-stone-700 rounded-xl p-3 sm:p-4 bg-stone-50 dark:bg-stone-800/30">
-          <div className="flex items-center gap-2 font-black text-stone-800 dark:text-stone-200 mb-3 text-base">
-            <ShoppingBag className="w-5 h-5 text-stone-600 dark:text-stone-400" /> Resumo do Pedido
-          </div>
+        {/* ÁREA SCROLLÁVEL (Apenas os itens e observação rolam para baixo) */}
+        <div className="flex-1 overflow-y-auto pr-2 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-stone-100 [&::-webkit-scrollbar-thumb]:bg-stone-300 dark:[&::-webkit-scrollbar-track]:bg-stone-800 dark:[&::-webkit-scrollbar-thumb]:bg-stone-600 [&::-webkit-scrollbar-thumb]:rounded-full">
           
-          <div className="space-y-4">
-            {order.items?.map((item: any, idx: number) => (
-              <div key={`mac-${idx}`} className="border-b border-stone-200 dark:border-stone-700 last:border-0 pb-3 last:pb-0">
-                <h3 className="text-lg font-black text-stone-900 dark:text-stone-100 mb-2 leading-none">
-                  Macarrão {getSizeName(item.sizeId)}
-                </h3>
-                
-                {/* GRID QUE SE ADAPTA E NÃO CORTA */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-4">
-                  {item.pastaId && (
-                    <div>
-                      <div className="text-sm font-bold text-stone-800 dark:text-stone-300 flex items-center gap-1.5 mb-1">
-                        <ChefHat className="w-4 h-4 text-stone-500" /> Massas:
+          <div className="border-2 border-stone-200 dark:border-stone-700 rounded-xl p-3 bg-stone-50 dark:bg-stone-800/30">
+            <div className="flex items-center gap-2 font-black text-stone-800 dark:text-stone-200 mb-3 text-sm">
+              <ShoppingBag className="w-4 h-4 text-stone-600 dark:text-stone-400" /> Resumo do Pedido
+            </div>
+            
+            <div className="space-y-4">
+              {order.items?.map((item: any, idx: number) => (
+                <div key={`mac-${idx}`} className="border-b border-stone-200 dark:border-stone-700 last:border-0 pb-3 last:pb-0">
+                  <h3 className="text-base font-black text-stone-900 dark:text-stone-100 mb-2 leading-none">
+                    Macarrão {getSizeName(item.sizeId)}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 gap-y-2">
+                    {item.pastaId && (
+                      <div>
+                        <div className="text-xs font-bold text-stone-800 dark:text-stone-300 flex items-center gap-1.5 mb-0.5">
+                          <ChefHat className="w-3.5 h-3.5 text-stone-500" /> Massas:
+                        </div>
+                        <div className="text-xs text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-1.5 whitespace-normal break-words">
+                          {getItemName(item.pastaId)}
+                        </div>
                       </div>
-                      <div className="text-sm text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-2 whitespace-normal break-words">
-                        {getItemName(item.pastaId)}
+                    )}
+                    {item.sauces?.length > 0 && (
+                      <div>
+                        <div className="text-xs font-bold text-stone-800 dark:text-stone-300 flex items-center gap-1.5 mb-0.5">
+                          <span className="text-stone-500 text-sm leading-none">🥫</span> Molhos:
+                        </div>
+                        <div className="text-xs text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-1.5 whitespace-normal break-words">
+                          {item.sauces.map(getItemName).join(", ")}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {item.sauces?.length > 0 && (
-                    <div>
-                      <div className="text-sm font-bold text-stone-800 dark:text-stone-300 flex items-center gap-1.5 mb-1">
-                        <span className="text-stone-500 text-base leading-none">🥫</span> Molhos:
+                    )}
+                    {item.temperos?.length > 0 && (
+                      <div>
+                        <div className="text-xs font-bold text-stone-800 dark:text-stone-300 flex items-center gap-1.5 mb-0.5">
+                          <span className="text-stone-500 text-sm leading-none">🌿</span> Temperos:
+                        </div>
+                        <div className="text-xs text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-1.5 whitespace-normal break-words">
+                          {item.temperos.map(getItemName).join(", ")}
+                        </div>
                       </div>
-                      <div className="text-sm text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-2 whitespace-normal break-words">
-                        {item.sauces.map(getItemName).join(", ")}
+                    )}
+                    {item.ingredients?.length > 0 && (
+                      <div>
+                        <div className="text-xs font-bold text-stone-800 dark:text-stone-300 flex items-center gap-1.5 mb-0.5">
+                          <span className="text-stone-500 text-sm leading-none">🥓</span> Ingredientes:
+                        </div>
+                        <div className="text-xs text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-1.5 whitespace-normal break-words">
+                          {item.ingredients.map(getItemName).join(", ")}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {item.temperos?.length > 0 && (
-                    <div>
-                      <div className="text-sm font-bold text-stone-800 dark:text-stone-300 flex items-center gap-1.5 mb-1">
-                        <span className="text-stone-500 text-base leading-none">🌿</span> Temperos:
-                      </div>
-                      <div className="text-sm text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-2 whitespace-normal break-words">
-                        {item.temperos.map(getItemName).join(", ")}
-                      </div>
-                    </div>
-                  )}
-                  {item.ingredients?.length > 0 && (
-                    <div className="sm:col-span-2">
-                      <div className="text-sm font-bold text-stone-800 dark:text-stone-300 flex items-center gap-1.5 mb-1">
-                        <span className="text-stone-500 text-base leading-none">🥓</span> Ingredientes:
-                      </div>
-                      <div className="text-sm text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-2 whitespace-normal break-words">
-                        {item.ingredients.map(getItemName).join(", ")}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {item.extraCheese && (
-                  <div className="mt-3 flex items-center gap-2 text-sm font-bold text-stone-700 dark:text-stone-300">
-                    Queijo Extra: <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-none">Sim</Badge>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
 
-            {order.products && order.products.length > 0 && (
-              <div className="pt-2 border-t border-stone-200 dark:border-stone-700">
-                <div className="text-sm font-bold text-stone-800 dark:text-stone-300 mb-1">Outros Produtos:</div>
-                <div className="text-sm text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-2">
-                  {order.products.map((prod: any, idx: number) => (
-                    <div key={`prod-${idx}`} className="mb-0.5">{prod.quantity}x {getProductName(prod.productId)}</div>
-                  ))}
+                  {item.extraCheese && (
+                    <div className="mt-2 flex items-center gap-2 text-xs font-bold text-stone-700 dark:text-stone-300">
+                      Queijo Extra: <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-none">Sim</Badge>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              ))}
+
+              {order.products && order.products.length > 0 && (
+                <div className="pt-2 border-t border-stone-200 dark:border-stone-700">
+                  <div className="text-xs font-bold text-stone-800 dark:text-stone-300 mb-1">Outros Produtos:</div>
+                  <div className="text-xs text-stone-600 dark:text-stone-400 pl-1 border-l-2 border-stone-300 dark:border-stone-600 ml-1.5">
+                    {order.products.map((prod: any, idx: number) => (
+                      <div key={`prod-${idx}`} className="mb-0.5">{prod.quantity}x {getProductName(prod.productId)}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {order.observation && (
+            <div className="text-xs shrink-0">
+              <div className="flex items-center gap-1.5 font-bold text-stone-800 dark:text-stone-200 mb-1">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Observação:
+              </div>
+              <p className="font-medium text-stone-600 dark:text-stone-400 bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900 italic break-words">
+                {order.observation}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* DETALHES DE PAGAMENTO E OBSERVAÇÃO */}
-        <div className="space-y-3 mt-auto pt-2">
-          
-          <div className="flex items-center justify-between text-sm sm:text-base bg-stone-50 dark:bg-stone-800/50 p-2.5 rounded-lg border border-stone-100 dark:border-stone-800">
+        {/* RODAPÉ DO CARD (Fixo na base) */}
+        <div className="shrink-0 space-y-3 mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
+          <div className="flex items-center justify-between text-sm bg-stone-50 dark:bg-stone-800/50 p-2.5 rounded-lg border border-stone-100 dark:border-stone-800">
             <div className="flex items-center gap-2 font-bold text-stone-700 dark:text-stone-200">
               <PaymentIcon className="w-5 h-5 text-stone-500" /> Pagamento: <span className="uppercase">{order.paymentMethod}</span>
             </div>
@@ -175,18 +189,7 @@ function OrderHistoryCard({ order }: { order: Order }) {
             </Badge>
           </div>
 
-          {order.observation && (
-            <div className="text-sm">
-              <div className="flex items-center gap-1.5 font-bold text-stone-800 dark:text-stone-200 mb-1">
-                <AlertCircle className="w-4 h-4 text-amber-500" /> Observação:
-              </div>
-              <p className="font-medium text-stone-600 dark:text-stone-400 bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900 italic">
-                {order.observation}
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-end justify-between">
             <div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400 font-bold text-lg">
               <DollarSign className="w-5 h-5" /> Total:
             </div>
@@ -195,16 +198,16 @@ function OrderHistoryCard({ order }: { order: Order }) {
             </div>
           </div>
 
-          <div className="text-[11px] sm:text-xs text-stone-400 font-medium space-y-0.5 border-t border-stone-100 dark:border-stone-800 pt-3">
-            <div className="flex items-center gap-1.5"><Info className="w-3.5 h-3.5"/> Feito em: {formatDate(order.createdAt)}</div>
+          <div className="flex justify-between items-center text-[10px] sm:text-[11px] text-stone-400 font-medium pt-1">
+            <div className="flex items-center gap-1"><Info className="w-3 h-3"/> Feito em: {formatDate(order.createdAt)}</div>
             {order.deliveredAt && order.status === "entregue" && (
-              <div className="flex items-center gap-1.5 text-green-600 font-bold">
-                <CheckCircle2 className="w-3.5 h-3.5"/> Entregue: {formatDate(order.deliveredAt)}
+              <div className="flex items-center gap-1 text-green-600 font-bold">
+                <CheckCircle2 className="w-3 h-3"/> Entregue: {formatDate(order.deliveredAt)}
               </div>
             )}
           </div>
-          
         </div>
+
       </CardContent>
     </Card>
   );
@@ -275,8 +278,8 @@ export default function AdminOrdersHistoryPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* items-start permite que os cards fiquem com tamanhos independentes baseados no conteúdo */}
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-start">
+        {/* MÁXIMO DE 3 COLUNAS EM TELAS GIGANTES para não espremer os cards */}
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
           {filteredOrders.length > 0 ? (
             filteredOrders.map((order) => (
               <OrderHistoryCard key={order.id} order={order} />
