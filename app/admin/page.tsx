@@ -182,6 +182,20 @@ export default function AdminDashboardPage() {
                         {order.status.toUpperCase()}
                       </Badge>
                     </div>
+
+                    {/* OBSERVAÇÃO - MESAS */}
+                    {order.observation && (
+                      <div className="mb-2 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
+                        <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-500 mb-0.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-black uppercase tracking-wider">Observação</span>
+                        </div>
+                        <p className="text-xs font-bold text-amber-900 dark:text-amber-400 italic">
+                          "{order.observation}"
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex items-end justify-between mt-4">
                       <div>
                         <p className="text-xs text-stone-400 uppercase font-bold tracking-wider mb-0.5">Subtotal</p>
@@ -241,6 +255,19 @@ export default function AdminDashboardPage() {
                         {order.paymentMethod}
                       </span>
                     </div>
+
+                    {/* OBSERVAÇÃO - ENTREGAS */}
+                    {order.observation && (
+                      <div className="mb-3 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
+                        <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-500 mb-0.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-black uppercase tracking-wider">Observação</span>
+                        </div>
+                        <p className="text-xs font-bold text-amber-900 dark:text-amber-400 italic">
+                          "{order.observation}"
+                        </p>
+                      </div>
+                    )}
 
                     <div className="flex items-end justify-between mt-2">
                       <p className="font-black text-xl text-stone-800 dark:text-stone-200">{formatCurrency(order.total)}</p>

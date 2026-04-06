@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   MapPin, Phone, User, CheckCircle2, 
-  Banknote, CreditCard, Smartphone, Check, Bike 
+  Banknote, CreditCard, Smartphone, Check, Bike, AlertCircle 
 } from "lucide-react"
 
 function formatCurrency(value: number) {
@@ -121,6 +121,19 @@ export default function EntregadorPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* OBSERVAÇÃO DO CLIENTE PARA O MOTOBOY */}
+                  {order.observation && (
+                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 shadow-sm">
+                      <div className="flex items-center gap-1.5 text-amber-800 mb-1">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-xs font-black uppercase tracking-wider">Observação / Instrução</span>
+                      </div>
+                      <p className="text-sm font-bold text-amber-950 italic">
+                        "{order.observation}"
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2 bg-stone-100 p-3 rounded-xl border border-stone-200">
                     <PaymentIcon className="w-6 h-6 text-stone-600" />
