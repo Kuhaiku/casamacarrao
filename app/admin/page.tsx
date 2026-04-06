@@ -9,11 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Wallet, 
   Utensils, 
-  Motorcycle, 
+  Motorbike, 
   Banknote, 
   CreditCard, 
   QrCode, 
@@ -209,7 +208,7 @@ export default function AdminDashboardPage() {
         {/* COLUNA 2: ENTREGAS */}
         <div className="col-span-1 lg:col-span-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-200 dark:border-purple-900">
-            <Motorcycle className="w-5 h-5 text-purple-600" />
+            <Motorbike className="w-5 h-5 text-purple-600" />
             <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Entregas em Andamento</h2>
             <Badge variant="secondary" className="ml-auto bg-purple-100 text-purple-700">{activeDeliveryOrders.length}</Badge>
           </div>
