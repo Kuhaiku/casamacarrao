@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Clock, ChefHat, CreditCard, Banknote, QrCode, 
   Ban, Bike, CheckCircle2, MapPin, Phone, AlertCircle, 
-  ShoppingBag, Info, DollarSign
+  ShoppingBag, Info, DollarSign, Package
 } from "lucide-react";
 import type { Order } from "@/lib/types";
 
@@ -31,7 +31,8 @@ function formatDate(dateString?: string) {
 const statusConfig: Record<string, { label: string; headerClass: string; badgeClass: string; icon: React.ElementType }> = {
   novo: { label: "Aguardando", headerClass: "bg-gradient-to-r from-blue-500 to-blue-600", badgeClass: "bg-blue-100 text-blue-800 border-blue-200", icon: Clock },
   aprovado: { label: "Preparando", headerClass: "bg-gradient-to-r from-orange-500 to-orange-600", badgeClass: "bg-orange-100 text-orange-800 border-orange-200", icon: ChefHat },
-  pronto: { label: "Em Rota", headerClass: "bg-gradient-to-r from-amber-500 to-amber-600", badgeClass: "bg-amber-100 text-amber-800 border-amber-200", icon: Bike },
+  pronto: { label: "Aguardando Retirada", headerClass: "bg-gradient-to-r from-amber-500 to-amber-600", badgeClass: "bg-amber-100 text-amber-800 border-amber-200", icon: Package },
+  despachado: { label: "Saiu para Entrega", headerClass: "bg-gradient-to-r from-indigo-500 to-indigo-600", badgeClass: "bg-indigo-100 text-indigo-800 border-indigo-200", icon: Bike },
   entregue: { label: "Concluído", headerClass: "bg-gradient-to-r from-green-500 to-emerald-600", badgeClass: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
   cancelado: { label: "Cancelado", headerClass: "bg-gradient-to-r from-red-500 to-red-600", badgeClass: "bg-red-100 text-red-800 border-red-200", icon: Ban },
 };
@@ -235,6 +236,8 @@ export default function AdminOrdersHistoryPage() {
         return sortedOrders.filter(o => o.status === "entregue");
       case "andamento":
         return sortedOrders.filter(o => ["novo", "aprovado", "pronto"].includes(o.status));
+      case "andamento":
+        return sortedOrders.filter(o => ["novo", "aprovado", "pronto", "despachado"].includes(o.status));
       case "cancelados":
         return sortedOrders.filter(o => o.status === "cancelado");
       case "todos":

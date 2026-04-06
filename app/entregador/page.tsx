@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   MapPin, Phone, User, CheckCircle2, 
-  Banknote, CreditCard, Smartphone, Check, Bike, AlertCircle 
+  Banknote, CreditCard, Smartphone, Check, Bike, AlertCircle, Package
 } from "lucide-react"
 
 function formatCurrency(value: number) {
@@ -24,15 +24,16 @@ const paymentIcons: Record<string, React.ElementType> = {
 export default function EntregadorPage() {
   const { orders, sync, updateOrderStatus, toggleOrderPaid } = useStore()
   
+  // ATUALIZAÇÃO EM TEMPO REAL (A cada 3 segundos)
   useEffect(() => {
     sync()
-    const interval = setInterval(() => sync(), 5000)
+    const interval = setInterval(() => sync(), 3000)
     return () => clearInterval(interval)
   }, [sync])
 
-  const deliveries = orders.filter(o => o.status === "pronto")
+  // Puxa pedidos que estão aguardando retirada OU que já saíram pra entrega
+  const deliveries = orders.filter(o => o.status === "pronto" || o.status === "despachado")
 
-  // Link corrigido para o padrão oficial do Google Maps
   const openMaps = (address: string) => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, "_blank")
   }
@@ -72,6 +73,7 @@ export default function EntregadorPage() {
         ) : (
           deliveries.map(order => {
             const PaymentIcon = paymentIcons[order.paymentMethod] || Banknote
+            const isDespachado = order.status === "despachado"
             
             return (
               <Card key={order.id} className="border-2 border-stone-200 shadow-lg rounded-2xl overflow-hidden">
@@ -85,6 +87,15 @@ export default function EntregadorPage() {
                 </div>
 
                 <CardContent className="p-5 space-y-5">
+                  {/* BADGE DE STATUS DA ETAPA DA ENTREGA */}
+                  <div className={`flex items-center justify-center gap-2 py-2 rounded-lg font-black text-sm border-2 ${isDespachado ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                    {isDespachado ? (
+                      <><Bike className="w-5 h-5"/> SAIU PARA ENTREGA</>
+                    ) : (
+                      <><Package className="w-5 h-5"/> AGUARDANDO RETIRADA</>
+                    )}
+                  </div>
+
                   <div className="space-y-3">
                     <div className="flex items-start gap-3">
                       <User className="w-5 h-5 text-stone-400 shrink-0 mt-0.5" />
@@ -141,6 +152,7 @@ export default function EntregadorPage() {
                   </div>
 
                   <div className="pt-2 flex flex-col gap-3">
+                    {/* BOTÃO DE PAGAMENTO (MANTIDO) */}
                     {!order.isPaid ? (
                       <Button 
                         size="lg" 
@@ -160,26 +172,36 @@ export default function EntregadorPage() {
                       </Button>
                     )}
 
-                    <Button 
-                      size="lg" 
-                      className="w-full bg-stone-900 hover:bg-stone-800 text-white font-black h-14 text-lg shadow-xl"
-                      onClick={() => {
-                        if (!order.isPaid) {
-                          // ALERTA DE SEGURANÇA SE NÃO ESTIVER PAGO
-                          if(confirm("⚠️ ATENÇÃO: O pedido não foi marcado como pago!\n\nTem certeza que deseja finalizar a entrega SEM registrar o recebimento do valor?")) {
-                            updateOrderStatus(order.id, "entregue")
+                    {/* BOTÕES DE PROGRESSO DE ENTREGA */}
+                    {!isDespachado ? (
+                      <Button 
+                        size="lg" 
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black h-14 text-lg shadow-xl transition-all"
+                        onClick={() => updateOrderStatus(order.id, "despachado")}
+                      >
+                        <Bike className="w-6 h-6 mr-2" />
+                        INICIAR ENTREGA (SAIR)
+                      </Button>
+                    ) : (
+                      <Button 
+                        size="lg" 
+                        className="w-full bg-stone-900 hover:bg-stone-800 text-white font-black h-14 text-lg shadow-xl transition-all"
+                        onClick={() => {
+                          if (!order.isPaid) {
+                            if(confirm("⚠️ ATENÇÃO: O pedido não foi marcado como pago!\n\nTem certeza que deseja finalizar a entrega SEM registrar o recebimento do valor?")) {
+                              updateOrderStatus(order.id, "entregue")
+                            }
+                          } else {
+                            if(confirm("Confirmar que a entrega foi concluída?")) {
+                              updateOrderStatus(order.id, "entregue")
+                            }
                           }
-                        } else {
-                          // CONFIRMAÇÃO NORMAL
-                          if(confirm("Confirmar que a entrega foi concluída?")) {
-                            updateOrderStatus(order.id, "entregue")
-                          }
-                        }
-                      }}
-                    >
-                      <CheckCircle2 className="w-6 h-6 mr-2" />
-                      FINALIZAR ENTREGA
-                    </Button>
+                        }}
+                      >
+                        <CheckCircle2 className="w-6 h-6 mr-2" />
+                        FINALIZAR ENTREGA
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

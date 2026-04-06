@@ -37,10 +37,12 @@ export interface OrderItem {
   extraCheese: boolean;
 }
 
+// ADICIONADO "despachado" (Saiu para entrega)
 export type OrderStatus =
   | "novo"
   | "aprovado"
   | "pronto"
+  | "despachado"
   | "entregue"
   | "cancelado";
 export type PaymentMethod = "cartao" | "dinheiro" | "pix";
@@ -77,7 +79,8 @@ export interface Order {
   total: number;
   createdAt: string;
   isAccounted?: boolean;
-  deliveredAt?: string; // <-- AQUI ESTÁ O NOVO CAMPO
+  deliveredAt?: string;
+  observation?: string;
 }
 
 export interface FinancialEntry {
