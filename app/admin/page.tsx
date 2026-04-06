@@ -1,405 +1,401 @@
 // app/admin/page.tsx
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useStore } from "@/lib/store"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Plus, Pencil, Trash2, Save, X, Lock, Unlock } from "lucide-react"
-import type { Size } from "@/lib/types"
+import { useState, useMemo, useEffect } from "react";
+import { useStore } from "@/lib/store";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Wallet, 
+  Utensils, 
+  Motorcycle, 
+  Banknote, 
+  CreditCard, 
+  QrCode, 
+  Receipt,
+  TrendingDown,
+  Lock,
+  X,
+  CheckCircle2,
+  AlertCircle
+} from "lucide-react";
+import type { Order } from "@/lib/types";
 
 function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function SizeCard({ 
-  size, 
-  onEdit, 
-  onDelete 
-}: { 
-  size: Size
-  onEdit: () => void
-  onDelete: () => void
-}) {
-  return (
-    <Card className="relative">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-lg">{size.name}</CardTitle>
-            <CardDescription className="text-2xl font-bold text-primary mt-1">
-              {formatCurrency(size.price)}
-            </CardDescription>
-          </div>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={onEdit}>
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div className="text-center p-3 bg-muted rounded-lg flex flex-col items-center">
-            <div className="font-bold text-lg">{size.maxPastas}</div>
-            <div className="text-muted-foreground mb-2">Massas</div>
-            {size.strictMaxPastas ? (
-              <div className="flex items-center text-[10px] text-destructive"><Lock className="w-3 h-3 mr-1"/> Fixo</div>
-            ) : (
-              <div className="flex items-center text-[10px] text-green-600"><Unlock className="w-3 h-3 mr-1"/> Extra</div>
-            )}
-          </div>
-          <div className="text-center p-3 bg-muted rounded-lg flex flex-col items-center">
-            <div className="font-bold text-lg">{size.maxIngredients}</div>
-            <div className="text-muted-foreground mb-2">Ingred.</div>
-            {size.strictMaxIngredients ? (
-              <div className="flex items-center text-[10px] text-destructive"><Lock className="w-3 h-3 mr-1"/> Fixo</div>
-            ) : (
-              <div className="flex items-center text-[10px] text-green-600"><Unlock className="w-3 h-3 mr-1"/> Extra</div>
-            )}
-          </div>
-          <div className="text-center p-3 bg-muted rounded-lg flex flex-col items-center">
-            <div className="font-bold text-lg">{size.maxSauces}</div>
-            <div className="text-muted-foreground mb-2">Molhos</div>
-            {size.strictMaxSauces ? (
-              <div className="flex items-center text-[10px] text-destructive"><Lock className="w-3 h-3 mr-1"/> Fixo</div>
-            ) : (
-              <div className="flex items-center text-[10px] text-green-600"><Unlock className="w-3 h-3 mr-1"/> Extra</div>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
+// Função para identificar se o pedido é no local ou entrega
+function getOrderType(address: string) {
+  if (!address) return "ENTREGA";
+  const trimmed = address.trim().toLowerCase();
+  const isMesa = trimmed.startsWith("mesa") || /^\d+$/.test(trimmed);
+  return isMesa ? "LOCAL" : "ENTREGA";
 }
 
-function SizeForm({ 
-  size, 
-  onSave, 
-  onCancel 
-}: { 
-  size?: Size
-  onSave: (data: Omit<Size, 'id'> & { id?: string }) => void
-  onCancel: () => void
-}) {
-  const [formData, setFormData] = useState({
-    name: size?.name || "",
-    price: size?.price?.toString() || "",
-    maxPastas: size?.maxPastas?.toString() || "1",
-    strictMaxPastas: size?.strictMaxPastas ?? true,
-    maxIngredients: size?.maxIngredients?.toString() || "4",
-    strictMaxIngredients: size?.strictMaxIngredients ?? false,
-    maxSauces: size?.maxSauces?.toString() || "1",
-    strictMaxSauces: size?.strictMaxSauces ?? false,
-  })
+export default function AdminDashboardPage() {
+  const { orders, expenses, tips, sync, toggleOrderPaid, updateOrderStatus, addExpense, addTip, closeRegister } = useStore();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSave({
-      id: size?.id,
-      name: formData.name,
-      price: parseFloat(formData.price) || 0,
-      maxPastas: parseInt(formData.maxPastas) || 1,
-      strictMaxPastas: formData.strictMaxPastas,
-      maxIngredients: parseInt(formData.maxIngredients) || 4,
-      strictMaxIngredients: formData.strictMaxIngredients,
-      maxSauces: parseInt(formData.maxSauces) || 1,
-      strictMaxSauces: formData.strictMaxSauces,
-    })
-  }
+  // Atualiza os dados a cada 5 segundos
+  useEffect(() => {
+    sync();
+    const interval = setInterval(() => {
+      sync();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [sync]);
 
-  return (
-    <Card>
-      <form onSubmit={handleSubmit}>
-        <CardHeader className="pb-4">
-          <CardTitle>{size ? "Editar Tamanho" : "Novo Tamanho"}</CardTitle>
-          <CardDescription>Defina os limites e se eles podem ser ultrapassados pagando extra.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome do Tamanho</Label>
-              <Input
-                id="name"
-                placeholder='Ex: "G (400g)", "Monstro (1kg)"'
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="price">Preço Base (R$)</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-          
-          <div className="grid gap-6 md:grid-cols-3 p-4 bg-muted/50 rounded-lg border">
-            {/* Massas */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="maxPastas">Qtd. Massas</Label>
-                <Input
-                  id="maxPastas"
-                  type="number"
-                  min="1"
-                  value={formData.maxPastas}
-                  onChange={(e) => setFormData({ ...formData, maxPastas: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex flex-row items-center justify-between rounded-lg border p-3 bg-background">
-                <div className="space-y-0.5">
-                  <Label className="text-xs">Travar limite?</Label>
-                  <p className="text-[10px] text-muted-foreground">Não permite extra</p>
-                </div>
-                <Switch
-                  checked={formData.strictMaxPastas}
-                  onCheckedChange={(checked) => setFormData({ ...formData, strictMaxPastas: checked })}
-                />
-              </div>
-            </div>
+  // Estados do Modal de Pagamento (Mesas)
+  const [orderToPay, setOrderToPay] = useState<Order | null>(null);
+  const [addTenPercent, setAddTenPercent] = useState(false);
+  const [paymentMethodFinal, setPaymentMethodFinal] = useState<string>("pix");
 
-            {/* Ingredientes */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="maxIngredients">Qtd. Ingredientes</Label>
-                <Input
-                  id="maxIngredients"
-                  type="number"
-                  min="1"
-                  value={formData.maxIngredients}
-                  onChange={(e) => setFormData({ ...formData, maxIngredients: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex flex-row items-center justify-between rounded-lg border p-3 bg-background">
-                <div className="space-y-0.5">
-                  <Label className="text-xs">Travar limite?</Label>
-                  <p className="text-[10px] text-muted-foreground">Não permite extra</p>
-                </div>
-                <Switch
-                  checked={formData.strictMaxIngredients}
-                  onCheckedChange={(checked) => setFormData({ ...formData, strictMaxIngredients: checked })}
-                />
-              </div>
-            </div>
+  // Estados do Lançamento Rápido
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseDesc, setExpenseDesc] = useState("");
 
-            {/* Molhos */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="maxSauces">Qtd. Molhos</Label>
-                <Input
-                  id="maxSauces"
-                  type="number"
-                  min="1"
-                  value={formData.maxSauces}
-                  onChange={(e) => setFormData({ ...formData, maxSauces: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex flex-row items-center justify-between rounded-lg border p-3 bg-background">
-                <div className="space-y-0.5">
-                  <Label className="text-xs">Travar limite?</Label>
-                  <p className="text-[10px] text-muted-foreground">Não permite extra</p>
-                </div>
-                <Switch
-                  checked={formData.strictMaxSauces}
-                  onCheckedChange={(checked) => setFormData({ ...formData, strictMaxSauces: checked })}
-                />
-              </div>
-            </div>
-          </div>
+  // Processamento de Dados
+  const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses } = useMemo(() => {
+    // Pedidos que ainda não foram pagos e não estão cancelados
+    const active = orders.filter(o => !o.isPaid && o.status !== "cancelado");
+    
+    return {
+      activeLocalOrders: active.filter(o => getOrderType(o.address) === "LOCAL"),
+      activeDeliveryOrders: active.filter(o => getOrderType(o.address) === "ENTREGA"),
+      totalSales: orders.filter(o => o.isPaid).reduce((acc, o) => acc + o.total, 0),
+      totalExpenses: expenses.reduce((acc, e) => acc + e.amount, 0),
+    };
+  }, [orders, expenses]);
 
-          <div className="flex gap-2 pt-2">
-            <Button type="submit">
-              <Save className="h-4 w-4 mr-2" />
-              Salvar
-            </Button>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              <X className="h-4 w-4 mr-2" />
-              Cancelar
-            </Button>
-          </div>
-        </CardContent>
-      </form>
-    </Card>
-  )
-}
+  // Lançamento de Despesa Rápida
+  const handleAddExpense = () => {
+    const amount = parseFloat(expenseAmount);
+    if (!amount || !expenseDesc.trim()) return;
+    addExpense({ amount, description: expenseDesc.trim() });
+    setExpenseAmount("");
+    setExpenseDesc("");
+  };
 
-function SettingsCard() {
-  const { settings, updateSettings } = useStore()
-  const [editing, setEditing] = useState(false)
-  const [formData, setFormData] = useState({
-    extraIngredientPrice: settings.extraIngredientPrice.toString(),
-    extraCheesePrice: settings.extraCheesePrice.toString(),
-  })
+  // Finalizar Conta da Mesa
+  const handleConfirmPayment = () => {
+    if (!orderToPay) return;
 
-  const handleSave = () => {
-    updateSettings({
-      extraIngredientPrice: parseFloat(formData.extraIngredientPrice) || 0,
-      extraCheesePrice: parseFloat(formData.extraCheesePrice) || 0,
-    })
-    setEditing(false)
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Valores Extras</CardTitle>
-            <CardDescription>Preços para adicionais (quando a trava de limite estiver desativada)</CardDescription>
-          </div>
-          {!editing && (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Editar
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {editing ? (
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Ingrediente / Molho Adicional (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.extraIngredientPrice}
-                  onChange={(e) => setFormData({ ...formData, extraIngredientPrice: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Adicional de Queijo (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.extraCheesePrice}
-                  onChange={(e) => setFormData({ ...formData, extraCheesePrice: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleSave}>
-                <Save className="h-4 w-4 mr-2" />
-                Salvar
-              </Button>
-              <Button variant="outline" onClick={() => setEditing(false)}>
-                <X className="h-4 w-4 mr-2" />
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground">Ingrediente / Molho Adicional</div>
-              <div className="text-2xl font-bold text-primary">
-                {formatCurrency(settings.extraIngredientPrice)}
-              </div>
-            </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground">Adicional de Queijo</div>
-              <div className="text-2xl font-bold text-primary">
-                {formatCurrency(settings.extraCheesePrice)}
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-export default function AdminSizesPage() {
-  const { sizes, addSize, updateSize, deleteSize } = useStore()
-  const [showForm, setShowForm] = useState(false)
-  const [editingSize, setEditingSize] = useState<Size | null>(null)
-
-  const handleSave = (data: Omit<Size, 'id'> & { id?: string }) => {
-    if (data.id) {
-      updateSize(data.id, data)
-    } else {
-      addSize({ ...data, id: `size-${Date.now()}` })
+    // Se ligou os 10%, lança como gorjeta no sistema
+    if (addTenPercent) {
+      const tipValue = orderToPay.total * 0.1;
+      addTip({ amount: tipValue, description: `10% Serviço - ${orderToPay.address}` });
     }
-    setShowForm(false)
-    setEditingSize(null)
-  }
 
-  const handleEdit = (size: Size) => {
-    setEditingSize(size)
-    setShowForm(true)
-  }
+    toggleOrderPaid(orderToPay.id);
+    if (orderToPay.status !== "entregue") {
+      updateOrderStatus(orderToPay.id, "entregue");
+    }
+    
+    setOrderToPay(null);
+  };
 
-  const handleCancel = () => {
-    setShowForm(false)
-    setEditingSize(null)
-  }
+  // Fechar pedido de Entrega direto
+  const handleDeliveryPaid = (orderId: string, currentStatus: string) => {
+    toggleOrderPaid(orderId);
+    if (currentStatus !== "entregue") {
+      updateOrderStatus(orderId, "entregue");
+    }
+  };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Tamanhos e Regras</h1>
-          <p className="text-muted-foreground mt-1">
-            Configure os tamanhos disponíveis e seus limites de ingredientes
-          </p>
-        </div>
-        {!showForm && (
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Tamanho
-          </Button>
-        )}
-      </div>
-
-      <SettingsCard />
-
-      {showForm && (
-        <SizeForm
-          size={editingSize || undefined}
-          onSave={handleSave}
-          onCancel={handleCancel}
-        />
-      )}
-
+    <div className="container max-w-[1600px] mx-auto p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
+      
+      {/* 1. MÉTRICAS DO TOPO */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Tamanhos Disponíveis</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sizes.map((size) => (
-            <SizeCard
-              key={size.id}
-              size={size}
-              onEdit={() => handleEdit(size)}
-              onDelete={() => deleteSize(size.id)}
-            />
-          ))}
-        </div>
-        {sizes.length === 0 && (
-          <Card className="p-8 text-center text-muted-foreground">
-            Nenhum tamanho cadastrado. Clique em "Novo Tamanho" para começar.
-          </Card>
-        )}
+        <h1 className="text-3xl font-black text-stone-800 dark:text-stone-100 tracking-tight">Centro de Comando</h1>
+        <p className="text-stone-500 font-medium mt-1">Acompanhe e gerencie a operação em tempo real.</p>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="bg-gradient-to-br from-green-600 to-green-800 text-white shadow-lg border-none">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-green-100 font-medium mb-1">Vendas Hoje (Pagas)</p>
+                <h3 className="text-3xl font-black">{formatCurrency(totalSales)}</h3>
+              </div>
+              <div className="p-3 bg-white/20 rounded-xl"><Wallet className="w-6 h-6 text-white" /></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white dark:bg-stone-900 shadow-sm border-stone-200 dark:border-stone-800">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-stone-500 font-medium mb-1">Mesas Abertas</p>
+                <h3 className="text-3xl font-black text-stone-800 dark:text-stone-100">{activeLocalOrders.length}</h3>
+              </div>
+              <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><Utensils className="w-6 h-6" /></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white dark:bg-stone-900 shadow-sm border-stone-200 dark:border-stone-800">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-stone-500 font-medium mb-1">Saídas / Despesas</p>
+                <h3 className="text-3xl font-black text-red-600">{formatCurrency(totalExpenses)}</h3>
+              </div>
+              <div className="p-3 bg-red-100 text-red-600 rounded-xl"><TrendingDown className="w-6 h-6" /></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 2. PAINEL DE OPERAÇÃO DIVIDIDO */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* COLUNA 1: MESAS */}
+        <div className="col-span-1 lg:col-span-4 space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-200 dark:border-blue-900">
+            <Utensils className="w-5 h-5 text-blue-600" />
+            <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Mesas Ativas</h2>
+            <Badge variant="secondary" className="ml-auto bg-blue-100 text-blue-700">{activeLocalOrders.length}</Badge>
+          </div>
+
+          <div className="space-y-3">
+            {activeLocalOrders.length === 0 ? (
+              <div className="text-center p-8 border border-dashed rounded-xl border-stone-300 text-stone-400">
+                Nenhuma mesa em atendimento.
+              </div>
+            ) : (
+              activeLocalOrders.map(order => (
+                <Card key={order.id} className="border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-black text-lg text-blue-900 dark:text-blue-400">{order.address}</h3>
+                        <p className="text-sm text-stone-500 font-medium">{order.customerName}</p>
+                      </div>
+                      <Badge className={order.status === "pronto" || order.status === "entregue" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
+                        {order.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="flex items-end justify-between mt-4">
+                      <div>
+                        <p className="text-xs text-stone-400 uppercase font-bold tracking-wider mb-0.5">Subtotal</p>
+                        <p className="font-black text-xl text-stone-800 dark:text-stone-200">{formatCurrency(order.total)}</p>
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          setOrderToPay(order);
+                          setPaymentMethodFinal(order.paymentMethod);
+                          setAddTenPercent(false); // Reset padrão
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 font-bold"
+                      >
+                        <Receipt className="w-4 h-4 mr-2" /> Fechar Conta
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* COLUNA 2: ENTREGAS */}
+        <div className="col-span-1 lg:col-span-4 space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-200 dark:border-purple-900">
+            <Motorcycle className="w-5 h-5 text-purple-600" />
+            <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Entregas em Andamento</h2>
+            <Badge variant="secondary" className="ml-auto bg-purple-100 text-purple-700">{activeDeliveryOrders.length}</Badge>
+          </div>
+
+          <div className="space-y-3">
+            {activeDeliveryOrders.length === 0 ? (
+              <div className="text-center p-8 border border-dashed rounded-xl border-stone-300 text-stone-400">
+                Nenhuma entrega pendente de pagamento.
+              </div>
+            ) : (
+              activeDeliveryOrders.map(order => (
+                <Card key={order.id} className="border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-all">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-bold text-stone-800 dark:text-stone-200">{order.customerName}</h3>
+                        <p className="text-xs text-stone-500 font-medium mt-0.5 max-w-[200px] truncate" title={order.address}>{order.address}</p>
+                      </div>
+                      <Badge className={order.status === "pronto" ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-600"}>
+                        {order.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                    
+                    <div className="bg-stone-50 dark:bg-stone-800 p-2 rounded-lg text-xs font-bold text-stone-600 flex items-center justify-between mb-3 border border-stone-100">
+                      <span>Pagamento via:</span>
+                      <span className="uppercase text-purple-700 dark:text-purple-400 flex items-center gap-1">
+                        {order.paymentMethod === "pix" && <QrCode className="w-3 h-3" />}
+                        {order.paymentMethod === "cartao" && <CreditCard className="w-3 h-3" />}
+                        {order.paymentMethod === "dinheiro" && <Banknote className="w-3 h-3" />}
+                        {order.paymentMethod}
+                      </span>
+                    </div>
+
+                    <div className="flex items-end justify-between mt-2">
+                      <p className="font-black text-xl text-stone-800 dark:text-stone-200">{formatCurrency(order.total)}</p>
+                      <Button 
+                        onClick={() => handleDeliveryPaid(order.id, order.status)}
+                        className="bg-green-600 hover:bg-green-700 font-bold text-xs px-3"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-1.5" /> Pago
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* COLUNA 3: CAIXA RÁPIDO */}
+        <div className="col-span-1 lg:col-span-4 space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b-2 border-stone-200 dark:border-stone-800">
+            <Wallet className="w-5 h-5 text-stone-600" />
+            <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Caixa Rápido</h2>
+          </div>
+
+          <Card className="border-stone-200 shadow-sm">
+            <CardHeader className="pb-3 bg-stone-50/50">
+              <CardTitle className="text-lg">Adicionar Despesa / Saída</CardTitle>
+              <CardDescription>Registre pagamentos, compras de insumos, vale motoboy, etc.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label>Valor (R$)</Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="Ex: 50.00" 
+                  value={expenseAmount}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Descrição / Motivo</Label>
+                <Input 
+                  placeholder="Ex: Pagamento Motoboy" 
+                  value={expenseDesc}
+                  onChange={(e) => setExpenseDesc(e.target.value)}
+                />
+              </div>
+              <Button 
+                onClick={handleAddExpense}
+                disabled={!expenseAmount || !expenseDesc}
+                className="w-full bg-stone-800 hover:bg-stone-900 text-white font-bold"
+              >
+                Lançar Despesa
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Button 
+            onClick={() => {
+              if (window.confirm("Deseja realmente fechar o caixa de hoje?")) {
+                closeRegister();
+              }
+            }}
+            variant="outline" 
+            className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold py-6"
+          >
+            <Lock className="w-4 h-4 mr-2" /> Encerrar Turno (Fechar Caixa)
+          </Button>
+        </div>
+      </div>
+
+      {/* =========================================
+          MODAL: FECHAR CONTA (MESAS)
+      ========================================= */}
+      {orderToPay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <Card className="w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardHeader className="border-b bg-stone-50 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-black text-blue-900">Fechar Conta</CardTitle>
+                  <CardDescription className="font-bold text-stone-500 mt-0.5">{orderToPay.address} • {orderToPay.customerName}</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setOrderToPay(null)} className="rounded-full">
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              
+              {/* Resumo Base */}
+              <div className="flex justify-between items-center text-lg">
+                <span className="font-medium text-stone-600">Subtotal Consumido:</span>
+                <span className="font-bold text-stone-800">{formatCurrency(orderToPay.total)}</span>
+              </div>
+
+              {/* Toggle 10% */}
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <Label className="text-base font-bold text-blue-900 flex items-center gap-2">
+                    Incluir 10% de Serviço?
+                  </Label>
+                  <p className="text-sm font-medium text-blue-700 mt-1">
+                    Gorjeta: <span className="font-black">+{formatCurrency(orderToPay.total * 0.1)}</span>
+                  </p>
+                </div>
+                <Switch 
+                  checked={addTenPercent} 
+                  onCheckedChange={setAddTenPercent}
+                  className="data-[state=checked]:bg-blue-600"
+                />
+              </div>
+
+              {/* Total Final */}
+              <div className="flex justify-between items-end border-t pt-4">
+                <span className="text-sm font-bold uppercase text-stone-500 tracking-wider">Total a Receber</span>
+                <span className="text-3xl font-black text-green-600">
+                  {formatCurrency(orderToPay.total + (addTenPercent ? orderToPay.total * 0.1 : 0))}
+                </span>
+              </div>
+
+              {/* Confirmação de Pagamento */}
+              <div className="space-y-3 pt-2">
+                <Label className="text-stone-600">Forma de Pagamento (Confirmada)</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: "pix", label: "PIX", icon: QrCode },
+                    { id: "cartao", label: "Cartão", icon: CreditCard },
+                    { id: "dinheiro", label: "Dinheiro", icon: Banknote }
+                  ].map(method => (
+                    <button
+                      key={method.id}
+                      onClick={() => setPaymentMethodFinal(method.id)}
+                      className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-lg border-2 transition-all ${paymentMethodFinal === method.id ? "border-green-600 bg-green-50 text-green-700" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+                    >
+                      <method.icon className="w-5 h-5" />
+                      <span className="text-xs font-bold uppercase">{method.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleConfirmPayment}
+                className="w-full py-6 text-lg font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg"
+              >
+                Confirmar Recebimento
+              </Button>
+
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
-  )
+  );
 }
