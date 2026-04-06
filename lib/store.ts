@@ -16,11 +16,8 @@ import type {
   OrderProduct,
 } from "./types";
 
-// interface OrderWithObs extends Omit<Order, "id" | "createdAt"> {
-//   observation?: string;
-// }
 interface OrderWithObs extends Omit<Order, "id" | "createdAt"> {
-  id?: string; // <-- Adicione esta linha
+  id?: string;
   observation?: string;
 }
 
@@ -72,7 +69,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
     extraCheesePrice: 8.0,
     whatsappMessage: "",
     autoApprove: false,
-  }, // PREVINE ERROS NO FRONTEND
+  },
   orders: [],
   expenses: [],
   tips: [],
@@ -161,10 +158,23 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
   },
 
   updateOrderStatus: async (id, status) => {
+    const deliveredAt = status === "entregue" ? new Date().toISOString() : undefined;
+
     set((state) => ({
-      orders: state.orders.map((o) => (o.id === id ? { ...o, status } : o)),
+      orders: state.orders.map((o) => {
+        if (o.id === id) {
+          return {
+            ...o,
+            status,
+            deliveredAt: status === "entregue" ? (o.deliveredAt || deliveredAt) : o.deliveredAt,
+          };
+        }
+        return o;
+      }),
     }));
-    await dbDispatch("UPDATE_ORDER_STATUS", { id, status });
+    
+    // Passa o deliveredAt para o backend gravar no banco de dados
+    await dbDispatch("UPDATE_ORDER_STATUS", { id, status, deliveredAt });
     get().sync();
   },
 

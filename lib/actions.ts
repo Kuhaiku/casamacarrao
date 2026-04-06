@@ -4,7 +4,6 @@
 import { pool } from "./db";
 import { randomUUID } from "crypto";
 
-
 const mapBooleans = (obj: any) => {
   const newObj = { ...obj };
   for (const key in newObj) {
@@ -84,6 +83,7 @@ export async function getStoreData() {
       ...o,
       total: Number(o.total),
       createdAt: new Date(o.createdAt).toISOString(),
+      deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined, // NOVO: Mapeia o horário de entrega
       items: typeof o.items === "string" ? JSON.parse(o.items) : o.items,
       products: o.products
         ? typeof o.products === "string"
@@ -244,16 +244,27 @@ export async function dbDispatch(action: string, payload: any) {
     }
 
     case "UPDATE_ORDER_STATUS":
-      await pool.query("UPDATE orders SET status = ? WHERE id = ?", [
-        payload.status,
-        payload.id,
-      ]);
+      // NOVO: Regista a data e hora de entrega caso seja enviada
+      if (payload.deliveredAt) {
+        await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [
+          payload.status,
+          new Date(payload.deliveredAt), // Converte a string ISO de volta para Date para a DB
+          payload.id,
+        ]);
+      } else {
+        await pool.query("UPDATE orders SET status = ? WHERE id = ?", [
+          payload.status,
+          payload.id,
+        ]);
+      }
+
       if (payload.status === "cancelado") {
         await pool.query("UPDATE orders SET isPaid = 0 WHERE id = ?", [
           payload.id,
         ]);
       }
       break;
+      
     case "TOGGLE_ORDER_PAID":
       await pool.query("UPDATE orders SET isPaid = NOT isPaid WHERE id = ?", [
         payload.id,

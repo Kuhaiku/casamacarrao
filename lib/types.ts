@@ -37,7 +37,6 @@ export interface OrderItem {
   extraCheese: boolean;
 }
 
-// NOVO: Adicionado 'entregue'
 export type OrderStatus =
   | "novo"
   | "aprovado"
@@ -78,6 +77,7 @@ export interface Order {
   total: number;
   createdAt: string;
   isAccounted?: boolean;
+  deliveredAt?: string; // <-- AQUI ESTÁ O NOVO CAMPO
 }
 
 export interface FinancialEntry {
