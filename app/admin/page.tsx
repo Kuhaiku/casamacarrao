@@ -220,7 +220,14 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* COLUNA 2: ENTREGAS */}
-      <div className="space-y-3">
+        <div className="col-span-1 lg:col-span-4 space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-200 dark:border-purple-900">
+            <Motorbike className="w-5 h-5 text-purple-600" />
+            <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Entregas em Andamento</h2>
+            <Badge variant="secondary" className="ml-auto bg-purple-100 text-purple-700">{activeDeliveryOrders.length}</Badge>
+          </div>
+
+          <div className="space-y-3">
             {activeDeliveryOrders.length === 0 ? (
               <div className="text-center p-8 border border-dashed rounded-xl border-stone-300 text-stone-400">
                 Nenhuma entrega pendente de pagamento.
@@ -255,6 +262,7 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
 
+                    {/* OBSERVAÇÃO - ENTREGAS */}
                     {order.observation && (
                       <div className="mb-3 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
                         <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-500 mb-0.5">
@@ -281,6 +289,7 @@ export default function AdminDashboardPage() {
               ))
             )}
           </div>
+        </div>
 
         {/* COLUNA 3: CAIXA RÁPIDO */}
         <div className="col-span-1 lg:col-span-4 space-y-4">
