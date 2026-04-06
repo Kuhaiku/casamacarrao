@@ -3,13 +3,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Clock, ChefHat, CreditCard, Banknote, QrCode, 
   Ban, Bike, CheckCircle2, MapPin, Phone, AlertCircle, 
-  ShoppingBag, Info, DollarSign, Package
+  ShoppingBag, Info, DollarSign, MessageCircle, Settings2
 } from "lucide-react";
 import type { Order } from "@/lib/types";
 
@@ -31,8 +34,7 @@ function formatDate(dateString?: string) {
 const statusConfig: Record<string, { label: string; headerClass: string; badgeClass: string; icon: React.ElementType }> = {
   novo: { label: "Aguardando", headerClass: "bg-gradient-to-r from-blue-500 to-blue-600", badgeClass: "bg-blue-100 text-blue-800 border-blue-200", icon: Clock },
   aprovado: { label: "Preparando", headerClass: "bg-gradient-to-r from-orange-500 to-orange-600", badgeClass: "bg-orange-100 text-orange-800 border-orange-200", icon: ChefHat },
-  pronto: { label: "Aguardando Retirada", headerClass: "bg-gradient-to-r from-amber-500 to-amber-600", badgeClass: "bg-amber-100 text-amber-800 border-amber-200", icon: Package },
-  despachado: { label: "Saiu para Entrega", headerClass: "bg-gradient-to-r from-indigo-500 to-indigo-600", badgeClass: "bg-indigo-100 text-indigo-800 border-indigo-200", icon: Bike },
+  pronto: { label: "Em Rota", headerClass: "bg-gradient-to-r from-amber-500 to-amber-600", badgeClass: "bg-amber-100 text-amber-800 border-amber-200", icon: Bike },
   entregue: { label: "Concluído", headerClass: "bg-gradient-to-r from-green-500 to-emerald-600", badgeClass: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
   cancelado: { label: "Cancelado", headerClass: "bg-gradient-to-r from-red-500 to-red-600", badgeClass: "bg-red-100 text-red-800 border-red-200", icon: Ban },
 };
@@ -44,7 +46,7 @@ const paymentIcons: Record<string, React.ElementType> = {
 };
 
 function OrderHistoryCard({ order }: { order: Order }) {
-  const { sizes, menuItems, products } = useStore();
+  const { sizes, menuItems, products, settings } = useStore();
   
   const { label, headerClass, badgeClass, icon: StatusIcon } = statusConfig[order.status] || statusConfig.novo;
   const PaymentIcon = paymentIcons[order.paymentMethod] || Banknote;
@@ -53,11 +55,24 @@ function OrderHistoryCard({ order }: { order: Order }) {
   const getItemName = (itemId: string) => menuItems.find((i) => i.id === itemId)?.name || itemId;
   const getProductName = (prodId: string) => products.find((p) => p.id === prodId)?.name || prodId;
 
+  // Função para chamar no WhatsApp
+  const handleWhatsApp = () => {
+    if (!order.phone) return;
+    
+    let msg = settings.whatsappMessage || "Olá {{nome}}, seu pedido #{{pedido}} foi atualizado.";
+    msg = msg.replace(/{{nome}}/g, order.customerName)
+             .replace(/{{pedido}}/g, order.id.slice(0, 6))
+             .replace(/{{total}}/g, formatCurrency(order.total))
+             .replace(/{{status}}/g, label);
+             
+    const cleanPhone = order.phone.replace(/\D/g, "");
+    window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
   return (
-    // Altura travada em 520px para todos os cards
     <Card className="shadow-lg rounded-2xl overflow-hidden flex flex-col bg-white dark:bg-stone-900 border-none h-[520px]">
       
-      {/* HEADER DA FICHA (Fixo no topo) */}
+      {/* HEADER DA FICHA */}
       <div className={`${headerClass} shrink-0 text-white px-4 py-2.5 flex justify-between items-center text-xs sm:text-sm font-medium`}>
         <span>Ficha Pedido: #{order.id.slice(0, 8)}</span>
         <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> {formatDate(order.createdAt)}</span>
@@ -65,7 +80,7 @@ function OrderHistoryCard({ order }: { order: Order }) {
 
       <CardContent className="p-4 sm:p-5 flex-1 flex flex-col overflow-hidden">
         
-        {/* DADOS DO CLIENTE (Fixo) */}
+        {/* DADOS DO CLIENTE */}
         <div className="shrink-0 space-y-3 mb-4">
           <div className="flex justify-between items-start gap-2">
             <h2 className={`text-2xl font-black leading-none tracking-tight ${order.status === "cancelado" ? "line-through text-stone-400" : "text-stone-800 dark:text-stone-100"}`}>
@@ -76,19 +91,29 @@ function OrderHistoryCard({ order }: { order: Order }) {
             </Badge>
           </div>
 
-          <div className="space-y-1 text-sm text-stone-600 dark:text-stone-400 font-medium">
+          <div className="space-y-2 text-sm text-stone-600 dark:text-stone-400 font-medium">
             <div className="flex items-start gap-2">
               <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-stone-400" />
               <span className="leading-snug line-clamp-2">{order.address}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 shrink-0 text-stone-400" />
-              <span>{order.phone || "Não informado"}</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 shrink-0 text-stone-400" />
+                <span>{order.phone || "Não informado"}</span>
+              </div>
+              {order.phone && order.phone !== "Não informado" && (
+                <button 
+                  onClick={handleWhatsApp}
+                  className="bg-green-100 text-green-700 hover:bg-green-200 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> Chamar
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ÁREA SCROLLÁVEL (Apenas os itens e observação rolam para baixo) */}
+        {/* ÁREA SCROLLÁVEL */}
         <div className="flex-1 overflow-y-auto pr-2 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-stone-100 [&::-webkit-scrollbar-thumb]:bg-stone-300 dark:[&::-webkit-scrollbar-track]:bg-stone-800 dark:[&::-webkit-scrollbar-thumb]:bg-stone-600 [&::-webkit-scrollbar-thumb]:rounded-full">
           
           <div className="border-2 border-stone-200 dark:border-stone-700 rounded-xl p-3 bg-stone-50 dark:bg-stone-800/30">
@@ -179,7 +204,7 @@ function OrderHistoryCard({ order }: { order: Order }) {
           )}
         </div>
 
-        {/* RODAPÉ DO CARD (Fixo na base) */}
+        {/* RODAPÉ DO CARD */}
         <div className="shrink-0 space-y-3 mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
           <div className="flex items-center justify-between text-sm bg-stone-50 dark:bg-stone-800/50 p-2.5 rounded-lg border border-stone-100 dark:border-stone-800">
             <div className="flex items-center gap-2 font-bold text-stone-700 dark:text-stone-200">
@@ -215,17 +240,15 @@ function OrderHistoryCard({ order }: { order: Order }) {
 }
 
 export default function AdminOrdersHistoryPage() {
-  const { orders, sync } = useStore();
+  const { orders, sync, settings, updateSettings } = useStore();
   const [activeTab, setActiveTab] = useState("todos");
 
   useEffect(() => {
     sync();
-    // Atualiza a cada 10 segundos apenas para manter o histórico fresco
     const interval = setInterval(() => sync(), 10000); 
     return () => clearInterval(interval);
   }, [sync]);
 
-  // Ordena sempre do mais recente para o mais antigo
   const sortedOrders = useMemo(() => {
     return [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [orders]);
@@ -234,8 +257,6 @@ export default function AdminOrdersHistoryPage() {
     switch (activeTab) {
       case "concluidos":
         return sortedOrders.filter(o => o.status === "entregue");
-      case "andamento":
-        return sortedOrders.filter(o => ["novo", "aprovado", "pronto"].includes(o.status));
       case "andamento":
         return sortedOrders.filter(o => ["novo", "aprovado", "pronto", "despachado"].includes(o.status));
       case "cancelados":
@@ -253,16 +274,61 @@ export default function AdminOrdersHistoryPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-800">
         <div>
           <h1 className="text-3xl font-black text-stone-800 dark:text-stone-100 flex items-center gap-2">
-             Histórico Geral
+             Histórico de Pedidos
           </h1>
           <p className="text-stone-500 font-medium mt-1">
-            Consulta detalhada de todos os pedidos registrados no sistema.
+            Consulta detalhada de todos os pedidos e automações.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-stone-500 bg-stone-50 dark:bg-stone-800 px-4 py-2 rounded-lg border border-stone-100 dark:border-stone-700">
-          <Info className="w-4 h-4 text-blue-500 shrink-0" /> Somente visualização. Ações foram movidas para o Dashboard.
-        </div>
       </div>
+
+      {/* PAINEL DE CONFIGURAÇÕES (NOVO) */}
+      <Card className="bg-stone-50 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-800 shadow-sm">
+        <CardHeader className="pb-3 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 rounded-t-xl">
+          <CardTitle className="text-lg font-bold text-stone-800 dark:text-stone-100 flex items-center gap-2">
+            <Settings2 className="w-5 h-5 text-orange-600" /> Configurações de Operação
+          </CardTitle>
+          <CardDescription>Gerencie a automação de recebimento e os avisos pelo WhatsApp.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-5 flex flex-col md:flex-row gap-6 md:gap-12">
+          
+          <div className="space-y-3 md:w-1/3">
+            <div>
+              <Label className="text-sm font-bold text-stone-800 dark:text-stone-200">Aprovação Automática</Label>
+              <p className="text-xs text-stone-500 mt-1 mb-3">
+                Se ativado, os pedidos entram direto para "Em Preparo" (Cozinha), pulando a etapa de "Novo".
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 bg-white dark:bg-stone-800 p-3 rounded-lg border border-stone-200 dark:border-stone-700">
+              <Switch 
+                id="auto-approve" 
+                checked={settings.autoApprove} 
+                onCheckedChange={(val) => updateSettings({ autoApprove: val })}
+                className="data-[state=checked]:bg-orange-600"
+              />
+              <Label htmlFor="auto-approve" className="font-bold cursor-pointer">
+                {settings.autoApprove ? "LIGADA (Rápido)" : "DESLIGADA (Manual)"}
+              </Label>
+            </div>
+          </div>
+
+          <div className="space-y-3 flex-1">
+            <div>
+              <Label className="text-sm font-bold text-stone-800 dark:text-stone-200">Template do WhatsApp</Label>
+              <p className="text-xs text-stone-500 mt-1 mb-2">
+                Use as tags: <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{nome}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{pedido}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{total}}"}</code>, <code className="bg-stone-200 dark:bg-stone-700 px-1 py-0.5 rounded text-stone-800 dark:text-stone-300">{"{{status}}"}</code>.
+              </p>
+            </div>
+            <Textarea 
+              className="resize-none h-20 bg-white dark:bg-stone-800"
+              value={settings.whatsappMessage || ""}
+              onChange={(e) => updateSettings({ whatsappMessage: e.target.value })}
+              placeholder="Ex: Olá {{nome}}, seu pedido #{{pedido}} no valor de {{total}} está: {{status}}!"
+            />
+          </div>
+
+        </CardContent>
+      </Card>
 
       {/* FILTROS E LISTAGEM */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -281,8 +347,7 @@ export default function AdminOrdersHistoryPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* MÁXIMO DE 3 COLUNAS EM TELAS GIGANTES para não espremer os cards */}
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 items-start">
           {filteredOrders.length > 0 ? (
             filteredOrders.map((order) => (
               <OrderHistoryCard key={order.id} order={order} />
