@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useStore } from "@/lib/store"
+import { Badge } from "@/components/ui/badge" // <-- IMPORTAÇÃO ADICIONADA AQUI
 import { 
   ChefHat, 
   Clock, 
