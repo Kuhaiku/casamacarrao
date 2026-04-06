@@ -102,35 +102,60 @@ function OrderHistoryCard({ order }: { order: Order }) {
           </div>
           
           {order.items?.map((item: any, idx: number) => (
-            <div key={`mac-${idx}`} className="bg-stone-50 dark:bg-stone-800/50 p-3 rounded-lg border border-stone-100 dark:border-stone-700 text-xs space-y-1.5">
-              <div className="font-black text-sm text-stone-800 dark:text-stone-200 mb-1.5">
+            <div key={`mac-${idx}`} className="bg-stone-50 dark:bg-stone-800/50 p-4 rounded-xl border border-stone-100 dark:border-stone-700 text-xs">
+              <div className="font-black text-sm text-stone-800 dark:text-stone-200 mb-3 border-b border-stone-200 dark:border-stone-700 pb-2">
                 Macarrão {getSizeName(item.sizeId)}
               </div>
-              {item.pastaId && (
-                <div className="grid grid-cols-[80px_1fr]"><span className="text-stone-500 font-medium">Massa:</span> <span className="font-semibold">{getItemName(item.pastaId)}</span></div>
-              )}
-              {item.sauces?.length > 0 && (
-                <div className="grid grid-cols-[80px_1fr]"><span className="text-stone-500 font-medium">Molhos:</span> <span className="font-semibold">{item.sauces.map(getItemName).join(", ")}</span></div>
-              )}
-              {item.temperos?.length > 0 && (
-                <div className="grid grid-cols-[80px_1fr]"><span className="text-stone-500 font-medium">Temperos:</span> <span className="font-semibold">{item.temperos.map(getItemName).join(", ")}</span></div>
-              )}
-              {item.ingredients?.length > 0 && (
-                <div className="grid grid-cols-[80px_1fr]"><span className="text-stone-500 font-medium">Ingred.:</span> <span className="font-semibold">{item.ingredients.map(getItemName).join(", ")}</span></div>
-              )}
-              {item.extraCheese && (
-                <div className="text-amber-600 font-black mt-1 inline-block bg-amber-100 px-2 py-0.5 rounded">+ Queijo Extra</div>
-              )}
+              
+              <div className="space-y-3">
+                {item.pastaId && (
+                  <div>
+                    <span className="text-stone-500 font-bold block mb-0.5">🍝 Massa:</span> 
+                    <span className="block font-medium text-stone-700 dark:text-stone-300 ml-4 leading-snug">
+                      {getItemName(item.pastaId)}
+                    </span>
+                  </div>
+                )}
+                {item.sauces?.length > 0 && (
+                  <div>
+                    <span className="text-stone-500 font-bold block mb-0.5">🥫 Molhos:</span> 
+                    <span className="block font-medium text-stone-700 dark:text-stone-300 ml-4 leading-snug">
+                      {item.sauces.map(getItemName).join(", ")}
+                    </span>
+                  </div>
+                )}
+                {item.temperos?.length > 0 && (
+                  <div>
+                    <span className="text-stone-500 font-bold block mb-0.5">🌿 Temperos:</span> 
+                    <span className="block font-medium text-stone-700 dark:text-stone-300 ml-4 leading-snug">
+                      {item.temperos.map(getItemName).join(", ")}
+                    </span>
+                  </div>
+                )}
+                {item.ingredients?.length > 0 && (
+                  <div>
+                    <span className="text-stone-500 font-bold block mb-0.5">🥓 Ingredientes:</span> 
+                    <span className="block font-medium text-stone-700 dark:text-stone-300 ml-4 leading-snug">
+                      {item.ingredients.map(getItemName).join(", ")}
+                    </span>
+                  </div>
+                )}
+                {item.extraCheese && (
+                  <div className="text-amber-600 font-black mt-3 inline-flex items-center bg-amber-100 px-2 py-1 rounded">
+                    🧀 + Queijo Extra
+                  </div>
+                )}
+              </div>
             </div>
           ))}
 
           {order.products && order.products.length > 0 && (
-            <div className="bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-lg border border-blue-100 dark:border-blue-900 text-xs">
+            <div className="bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900 text-xs">
               <div className="font-bold text-blue-800 dark:text-blue-400 mb-2">Produtos Avulsos:</div>
               <ul className="space-y-1">
                 {order.products.map((prod: any, idx: number) => (
                   <li key={`prod-${idx}`} className="flex justify-between text-stone-700 dark:text-stone-300 font-medium">
-                    <span>{prod.quantity}x {getProductName(prod.productId)}</span>
+                    <span className="ml-2">- {prod.quantity}x {getProductName(prod.productId)}</span>
                   </li>
                 ))}
               </ul>
@@ -140,7 +165,7 @@ function OrderHistoryCard({ order }: { order: Order }) {
 
         {/* Observação */}
         {order.observation && (
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-xs border border-amber-200 dark:border-amber-900">
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl text-xs border border-amber-200 dark:border-amber-900">
             <div className="font-black text-amber-800 dark:text-amber-500 mb-1 uppercase tracking-wider flex items-center gap-1">
               <AlertCircle className="w-3 h-3" /> Observação
             </div>
