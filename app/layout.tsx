@@ -17,23 +17,27 @@ export const metadata: Metadata = {
   title: 'Casa do Macarrão - Sistema de Pedidos',
   description: 'Monte seu macarrão do seu jeito na Casa do Macarrão',
   generator: 'v0.app',
-  manifest: '/manifest.json', // NOVO: Link para o arquivo do PWA
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Casa do Macarrão",
+    // startUpImage: [], // Opcional: pode adicionar splash screens aqui depois
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
+      { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
     ],
-    apple: '/apple-icon.png',
+    apple: [
+      { url: '/apple-icon.png' }, // Esse arquivo já existe no seu projeto
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
   },
 }
 
