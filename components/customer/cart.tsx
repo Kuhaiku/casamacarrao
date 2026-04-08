@@ -46,9 +46,7 @@ export function Cart() {
     const extraSauces = Math.max(0, item.sauces.length - size.maxSauces)
     extras += extraSauces * settings.extraIngredientPrice
     
-    if (item.extraCheese) {
-      extras += settings.extraCheesePrice
-    }
+    
     
     return extras
   }
