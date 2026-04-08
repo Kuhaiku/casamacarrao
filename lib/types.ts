@@ -1,6 +1,7 @@
 // lib/types.ts
 
-export type CategoryType = "pasta" | "sauce" | "seasoning" | "ingredient";
+// 1. Adicionado "extra" para os novos adicionais com preço individual
+export type CategoryType = "pasta" | "sauce" | "seasoning" | "ingredient" | "extra";
 
 export interface Size {
   id: string;
@@ -19,11 +20,15 @@ export interface MenuItem {
   name: string;
   category: CategoryType;
   isActive: boolean;
+  price?: number; // Adicionado para guardar o preço dos itens da categoria 'extra'
 }
 
 export interface StoreSettings {
+  // Configurações de excesso separadas por categoria
+  extraPastaPrice?: number; 
+  extraSaucePrice?: number; 
   extraIngredientPrice: number;
-  extraCheesePrice: number;
+  // O extraCheesePrice foi removido, pois agora os extras são dinâmicos
   whatsappMessage?: string;
   autoApprove?: boolean;
 }
@@ -34,7 +39,8 @@ export interface OrderItem {
   sauces: string[];
   seasonings: string[];
   ingredients: string[];
-  extraCheese: boolean;
+  extras?: string[]; // Array para guardar os IDs dos itens extras adicionados
+  extraCheese?: boolean; // Mantido como opcional para não quebrar compatibilidade de pedidos antigos
 }
 
 // ADICIONADO "despachado" (Saiu para entrega)

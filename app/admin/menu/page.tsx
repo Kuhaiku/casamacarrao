@@ -1,3 +1,4 @@
+// app/admin/menu/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -19,74 +20,132 @@ import type { CategoryType, MenuItem, Size } from "@/lib/types"
 // COMPONENTES COMPARTILHADOS / UTILITÁRIOS
 // ============================================================================
 function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
 // ============================================================================
-// ABA 1: CARDÁPIO (Massas, Molhos, Temperos, Ingredientes)
+// ABA 1: CARDÁPIO (Massas, Molhos, Temperos, Ingredientes, Extras)
 // ============================================================================
-const categoryLabels: Record<CategoryType, string> = {
+const categoryLabels: Record<string, string> = {
   pasta: "Massas",
   sauce: "Molhos",
   seasoning: "Temperos",
   ingredient: "Ingredientes",
+  extra: "Adicionais Extras (Pagos)",
 }
 
-const categoryDescriptions: Record<CategoryType, string> = {
+const categoryDescriptions: Record<string, string> = {
   pasta: "Tipos de massa disponíveis",
   sauce: "Molhos para o macarrão",
   seasoning: "Temperos (sempre livres)",
   ingredient: "Ingredientes adicionais",
+  extra: "Itens com preço individual (Ex: Queijo Extra, Bacon Extra)",
 }
 
-function MenuItemRow({ item, onToggle, onDelete }: { item: MenuItem; onToggle: () => void; onDelete: () => void }) {
+function MenuItemRow({ item, onToggle, onDelete, onEdit }: { item: MenuItem; onToggle: () => void; onDelete: () => void; onEdit: (name: string, price?: number) => void }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(item.name)
+  const [editPrice, setEditPrice] = useState(item.price?.toString() || "")
+
+  const handleSave = () => {
+    if (editName.trim()) {
+      onEdit(editName.trim(), item.category === "extra" ? parseFloat(editPrice.replace(',', '.')) || 0 : undefined)
+      setIsEditing(false)
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div className="flex gap-2 p-3 bg-muted/30 rounded-lg border border-dashed flex-wrap sm:flex-nowrap items-center">
+        <Input 
+          value={editName} 
+          onChange={(e) => setEditName(e.target.value)} 
+          className="flex-1 min-w-[150px] h-9" 
+          autoFocus 
+        />
+        {item.category === "extra" && (
+          <Input 
+            type="number" 
+            step="0.01" 
+            min="0" 
+            value={editPrice} 
+            onChange={(e) => setEditPrice(e.target.value)} 
+            className="w-24 shrink-0 h-9" 
+            placeholder="Preço (R$)" 
+          />
+        )}
+        <Button size="sm" onClick={handleSave} className="h-9 shrink-0"><Save className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="h-9 w-9 p-0 shrink-0"><X className="h-4 w-4" /></Button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
       <div className="flex items-center gap-3">
         <Switch checked={item.isActive} onCheckedChange={onToggle} />
-        <span className={item.isActive ? "text-foreground" : "text-muted-foreground line-through"}>
-          {item.name}
-        </span>
+        <div className="flex flex-col">
+          <span className={item.isActive ? "text-foreground font-medium" : "text-muted-foreground line-through"}>
+            {item.name}
+          </span>
+          {item.category === "extra" && item.price !== undefined && (
+            <span className="text-xs text-primary font-bold">{formatCurrency(item.price)}</span>
+          )}
+        </div>
       </div>
-      <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive hover:text-destructive h-8 w-8">
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="text-stone-500 hover:text-stone-700 h-8 w-8">
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive hover:text-destructive h-8 w-8">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   )
 }
 
-function AddItemForm({ category, onAdd, onCancel }: { category: CategoryType; onAdd: (name: string) => void; onCancel: () => void }) {
+function AddItemForm({ category, onAdd, onCancel }: { category: string; onAdd: (name: string, price?: number) => void; onCancel: () => void }) {
   const [name, setName] = useState("")
+  const [price, setPrice] = useState("")
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (name.trim()) {
-      onAdd(name.trim())
+      onAdd(name.trim(), category === "extra" ? parseFloat(price.replace(',', '.')) || 0 : undefined)
       setName("")
+      setPrice("")
     }
   }
+
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 p-3 bg-muted/30 rounded-lg border border-dashed">
-      <Input placeholder={`Nome do item de ${categoryLabels[category].toLowerCase()}`} value={name} onChange={(e) => setName(e.target.value)} className="flex-1" autoFocus />
-      <Button type="submit" size="sm"><Save className="h-4 w-4 mr-1" /> Salvar</Button>
-      <Button type="button" variant="ghost" size="sm" onClick={onCancel}><X className="h-4 w-4" /></Button>
+    <form onSubmit={handleSubmit} className="flex gap-2 p-3 bg-muted/30 rounded-lg border border-dashed flex-wrap sm:flex-nowrap">
+      <Input placeholder={`Nome do item de ${categoryLabels[category]?.toLowerCase()}`} value={name} onChange={(e) => setName(e.target.value)} className="flex-1 min-w-[150px]" autoFocus required />
+      
+      {category === "extra" && (
+        <Input type="number" step="0.01" min="0" placeholder="Preço (R$)" value={price} onChange={(e) => setPrice(e.target.value)} className="w-28 shrink-0" required />
+      )}
+      
+      <Button type="submit" size="sm" className="shrink-0"><Save className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Salvar</span></Button>
+      <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="shrink-0"><X className="h-4 w-4" /></Button>
     </form>
   )
 }
 
-function CategorySection({ category }: { category: CategoryType }) {
-  const { menuItems, addMenuItem, toggleMenuItemActive, deleteMenuItem } = useStore()
+function CategorySection({ category }: { category: string }) {
+  const { menuItems, addMenuItem, updateMenuItem, toggleMenuItemActive, deleteMenuItem } = useStore()
   const [showAddForm, setShowAddForm] = useState(false)
 
   const items = menuItems.filter((item) => item.category === category)
   const activeCount = items.filter((item) => item.isActive).length
 
-  const handleAdd = (name: string) => {
-    addMenuItem({ id: `${category}-${Date.now()}`, name, category, isActive: true })
+  const handleAdd = (name: string, price?: number) => {
+    addMenuItem({ id: `${category}-${Date.now()}`, name, category: category as any, isActive: true, price })
     setShowAddForm(false)
   }
 
   return (
-    <Card>
+    <Card className={category === "extra" ? "border-amber-200 dark:border-amber-900 bg-amber-50/30 dark:bg-amber-950/10" : ""}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -97,7 +156,7 @@ function CategorySection({ category }: { category: CategoryType }) {
             <CardDescription>{categoryDescriptions[category]}</CardDescription>
           </div>
           {!showAddForm && (
-            <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)}>
+            <Button variant={category === "extra" ? "default" : "outline"} size="sm" onClick={() => setShowAddForm(true)}>
               <Plus className="h-4 w-4 mr-1" /> Adicionar
             </Button>
           )}
@@ -106,7 +165,13 @@ function CategorySection({ category }: { category: CategoryType }) {
       <CardContent className="space-y-2">
         {showAddForm && <AddItemForm category={category} onAdd={handleAdd} onCancel={() => setShowAddForm(false)} />}
         {items.map((item) => (
-          <MenuItemRow key={item.id} item={item} onToggle={() => toggleMenuItemActive(item.id)} onDelete={() => deleteMenuItem(item.id)} />
+          <MenuItemRow 
+            key={item.id} 
+            item={item} 
+            onToggle={() => toggleMenuItemActive(item.id)} 
+            onDelete={() => deleteMenuItem(item.id)} 
+            onEdit={(name, price) => updateMenuItem(item.id, { name, price })}
+          />
         ))}
         {items.length === 0 && !showAddForm && <p className="text-center text-muted-foreground py-4">Nenhum item cadastrado.</p>}
       </CardContent>
@@ -116,19 +181,40 @@ function CategorySection({ category }: { category: CategoryType }) {
 
 function BulkAddForm() {
   const { addMenuItem } = useStore()
-  const [category, setCategory] = useState<CategoryType>("ingredient")
+  const [category, setCategory] = useState<string>("ingredient")
   const [items, setItems] = useState("")
   const [showForm, setShowForm] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const names = items.split("\n").map((s) => s.trim()).filter(Boolean)
-    names.forEach((name) => {
-      addMenuItem({
-        id: `${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name, category, isActive: true,
-      })
+    const lines = items.split("\n").map((s) => s.trim()).filter(Boolean)
+    
+    lines.forEach((line) => {
+      if (category === "extra") {
+        const parts = line.split(",")
+        const name = parts[0].trim()
+        let price = 0
+        if (parts.length > 1) {
+          price = parseFloat(parts[1].trim().replace(',', '.')) || 0
+        }
+        
+        addMenuItem({
+          id: `${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name, 
+          category: category as any, 
+          isActive: true,
+          price
+        })
+      } else {
+        addMenuItem({
+          id: `${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: line, 
+          category: category as any, 
+          isActive: true,
+        })
+      }
     })
+    
     setItems("")
     setShowForm(false)
   }
@@ -142,16 +228,16 @@ function BulkAddForm() {
   }
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-6 border-blue-200">
       <form onSubmit={handleSubmit}>
-        <CardHeader>
-          <CardTitle>Adicionar Vários Itens</CardTitle>
-          <CardDescription>Digite um item por linha</CardDescription>
+        <CardHeader className="bg-blue-50/50 pb-4">
+          <CardTitle>Adicionar Vários Itens Rápido</CardTitle>
+          <CardDescription>Insira vários itens de uma vez só</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-4">
           <div className="space-y-2">
-            <Label>Categoria</Label>
-            <Select value={category} onValueChange={(v) => setCategory(v as CategoryType)}>
+            <Label>Para qual categoria?</Label>
+            <Select value={category} onValueChange={setCategory}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(categoryLabels).map(([key, label]) => (
@@ -161,13 +247,21 @@ function BulkAddForm() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Itens (um por linha)</Label>
+            <Label>Lista de Itens (um por linha)</Label>
             <textarea
-              className="w-full min-h-[120px] p-3 border rounded-lg bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Bacon&#10;Frango&#10;Camarão"
+              className="w-full min-h-[140px] p-3 border rounded-lg bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder={category === "extra" ? "Bacon, 5.00\nBorda Recheada, 8.50" : "Alho\nCebola\nTomate"}
               value={items}
               onChange={(e) => setItems(e.target.value)}
             />
+            {category === "extra" ? (
+              <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
+                ⭐ <b>Dica para Extras:</b> Digite o Nome e o Preço separados por vírgula na mesma linha.<br/>
+                Exemplo: <b>Bacon Extra, 5.50</b>
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Digite um ingrediente por linha.</p>
+            )}
           </div>
           <div className="flex gap-2">
             <Button type="submit"><Save className="h-4 w-4 mr-2" /> Adicionar Todos</Button>
@@ -180,13 +274,13 @@ function BulkAddForm() {
 }
 
 function MenuTabContent() {
-  const categories: CategoryType[] = ["pasta", "sauce", "ingredient", "seasoning"]
+  const categories = ["pasta", "sauce", "ingredient", "seasoning", "extra"]
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Itens do Macarrão</h2>
-          <p className="text-muted-foreground mt-1">Gerencie ingredientes para a montagem dos pedidos.</p>
+          <p className="text-muted-foreground mt-1">Gerencie os ingredientes e os adicionais pagos da montagem.</p>
         </div>
         <BulkAddForm />
       </div>
@@ -218,7 +312,7 @@ function ProductsTabContent() {
 
   const handleAddProduct = () => {
     if (!prodName || !prodPrice || !prodCat) return
-    addProduct({ name: prodName, price: parseFloat(prodPrice), categoryId: prodCat, isActive: true })
+    addProduct({ name: prodName, price: parseFloat(prodPrice.replace(',', '.')), categoryId: prodCat, isActive: true })
     setProdName("")
     setProdPrice("")
   }
@@ -310,7 +404,7 @@ function ProductsTabContent() {
 }
 
 // ============================================================================
-// ABA 3: TAMANHOS E REGRAS (Dashboard antigo)
+// ABA 3: TAMANHOS E REGRAS
 // ============================================================================
 function SizeCard({ size, onEdit, onDelete }: { size: Size; onEdit: () => void; onDelete: () => void }) {
   return (
@@ -377,7 +471,7 @@ function SizeForm({ size, onSave, onCancel }: { size?: Size; onSave: (data: Omit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSave({
-      id: size?.id, name: formData.name, price: parseFloat(formData.price) || 0,
+      id: size?.id, name: formData.name, price: parseFloat(formData.price.replace(',', '.')) || 0,
       maxPastas: parseInt(formData.maxPastas) || 1, strictMaxPastas: formData.strictMaxPastas,
       maxIngredients: parseInt(formData.maxIngredients) || 4, strictMaxIngredients: formData.strictMaxIngredients,
       maxSauces: parseInt(formData.maxSauces) || 1, strictMaxSauces: formData.strictMaxSauces,
@@ -441,12 +535,17 @@ function SettingsCard() {
   const { settings, updateSettings } = useStore()
   const [editing, setEditing] = useState(false)
   const [formData, setFormData] = useState({
-    extraIngredientPrice: settings.extraIngredientPrice.toString(),
-    extraCheesePrice: settings.extraCheesePrice.toString(),
+    extraPastaPrice: (settings.extraPastaPrice || 0).toString(),
+    extraSaucePrice: (settings.extraSaucePrice || 0).toString(),
+    extraIngredientPrice: (settings.extraIngredientPrice || 0).toString(),
   })
 
   const handleSave = () => {
-    updateSettings({ extraIngredientPrice: parseFloat(formData.extraIngredientPrice) || 0, extraCheesePrice: parseFloat(formData.extraCheesePrice) || 0 })
+    updateSettings({ 
+      extraPastaPrice: parseFloat(formData.extraPastaPrice.replace(',', '.')) || 0,
+      extraSaucePrice: parseFloat(formData.extraSaucePrice.replace(',', '.')) || 0,
+      extraIngredientPrice: parseFloat(formData.extraIngredientPrice.replace(',', '.')) || 0,
+    })
     setEditing(false)
   }
 
@@ -455,8 +554,8 @@ function SettingsCard() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Valores Extras</CardTitle>
-            <CardDescription>Preços para adicionais (quando a trava de limite estiver desativada)</CardDescription>
+            <CardTitle>Valores de Limites Extras</CardTitle>
+            <CardDescription>Taxa cobrada quando o cliente ultrapassa a quantidade limite de itens do tamanho.</CardDescription>
           </div>
           {!editing && (
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-2" /> Editar</Button>
@@ -466,9 +565,10 @@ function SettingsCard() {
       <CardContent>
         {editing ? (
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2"><Label>Adicional (R$)</Label><Input type="number" step="0.01" value={formData.extraIngredientPrice} onChange={(e) => setFormData({ ...formData, extraIngredientPrice: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Queijo (R$)</Label><Input type="number" step="0.01" value={formData.extraCheesePrice} onChange={(e) => setFormData({ ...formData, extraCheesePrice: e.target.value })} /></div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2"><Label>Extra por Massa (R$)</Label><Input type="number" step="0.01" value={formData.extraPastaPrice} onChange={(e) => setFormData({ ...formData, extraPastaPrice: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Extra por Molho (R$)</Label><Input type="number" step="0.01" value={formData.extraSaucePrice} onChange={(e) => setFormData({ ...formData, extraSaucePrice: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Extra por Ingred. (R$)</Label><Input type="number" step="0.01" value={formData.extraIngredientPrice} onChange={(e) => setFormData({ ...formData, extraIngredientPrice: e.target.value })} /></div>
             </div>
             <div className="flex gap-2">
               <Button onClick={handleSave}><Save className="h-4 w-4 mr-2" /> Salvar</Button>
@@ -476,14 +576,18 @@ function SettingsCard() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="p-4 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground">Ingrediente / Molho Adicional</div>
-              <div className="text-2xl font-bold text-primary">{formatCurrency(settings.extraIngredientPrice)}</div>
+              <div className="text-sm text-muted-foreground">Massa Extra</div>
+              <div className="text-2xl font-bold text-primary">{formatCurrency(settings.extraPastaPrice || 0)}</div>
             </div>
             <div className="p-4 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground">Adicional de Queijo</div>
-              <div className="text-2xl font-bold text-primary">{formatCurrency(settings.extraCheesePrice)}</div>
+              <div className="text-sm text-muted-foreground">Molho Extra</div>
+              <div className="text-2xl font-bold text-primary">{formatCurrency(settings.extraSaucePrice || 0)}</div>
+            </div>
+            <div className="p-4 bg-muted rounded-lg">
+              <div className="text-sm text-muted-foreground">Ingrediente Extra</div>
+              <div className="text-2xl font-bold text-primary">{formatCurrency(settings.extraIngredientPrice || 0)}</div>
             </div>
           </div>
         )}
@@ -553,7 +657,7 @@ export default function UnifiedMenuPage() {
         <TabsList className="grid grid-cols-3 w-full max-w-2xl bg-stone-200/50 p-1 rounded-xl">
           <TabsTrigger value="cardapio" className="rounded-lg font-bold data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <UtensilsCrossed className="w-4 h-4 mr-2" />
-            Ingredientes
+            Ingredientes e Extras
           </TabsTrigger>
           <TabsTrigger value="produtos" className="rounded-lg font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
             <PackageOpen className="w-4 h-4 mr-2" />

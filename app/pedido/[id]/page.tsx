@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useStore } from "@/lib/store"
-import { Badge } from "@/components/ui/badge" // <-- IMPORTAÇÃO ADICIONADA AQUI
+import { Badge } from "@/components/ui/badge"
 import { 
   ChefHat, 
   Clock, 
@@ -17,7 +17,8 @@ import {
   ShoppingBag, 
   Ban,
   MapPin,
-  Banknote
+  Banknote,
+  Star
 } from "lucide-react"
 
 function formatCurrency(value: number) {
@@ -192,11 +193,20 @@ export default function OrderTrackingPage() {
                   {item.ingredients?.length > 0 && (
                     <div><span className="font-bold text-stone-500">Ingredientes:</span> <span className="font-semibold text-stone-700 leading-relaxed">{item.ingredients.map(getItemName).join(', ')}</span></div>
                   )}
-                  {item.extraCheese && (
-                    <div className="text-amber-600 font-black mt-2 inline-flex items-center gap-1 bg-amber-100/50 px-2 py-1 rounded">
-                      🧀 Adicional de Queijo
+                  
+                  {/* AQUI ENTRA A VISUALIZAÇÃO DOS EXTRAS NO COMPROVANTE DO CLIENTE */}
+                  {item.extras?.length > 0 && (
+                    <div className="mt-2 pt-1 border-t border-stone-200">
+                      <span className="font-bold text-amber-600 flex items-center gap-1">
+                        <Star className="w-3.5 h-3.5" /> Extras Pagos:
+                      </span> 
+                      <span className="font-black text-amber-800 leading-relaxed">
+                        {item.extras.map(getItemName).join(', ')}
+                      </span>
                     </div>
                   )}
+
+                
                 </div>
               </div>
             ))}

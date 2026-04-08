@@ -67,23 +67,29 @@ export async function getStoreData() {
     sizes: (sizes as any[])
       .map(mapBooleans)
       .map((s) => ({ ...s, price: Number(s.price) })),
-    menuItems: (menuItems as any[]).map(mapBooleans),
+    
+    // CORREÇÃO: Agora ele garante que o preço dos extras seja lido como Número (ou 0)
+    menuItems: (menuItems as any[])
+      .map(mapBooleans)
+      .map((m) => ({ ...m, price: Number(m.price || 0) })),
+
     productCategories: (productCategories as any[]).map(mapBooleans),
     products: (products as any[])
       .map(mapBooleans)
       .map((p) => ({ ...p, price: Number(p.price) })),
     settings: {
-      extraIngredientPrice: Number(settings.extraIngredientPrice),
-      extraCheesePrice: Number(settings.extraCheesePrice),
+      extraPastaPrice: Number(settings.extraPastaPrice || 0),
+      extraSaucePrice: Number(settings.extraSaucePrice || 0),
+      extraIngredientPrice: Number(settings.extraIngredientPrice || 0),
       whatsappMessage: settings.whatsappMessage,
-      autoApprove: settings.autoApprove === 1 || settings.autoApprove === true, // Puxa do banco corretamente
+      autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
     },
     registerOpenedAt: new Date(settings.registerOpenedAt).toISOString(),
     orders: (orders as any[]).map(mapBooleans).map((o) => ({
       ...o,
       total: Number(o.total),
       createdAt: new Date(o.createdAt).toISOString(),
-      deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined, // NOVO: Mapeia o horário de entrega
+      deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined,
       items: typeof o.items === "string" ? JSON.parse(o.items) : o.items,
       products: o.products
         ? typeof o.products === "string"
@@ -141,13 +147,15 @@ export async function dbDispatch(action: string, payload: any) {
       await pool.query("DELETE FROM sizes WHERE id = ?", [payload.id]);
       break;
     case "ADD_MENU_ITEM":
+      // CORREÇÃO: Adicionada a coluna "price" no INSERT para salvar no MySQL
       await pool.query(
-        "INSERT INTO menu_items (id, name, category, isActive) VALUES (?, ?, ?, ?)",
+        "INSERT INTO menu_items (id, name, category, isActive, price) VALUES (?, ?, ?, ?, ?)",
         [
           payload.id || randomUUID(),
           payload.name,
           payload.category,
           payload.isActive,
+          payload.price || 0, // Se não for um extra, salva como 0
         ],
       );
       break;
@@ -215,7 +223,6 @@ export async function dbDispatch(action: string, payload: any) {
       break;
 
     case "ADD_ORDER": {
-      // MAGICA NO BACKEND: Força o status correto com base na configuração da loja global
       const [settingRows]: any = await pool.query(
         "SELECT autoApprove FROM store_settings WHERE id = 1",
       );
@@ -244,11 +251,10 @@ export async function dbDispatch(action: string, payload: any) {
     }
 
     case "UPDATE_ORDER_STATUS":
-      // NOVO: Regista a data e hora de entrega caso seja enviada
       if (payload.deliveredAt) {
         await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [
           payload.status,
-          new Date(payload.deliveredAt), // Converte a string ISO de volta para Date para a DB
+          new Date(payload.deliveredAt),
           payload.id,
         ]);
       } else {

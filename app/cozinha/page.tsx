@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChefHat, Clock, AlertCircle } from "lucide-react";
+import { Check, ChefHat, Clock, AlertCircle, Star } from "lucide-react";
 import Link from "next/link";
 
 function formatTime(dateString: string) {
@@ -140,6 +140,19 @@ function KitchenOrderCard({ order }: { order: any }) {
                   </div>
                 )}
 
+                {/* AQUI ENTRA A VISUALIZAÇÃO DOS EXTRAS NA COZINHA */}
+                {item.extras?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900 flex gap-2 text-amber-700 dark:text-amber-500">
+                    <span className="font-black min-w-[110px] flex items-center gap-1">
+                      <Star className="w-4 h-4" /> Extras:
+                    </span>
+                    <span className="font-black">
+                      {item.extras.map(getItemName).join(", ")}
+                    </span>
+                  </div>
+                )}
+
+                {/* LEGADO: Mantém o queijo antigo se houver */}
                 {item.extraCheese && (
                   <div className="mt-3 inline-block bg-yellow-100 border-2 border-yellow-400 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-500 px-3 py-1 rounded-lg font-black text-lg shadow-sm">
                     + QUEIJO EXTRA

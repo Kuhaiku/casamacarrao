@@ -65,8 +65,9 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
   productCategories: [],
   products: [],
   settings: {
+    extraPastaPrice: 0.0,
+    extraSaucePrice: 3.0,
     extraIngredientPrice: 3.0,
-    extraCheesePrice: 8.0,
     whatsappMessage: "",
     autoApprove: false,
   },
@@ -173,7 +174,6 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
       }),
     }));
     
-    // Passa o deliveredAt para o backend gravar no banco de dados
     await dbDispatch("UPDATE_ORDER_STATUS", { id, status, deliveredAt });
     get().sync();
   },
@@ -207,7 +207,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
   getSizeById: (id) => get().sizes.find((s) => s.id === id),
 
   calculateOrderTotal: (items, products = []) => {
-    const { sizes, settings, products: storeProducts } = get();
+    const { sizes, settings, products: storeProducts, menuItems } = get();
     let total = 0;
 
     for (const item of items) {
@@ -215,18 +215,35 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
       if (!size) continue;
       total += size.price;
 
-      if (!size.strictMaxIngredients) {
+      if (!size.strictMaxPastas && item.pastas?.length) {
+        total +=
+          Math.max(0, item.pastas.length - size.maxPastas) *
+          (settings.extraPastaPrice || 0);
+      }
+
+      if (!size.strictMaxIngredients && item.ingredients?.length) {
         total +=
           Math.max(0, item.ingredients.length - size.maxIngredients) *
-          settings.extraIngredientPrice;
+          (settings.extraIngredientPrice || 0);
       }
-      if (!size.strictMaxSauces) {
+
+      if (!size.strictMaxSauces && item.sauces?.length) {
         total +=
           Math.max(0, item.sauces.length - size.maxSauces) *
-          settings.extraIngredientPrice;
+          (settings.extraSaucePrice || 0);
       }
+
+      if (item.extras?.length) {
+        for (const extraId of item.extras) {
+          const extraItem = menuItems.find(m => m.id === extraId);
+          if (extraItem && extraItem.price) {
+            total += extraItem.price;
+          }
+        }
+      }
+
       if (item.extraCheese) {
-        total += settings.extraCheesePrice;
+        total += 3.0;
       }
     }
 
