@@ -14,7 +14,8 @@ import {
   Check,
   AlertCircle,
   Lock,
-  Unlock
+  Unlock,
+  Star
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 
@@ -46,7 +47,7 @@ function MesaContent() {
   const [customerName, setCustomerName] = useState("");
   const [mesa, setMesa] = useState("");
   const [observation, setObservation] = useState("");
-  const [isMesaLocked, setIsMesaLocked] = useState(false); // Estado do Cadeado
+  const [isMesaLocked, setIsMesaLocked] = useState(false);
 
   useEffect(() => {
     sync();
@@ -56,7 +57,7 @@ function MesaContent() {
     const urlMesa = searchParams.get("n") || searchParams.get("mesa");
     if (urlMesa) {
       setMesa(urlMesa);
-      setIsMesaLocked(true); // Vem travado (vermelho)
+      setIsMesaLocked(true);
     }
 
     const timer = setTimeout(() => {
@@ -126,9 +127,9 @@ function MesaContent() {
     addOrder({
       id: trackingId,
       customerName,
-      phone: "Não informado", // Removido do front, setado fixo
+      phone: "Não informado", // Fixo para mesas
       address: `Mesa ${mesa}`, 
-      paymentMethod: "dinheiro" as any, // Fixo, pois vão pagar no caixa
+      paymentMethod: "dinheiro" as any, // Fixo, pois vão pagar no caixa/garçom
       items: cartSelfService,
       products: cartAvulsos.map((p) => ({
         productId: p.productId,
@@ -202,13 +203,22 @@ function MesaContent() {
           ) : (
             <>
               {cartSelfService.map((item: any) => {
-                let sub = sizes.find((s: any) => s.id === item.sizeId)?.price || 0;
                 const size = sizes.find((s: any) => s.id === item.sizeId);
-                if (size && !size.strictMaxIngredients)
-                  sub += Math.max(0, item.ingredients.length - size.maxIngredients) * settings.extraIngredientPrice;
-                if (size && !size.strictMaxSauces)
-                  sub += Math.max(0, item.sauces.length - size.maxSauces) * settings.extraIngredientPrice;
-                if (item.extraCheese) sub += settings.extraCheesePrice;
+                let sub = size?.price || 0;
+                
+                // Recálculo dinâmico na sacola
+                if (size) {
+                  if (!size.strictMaxIngredients) sub += Math.max(0, item.ingredients.length - size.maxIngredients) * (settings.extraIngredientPrice || 0);
+                  if (!size.strictMaxSauces) sub += Math.max(0, item.sauces.length - size.maxSauces) * (settings.extraSaucePrice || 0);
+                  if (!size.strictMaxPastas && item.pastas?.length) sub += Math.max(0, item.pastas.length - size.maxPastas) * (settings.extraPastaPrice || 0);
+                  
+                  item.extras?.forEach((extId: string) => {
+                    const extraItem = menuItems.find((m: any) => m.id === extId);
+                    if (extraItem && extraItem.price) sub += extraItem.price;
+                  });
+                  
+                  if (item.extraCheese) sub += 3.0; // Mantém para pedidos antigos
+                }
 
                 return (
                   <div key={item.id} className="flex justify-between items-start border-b border-stone-100 pb-3">
@@ -219,6 +229,11 @@ function MesaContent() {
                       <p className="text-[11px] sm:text-xs text-stone-500 mt-1 leading-snug">
                         {menuItems.find((m: any) => m.id === item.pastaId)?.name} • {item.sauces?.map((sId: string) => menuItems.find((m: any) => m.id === sId)?.name).join(", ")}
                       </p>
+                      {item.extras?.length > 0 && (
+                        <p className="text-[11px] text-amber-600 font-bold mt-0.5 flex items-center gap-1">
+                          <Star className="w-3 h-3" /> {item.extras.map((eId: string) => menuItems.find((m:any) => m.id === eId)?.name).join(", ")}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       <span className="font-semibold text-stone-700 text-sm">{formatCurrency(sub)}</span>
@@ -444,7 +459,7 @@ function OrderBuilder({ db, onFinish, formatCurrency }: any) {
     sauces: [] as string[],
     temperos: [] as string[],
     ingredients: [] as string[],
-    extraCheese: false,
+    extras: [] as string[],
   });
 
   const setOrd = (patch: any) => setOrder((p) => ({ ...p, ...patch }));
@@ -458,18 +473,24 @@ function OrderBuilder({ db, onFinish, formatCurrency }: any) {
 
   const selectedSize = db.sizes.find((s: any) => s.id === order.sizeId);
   let currentTotal = selectedSize?.price || 0;
+  
   if (selectedSize) {
     if (!selectedSize.strictMaxSauces)
-      currentTotal += Math.max(0, order.sauces.length - selectedSize.maxSauces) * db.settings.extraIngredientPrice;
+      currentTotal += Math.max(0, order.sauces.length - selectedSize.maxSauces) * (db.settings.extraSaucePrice || 0);
     if (!selectedSize.strictMaxIngredients)
-      currentTotal += Math.max(0, order.ingredients.length - selectedSize.maxIngredients) * db.settings.extraIngredientPrice;
-    if (order.extraCheese) currentTotal += db.settings.extraCheesePrice;
+      currentTotal += Math.max(0, order.ingredients.length - selectedSize.maxIngredients) * (db.settings.extraIngredientPrice || 0);
+    
+    order.extras.forEach((extId: string) => {
+      const extraItem = db.menuItems.find((m:any) => m.id === extId);
+      if(extraItem && extraItem.price) currentTotal += extraItem.price;
+    });
   }
 
   const massas = db.menuItems.filter((i: any) => i.isActive && i.category === "pasta");
   const molhos = db.menuItems.filter((i: any) => i.isActive && i.category === "sauce");
   const temperos = db.menuItems.filter((i: any) => i.isActive && i.category === "seasoning");
   const ingredientes = db.menuItems.filter((i: any) => i.isActive && i.category === "ingredient");
+  const extras = db.menuItems.filter((i: any) => i.isActive && i.category === "extra");
 
   return (
     <div className="max-w-xl mx-auto w-full flex flex-col">
@@ -539,10 +560,10 @@ function OrderBuilder({ db, onFinish, formatCurrency }: any) {
               <h2 className="text-lg sm:text-xl font-bold text-stone-800">Molhos</h2>
               <span className="text-[10px] sm:text-xs font-bold bg-stone-100 px-2 py-1 rounded-full text-stone-600">{order.sauces.length}/{selectedSize?.maxSauces}</span>
             </div>
-            <p className="text-xs sm:text-sm text-stone-500 mb-3 sm:mb-4">Adicionais custam {formatCurrency(db.settings.extraIngredientPrice)}.</p>
+            <p className="text-xs sm:text-sm text-stone-500 mb-3 sm:mb-4">Adicionais custam {formatCurrency(db.settings.extraSaucePrice || 0)}.</p>
             {order.sauces.length > (selectedSize?.maxSauces || 1) && !selectedSize?.strictMaxSauces && (
               <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 sm:p-3 rounded-xl flex items-center gap-2 mb-4 text-[11px] sm:text-sm font-medium">
-                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 shrink-0" /> Molhos extras (+{formatCurrency((order.sauces.length - selectedSize!.maxSauces) * db.settings.extraIngredientPrice)})
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 shrink-0" /> Molhos extras (+{formatCurrency((order.sauces.length - selectedSize!.maxSauces) * (db.settings.extraSaucePrice || 0))})
               </div>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
@@ -584,13 +605,15 @@ function OrderBuilder({ db, onFinish, formatCurrency }: any) {
               <h2 className="text-lg sm:text-xl font-bold text-stone-800">Ingredientes</h2>
               <span className="text-[10px] sm:text-xs font-bold bg-stone-100 px-2 py-1 rounded-full text-stone-600">{order.ingredients.length}/{selectedSize?.maxIngredients}</span>
             </div>
-            <p className="text-xs sm:text-sm text-stone-500 mb-3 sm:mb-4">Adicionais custam {formatCurrency(db.settings.extraIngredientPrice)}.</p>
+            <p className="text-xs sm:text-sm text-stone-500 mb-3 sm:mb-4">Adicionais custam {formatCurrency(db.settings.extraIngredientPrice || 0)}.</p>
+            
             {order.ingredients.length > (selectedSize?.maxIngredients || 4) && !selectedSize?.strictMaxIngredients && (
               <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 sm:p-3 rounded-xl flex items-center gap-2 mb-4 text-[11px] sm:text-sm font-medium">
-                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 shrink-0" /> Ingredientes extras (+{formatCurrency((order.ingredients.length - selectedSize!.maxIngredients) * db.settings.extraIngredientPrice)})
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 shrink-0" /> Ingredientes extras (+{formatCurrency((order.ingredients.length - selectedSize!.maxIngredients) * (db.settings.extraIngredientPrice || 0))})
               </div>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-5 sm:mb-6">
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-6">
               {ingredientes.map((i: any) => {
                 const isActive = order.ingredients.includes(i.id);
                 return (
@@ -601,18 +624,49 @@ function OrderBuilder({ db, onFinish, formatCurrency }: any) {
                 );
               })}
             </div>
-            <button onClick={() => setOrd({ extraCheese: !order.extraCheese })} className={`w-full flex items-center justify-between p-3 sm:p-4 rounded-xl border-2 transition-all ${order.extraCheese ? "border-yellow-400 bg-yellow-50" : "border-stone-200 hover:border-yellow-300 bg-white"}`}>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <span className="text-xl sm:text-2xl">🧀</span>
-                <div className="text-left">
-                  <p className="font-bold text-stone-800 text-xs sm:text-sm">Adicional de Queijo</p>
+
+            {/* RENDERIZAÇÃO DINÂMICA DOS ADICIONAIS EXTRAS (MESA) */}
+            {extras.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-stone-200">
+                <h3 className="text-sm font-bold text-stone-800 mb-1">Adicionais Extras</h3>
+                <p className="text-[11px] sm:text-xs text-stone-500 mb-3">Turbine seu pedido! (Valores cobrados à parte)</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {extras.map((e: any) => {
+                    const isActive = order.extras.includes(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        onClick={() => {
+                          if (isActive) setOrd({ extras: order.extras.filter((id: string) => id !== e.id) });
+                          else setOrd({ extras: [...order.extras, e.id] });
+                        }}
+                        className={`w-full flex items-center justify-between p-3 sm:p-4 rounded-xl border-2 transition-all ${isActive ? "border-amber-400 bg-amber-50" : "border-stone-200 hover:border-amber-300 bg-white"}`}
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <Star className={`w-4 h-4 sm:w-5 sm:h-5 ${isActive ? "text-amber-500" : "text-stone-300"}`} />
+                          <div className="text-left">
+                            <p className={`font-bold text-xs sm:text-sm ${isActive ? "text-amber-900" : "text-stone-800"}`}>
+                              {e.name}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <span className="font-bold text-amber-600 text-xs sm:text-sm">
+                            +{formatCurrency(e.price || 0)}
+                          </span>
+                          {isActive && (
+                            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-400 flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="flex items-center gap-1 sm:gap-2">
-                <span className="font-bold text-amber-600 text-xs sm:text-sm">+{formatCurrency(db.settings.extraCheesePrice)}</span>
-                {order.extraCheese && <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-400 flex items-center justify-center"><Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" /></div>}
-              </div>
-            </button>
+            )}
+
           </div>
         )}
       </div>
