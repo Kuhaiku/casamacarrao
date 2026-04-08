@@ -15,7 +15,8 @@ import {
   ArrowLeft,
   Check,
   AlertCircle,
-  Star
+  Star,
+  MapPin // <-- Ícone importado
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 
@@ -46,6 +47,9 @@ export default function CustomerHome() {
 
   // Estado para o feedback visual da sacola
   const [cartBump, setCartBump] = useState(false);
+  
+  // NOVO: Estado de carregamento da localização
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
   const [cartAvulsos, setCartAvulsos] = useState<
     { id: string; productId: string; product: any; quantity: number }[]
@@ -55,7 +59,7 @@ export default function CustomerHome() {
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [payment, setPayment] = useState("pix");
+  const [payment, setPayment] = useState<"pix" | "cartao" | "dinheiro">("pix");
   const [observation, setObservation] = useState("");
 
   const cartTotal = calculateOrderTotal(cartSelfService, cartAvulsos);
@@ -74,7 +78,6 @@ export default function CustomerHome() {
     return () => clearTimeout(timer);
   }, [sync]);
 
-  // Efeito para acionar a animação sempre que um item for adicionado
   useEffect(() => {
     if (totalItemsCount > prevItemsCount.current) {
       setCartBump(true);
@@ -159,6 +162,52 @@ export default function CustomerHome() {
     router.push(`/pedido/${trackingId}`);
   };
 
+  // NOVO: Função que puxa a localização via GPS e busca o endereço
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Seu navegador não suporta geolocalização.");
+      return;
+    }
+
+    setIsFetchingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await response.json();
+
+          if (data && data.address) {
+            const road = data.address.road || "";
+            const suburb = data.address.suburb || data.address.neighbourhood || "";
+            const city = data.address.city || data.address.town || "";
+            
+            const formattedAddress = `${road}${suburb ? `, ${suburb}` : ""}${city ? ` - ${city}` : ""}`.replace(/^,\s*/, '');
+            
+            if (formattedAddress) {
+               setAddress(formattedAddress + ", Nº "); // Já deixa o espaço para o cliente pôr o número
+            } else {
+               setAddress(data.display_name);
+            }
+          }
+        } catch (error) {
+          alert("Erro ao buscar o endereço. Por favor, digite manualmente.");
+        } finally {
+          setIsFetchingLocation(false);
+        }
+      },
+      (error) => {
+        setIsFetchingLocation(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          alert("Você precisa permitir o acesso à localização no seu navegador.");
+        } else {
+          alert("Não foi possível pegar sua localização.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const formatCurrency = (value: number) =>
     (value || 0).toLocaleString("pt-BR", {
       style: "currency",
@@ -220,7 +269,6 @@ export default function CustomerHome() {
                 const size = sizes.find((s: any) => s.id === item.sizeId);
                 let sub = size?.price || 0;
                 
-                // Recálculo dinâmico na sacola
                 if (size) {
                   if (!size.strictMaxIngredients) sub += Math.max(0, item.ingredients.length - size.maxIngredients) * (settings.extraIngredientPrice || 0);
                   if (!size.strictMaxSauces) sub += Math.max(0, item.sauces.length - size.maxSauces) * (settings.extraSaucePrice || 0);
@@ -231,7 +279,7 @@ export default function CustomerHome() {
                     if (extraItem && extraItem.price) sub += extraItem.price;
                   });
                   
-                  if (item.extraCheese) sub += 3.0; // Mantém para pedidos antigos
+                  if (item.extraCheese) sub += 3.0;
                 }
 
                 return (
@@ -332,14 +380,27 @@ export default function CustomerHome() {
               disabled={isCartEmpty}
               className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
             />
-            <input
-              type="text"
-              placeholder="Endereço Completo de Entrega"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              disabled={isCartEmpty}
-              className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
-            />
+            
+            {/* NOVO: Bloco do endereço com botão de GPS */}
+            <div className="space-y-1.5">
+              <input
+                type="text"
+                placeholder="Endereço Completo de Entrega"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                disabled={isCartEmpty}
+                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
+              />
+              <button
+                onClick={handleGetLocation}
+                disabled={isCartEmpty || isFetchingLocation}
+                className="w-full flex items-center justify-center gap-1.5 py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+              >
+                <MapPin className="w-3.5 h-3.5 text-orange-600" />
+                {isFetchingLocation ? "Buscando localização..." : "Usar minha localização atual"}
+              </button>
+            </div>
+
             <textarea
               placeholder="Observação (Ex: Troco para R$50, tirar azeitona...)"
               value={observation}
@@ -352,7 +413,7 @@ export default function CustomerHome() {
               {Object.entries(PAY_META).map(([key, { label, icon: Icon }]) => (
                 <button
                   key={key}
-                  onClick={() => setPayment(key)}
+                  onClick={() => setPayment(key as "pix" | "cartao" | "dinheiro")}
                   disabled={isCartEmpty}
                   className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all disabled:opacity-50 ${payment === key && !isCartEmpty ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-500"}`}
                 >
@@ -759,7 +820,6 @@ function OrderBuilder({ db, onFinish, formatCurrency }: any) {
               })}
             </div>
 
-            {/* AQUI ENTRA A RENDERIZAÇÃO DINÂMICA DOS ADICIONAIS EXTRAS (SUBSTITUINDO O QUEIJO FIXO) */}
             {extras.length > 0 && (
               <div className="mt-4 pt-4 border-t border-stone-200">
                 <h3 className="text-sm font-bold text-stone-800 mb-1">Adicionais Extras</h3>
