@@ -167,7 +167,7 @@ function ExtrasStep() {
             </div>
           </div>
           <Badge variant="secondary">
-            +{formatCurrency(settings.extraCheesePrice)}
+            
           </Badge>
         </label>
       </div>
