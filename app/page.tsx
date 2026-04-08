@@ -1,16 +1,14 @@
 // app/page.tsx
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChefHat,
   ShoppingBag,
   Plus,
-  Utensils,
   ArrowRight,
   Trash2,
-  CheckCircle2,
   CreditCard,
   Banknote,
   Smartphone,
@@ -45,6 +43,9 @@ export default function CustomerHome() {
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Estado para o feedback visual da sacola
+  const [cartBump, setCartBump] = useState(false);
+
   const [cartAvulsos, setCartAvulsos] = useState<
     { id: string; productId: string; product: any; quantity: number }[]
   >([]);
@@ -55,6 +56,13 @@ export default function CustomerHome() {
   const [address, setAddress] = useState("");
   const [payment, setPayment] = useState("pix");
   const [observation, setObservation] = useState("");
+
+  const cartTotal = calculateOrderTotal(cartSelfService, cartAvulsos);
+  const totalItemsCount =
+    cartAvulsos.reduce((acc, i) => acc + i.quantity, 0) +
+    cartSelfService.length;
+
+  const prevItemsCount = useRef(totalItemsCount);
 
   useEffect(() => {
     sync();
@@ -67,10 +75,17 @@ export default function CustomerHome() {
     return () => clearTimeout(timer);
   }, [sync]);
 
-  const cartTotal = calculateOrderTotal(cartSelfService, cartAvulsos);
-  const totalItemsCount =
-    cartAvulsos.reduce((acc, i) => acc + i.quantity, 0) +
-    cartSelfService.length;
+  // Efeito para acionar a animação sempre que um item for adicionado
+  useEffect(() => {
+    if (totalItemsCount > prevItemsCount.current) {
+      setCartBump(true);
+      const timer = setTimeout(() => setCartBump(false), 400); // Duração do pulo
+      prevItemsCount.current = totalItemsCount;
+      return () => clearTimeout(timer);
+    } else {
+      prevItemsCount.current = totalItemsCount;
+    }
+  }, [totalItemsCount]);
 
   const itemsBySection = useMemo(() => {
     const grouped: Record<string, any[]> = {};
@@ -107,6 +122,7 @@ export default function CustomerHome() {
 
   const handleRemoveAvulso = (cartId: string) =>
     setCartAvulsos((prev) => prev.filter((item) => item.id !== cartId));
+
   const handleAddSelfService = (macarrao: any) => {
     setCartSelfService((prev) => [
       ...prev,
@@ -114,6 +130,7 @@ export default function CustomerHome() {
     ]);
     setView("menu");
   };
+
   const handleRemoveSelfService = (cartId: string) =>
     setCartSelfService((prev) => prev.filter((item) => item.id !== cartId));
 
@@ -357,7 +374,7 @@ export default function CustomerHome() {
       <div
         className={`flex-1 flex flex-col h-full transition-all duration-300 ${isMobileCartOpen ? "hidden lg:flex" : "flex w-full"}`}
       >
-        <div className="bg-stone-900 text-white px-4 sm:px-6 py-4 sm:py-6 shadow-md z-10 shrink-0">
+        <div className="bg-stone-900 text-white px-4 sm:px-6 py-4 sm:py-6 shadow-md z-20 shrink-0">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-700 rounded-full flex items-center justify-center shrink-0">
@@ -375,42 +392,53 @@ export default function CustomerHome() {
           </div>
         </div>
 
-        {/* Padding inferior normal, pois removemos o botão flutuante */}
+        {/* NOVA POSIÇÃO DA SACOLA: Fixa no topo (abaixo do header), independente do scroll da página principal */}
+        <div className="lg:hidden bg-stone-50 px-4 py-3 border-b border-stone-200 z-10 shadow-sm shrink-0">
+          <button
+            onClick={() => setIsMobileCartOpen(true)}
+            className={`w-full rounded-2xl p-3 shadow-md flex items-center justify-between transition-all duration-300 ${
+              cartBump
+                ? "bg-orange-600 text-white scale-[1.02] ring-4 ring-orange-500/30"
+                : "bg-stone-900 text-white active:scale-[0.98]"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="relative flex-shrink-0">
+                <ShoppingBag
+                  className={`w-5 h-5 transition-transform ${cartBump ? "animate-bounce text-white" : "text-stone-200"}`}
+                />
+                {totalItemsCount > 0 && (
+                  <span
+                    className={`absolute -top-2 -right-2 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center border-2 border-stone-900 ${
+                      cartBump ? "bg-white text-orange-600 border-orange-600" : "bg-orange-600 text-white"
+                    }`}
+                  >
+                    {totalItemsCount}
+                  </span>
+                )}
+              </div>
+              <div className="text-left flex flex-col">
+                <span className="font-bold text-sm tracking-wide">Minha Sacola</span>
+                <span
+                  className={`text-xs transition-colors ${cartBump ? "text-orange-100" : "text-stone-400"}`}
+                >
+                  {totalItemsCount} item(s)
+                </span>
+              </div>
+            </div>
+            <span
+              className={`font-black text-base transition-colors ${cartBump ? "text-white" : "text-orange-500"}`}
+            >
+              {formatCurrency(cartTotal)}
+            </span>
+          </button>
+        </div>
+
         <main className="flex-1 max-w-3xl mx-auto w-full p-4 lg:p-8 overflow-y-auto pb-8">
           {view === "menu" ? (
             <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {/* NOVO: Botão da Sacola Embutido no Topo da Página (Para Mobile) */}
-              <div className="lg:hidden">
-                <button
-                  onClick={() => setIsMobileCartOpen(true)}
-                  className="w-full bg-stone-900 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between active:scale-[0.98] transition-transform"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex-shrink-0">
-                      <ShoppingBag className="w-6 h-6 text-stone-200" />
-                      {totalItemsCount > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-orange-600 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-stone-900">
-                          {totalItemsCount}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-left flex flex-col">
-                      <span className="font-bold text-sm tracking-wide">
-                        Minha Sacola
-                      </span>
-                      <span className="text-stone-400 text-xs">
-                        {totalItemsCount} item(s)
-                      </span>
-                    </div>
-                  </div>
-                  <span className="font-black text-orange-500 text-lg">
-                    {formatCurrency(cartTotal)}
-                  </span>
-                </button>
-              </div>
-
               <section>
-                <div className="mb-2 sm:mb-3">
+                <div className="mb-2 sm:mb-3 mt-2 lg:mt-0">
                   <h2 className="text-base sm:text-lg font-bold text-stone-800">
                     Self-Service
                   </h2>
@@ -472,7 +500,7 @@ export default function CustomerHome() {
               ))}
             </div>
           ) : (
-            <div className="animate-in fade-in slide-in-from-right-8 duration-300">
+            <div className="animate-in fade-in slide-in-from-right-8 duration-300 mt-2 lg:mt-0">
               <button
                 onClick={() => setView("menu")}
                 className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-bold text-orange-700 mb-4 sm:mb-6 hover:text-orange-800"
@@ -493,7 +521,6 @@ export default function CustomerHome() {
         {renderCartContent()}
       </aside>
 
-      {/* Modal da Sacola em Dispositivos Móveis (Removido o div com bottom fixo) */}
       {isMobileCartOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex flex-col bg-stone-900/50 backdrop-blur-sm animate-in fade-in">
           <div

@@ -21,7 +21,11 @@ import {
   Lock,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Check,
+  Truck,
+  Ban,
+  DollarSign
 } from "lucide-react";
 import type { Order } from "@/lib/types";
 
@@ -60,8 +64,11 @@ export default function AdminDashboardPage() {
 
   // Processamento de Dados
   const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses } = useMemo(() => {
-    // Pedidos que ainda não foram pagos e não estão cancelados
-    const active = orders.filter(o => !o.isPaid && o.status !== "cancelado");
+    // Pedidos ficam no painel até estarem CANCELADOS ou (ENTREGUES + PAGOS)
+    const active = orders.filter(o => 
+      o.status !== "cancelado" && 
+      !(o.status === "entregue" && o.isPaid)
+    );
     
     return {
       activeLocalOrders: active.filter(o => getOrderType(o.address) === "LOCAL"),
@@ -90,20 +97,15 @@ export default function AdminDashboardPage() {
       addTip({ amount: tipValue, description: `10% Serviço - ${orderToPay.address}` });
     }
 
-    toggleOrderPaid(orderToPay.id);
+    if (!orderToPay.isPaid) {
+      toggleOrderPaid(orderToPay.id);
+    }
+    
     if (orderToPay.status !== "entregue") {
       updateOrderStatus(orderToPay.id, "entregue");
     }
     
     setOrderToPay(null);
-  };
-
-  // Fechar pedido de Entrega direto
-  const handleDeliveryPaid = (orderId: string, currentStatus: string) => {
-    toggleOrderPaid(orderId);
-    if (currentStatus !== "entregue") {
-      updateOrderStatus(orderId, "entregue");
-    }
   };
 
   return (
@@ -156,7 +158,9 @@ export default function AdminDashboardPage() {
       {/* 2. PAINEL DE OPERAÇÃO DIVIDIDO */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* COLUNA 1: MESAS */}
+        {/* =========================================
+            COLUNA 1: MESAS (LOCAL)
+        ========================================= */}
         <div className="col-span-1 lg:col-span-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-200 dark:border-blue-900">
             <Utensils className="w-5 h-5 text-blue-600" />
@@ -178,12 +182,14 @@ export default function AdminDashboardPage() {
                         <h3 className="font-black text-lg text-blue-900 dark:text-blue-400">{order.address}</h3>
                         <p className="text-sm text-stone-500 font-medium">{order.customerName}</p>
                       </div>
-                      <Badge className={order.status === "pronto" || order.status === "entregue" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
+                      <Badge className={
+                        order.status === "pronto" || order.status === "entregue" ? "bg-green-100 text-green-700" : 
+                        order.status === "novo" ? "bg-stone-100 text-stone-700" : "bg-orange-100 text-orange-700"
+                      }>
                         {order.status.toUpperCase()}
                       </Badge>
                     </div>
 
-                    {/* OBSERVAÇÃO - MESAS */}
                     {order.observation && (
                       <div className="mb-2 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
                         <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-500 mb-0.5">
@@ -196,22 +202,51 @@ export default function AdminDashboardPage() {
                       </div>
                     )}
 
-                    <div className="flex items-end justify-between mt-4">
+                    <div className="flex items-end justify-between mt-4 border-b border-blue-50 pb-4 mb-4">
                       <div>
                         <p className="text-xs text-stone-400 uppercase font-bold tracking-wider mb-0.5">Subtotal</p>
                         <p className="font-black text-xl text-stone-800 dark:text-stone-200">{formatCurrency(order.total)}</p>
                       </div>
-                      <Button 
-                        onClick={() => {
-                          setOrderToPay(order);
-                          setPaymentMethodFinal(order.paymentMethod);
-                          setAddTenPercent(false); // Reset padrão
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 font-bold"
-                      >
-                        <Receipt className="w-4 h-4 mr-2" /> Fechar Conta
+                      
+                      {!order.isPaid ? (
+                        <Button 
+                          onClick={() => {
+                            setOrderToPay(order);
+                            setPaymentMethodFinal(order.paymentMethod);
+                            setAddTenPercent(false); 
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 font-bold"
+                        >
+                          <Receipt className="w-4 h-4 mr-2" /> Fechar Conta
+                        </Button>
+                      ) : (
+                        <Badge className="bg-green-600 text-white px-3 py-1 text-sm"><CheckCircle2 className="w-4 h-4 mr-1" /> Pago</Badge>
+                      )}
+                    </div>
+
+                    {/* AÇÕES DE STATUS - MESAS */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {order.status === "novo" && (
+                        <Button onClick={() => updateOrderStatus(order.id, "aprovado")} className="bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+                          <Check className="w-4 h-4 mr-1" /> Aprovar
+                        </Button>
+                      )}
+                      {order.status === "aprovado" && (
+                        <Button onClick={() => updateOrderStatus(order.id, "pronto")} className="bg-orange-600 hover:bg-orange-700 text-white" size="sm">
+                          <Utensils className="w-4 h-4 mr-1" /> Pronto
+                        </Button>
+                      )}
+                      {order.status === "pronto" && (
+                        <Button onClick={() => updateOrderStatus(order.id, "entregue")} className="bg-green-600 hover:bg-green-700 text-white" size="sm">
+                          <CheckCircle2 className="w-4 h-4 mr-1" /> Servido
+                        </Button>
+                      )}
+
+                      <Button variant="ghost" size="sm" onClick={() => updateOrderStatus(order.id, "cancelado")} className="text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto">
+                        <Ban className="w-4 h-4 mr-1" /> Cancelar
                       </Button>
                     </div>
+
                   </CardContent>
                 </Card>
               ))
@@ -219,7 +254,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* COLUNA 2: ENTREGAS */}
+        {/* =========================================
+            COLUNA 2: ENTREGAS
+        ========================================= */}
         <div className="col-span-1 lg:col-span-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-200 dark:border-purple-900">
             <Motorbike className="w-5 h-5 text-purple-600" />
@@ -230,7 +267,7 @@ export default function AdminDashboardPage() {
           <div className="space-y-3">
             {activeDeliveryOrders.length === 0 ? (
               <div className="text-center p-8 border border-dashed rounded-xl border-stone-300 text-stone-400">
-                Nenhuma entrega pendente de pagamento.
+                Nenhuma entrega pendente.
               </div>
             ) : (
               activeDeliveryOrders.map(order => (
@@ -244,16 +281,17 @@ export default function AdminDashboardPage() {
                       <Badge className={
                         order.status === "pronto" ? "bg-amber-100 text-amber-700" :
                         order.status === "despachado" ? "bg-blue-100 text-blue-700" :
+                        order.status === "novo" ? "bg-stone-100 text-stone-700" :
                         "bg-stone-100 text-stone-600"
                       }>
-                        {order.status === "pronto" ? "AGUARDANDO RETIRADA" : 
+                        {order.status === "pronto" ? "AGUARDANDO MOTOBOY" : 
                          order.status === "despachado" ? "SAIU P/ ENTREGA" : 
                          order.status.toUpperCase()}
                       </Badge>
                     </div>
                     
                     <div className="bg-stone-50 dark:bg-stone-800 p-2 rounded-lg text-xs font-bold text-stone-600 flex items-center justify-between mb-3 border border-stone-100">
-                      <span>Pagamento via:</span>
+                      <span>Via:</span>
                       <span className="uppercase text-purple-700 dark:text-purple-400 flex items-center gap-1">
                         {order.paymentMethod === "pix" && <QrCode className="w-3 h-3" />}
                         {order.paymentMethod === "cartao" && <CreditCard className="w-3 h-3" />}
@@ -262,7 +300,6 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
 
-                    {/* OBSERVAÇÃO - ENTREGAS */}
                     {order.observation && (
                       <div className="mb-3 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
                         <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-500 mb-0.5">
@@ -275,15 +312,55 @@ export default function AdminDashboardPage() {
                       </div>
                     )}
 
-                    <div className="flex items-end justify-between mt-2">
+                    <div className="mb-4">
                       <p className="font-black text-xl text-stone-800 dark:text-stone-200">{formatCurrency(order.total)}</p>
-                      <Button 
-                        onClick={() => handleDeliveryPaid(order.id, order.status)}
-                        className="bg-green-600 hover:bg-green-700 font-bold text-xs px-3"
+                    </div>
+
+                    {/* AÇÕES - ENTREGAS (Status desacoplado do pagamento) */}
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-purple-50">
+                      
+                      {/* PAGAMENTO */}
+                      <Button
+                        variant={order.isPaid ? "default" : "outline"}
+                        className={`${
+                          order.isPaid 
+                            ? "bg-green-600 hover:bg-green-700 text-white" 
+                            : "text-stone-500 border-stone-300 hover:bg-stone-100"
+                        }`}
+                        onClick={() => toggleOrderPaid(order.id)}
+                        size="sm"
                       >
-                        <CheckCircle2 className="w-4 h-4 mr-1.5" /> Pago
+                        <DollarSign className="w-4 h-4 mr-1" />
+                        {order.isPaid ? "Pago" : "Marcar Pago"}
+                      </Button>
+
+                      {/* STATUS FLOW */}
+                      {order.status === "novo" && (
+                        <Button onClick={() => updateOrderStatus(order.id, "aprovado")} className="bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+                          <Check className="w-4 h-4 mr-1" /> Aprovar
+                        </Button>
+                      )}
+                      {order.status === "aprovado" && (
+                        <Button onClick={() => updateOrderStatus(order.id, "pronto")} className="bg-orange-600 hover:bg-orange-700 text-white" size="sm">
+                          <Utensils className="w-4 h-4 mr-1" /> Pronto
+                        </Button>
+                      )}
+                      {order.status === "pronto" && (
+                        <Button onClick={() => updateOrderStatus(order.id, "despachado")} className="bg-purple-600 hover:bg-purple-700 text-white" size="sm">
+                          <Truck className="w-4 h-4 mr-1" /> Despachar
+                        </Button>
+                      )}
+                      {order.status === "despachado" && (
+                        <Button onClick={() => updateOrderStatus(order.id, "entregue")} className="bg-green-600 hover:bg-green-700 text-white" size="sm">
+                          <CheckCircle2 className="w-4 h-4 mr-1" /> Entregue
+                        </Button>
+                      )}
+
+                      <Button variant="ghost" size="sm" onClick={() => updateOrderStatus(order.id, "cancelado")} className="text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto p-2">
+                        <Ban className="w-4 h-4" />
                       </Button>
                     </div>
+
                   </CardContent>
                 </Card>
               ))
@@ -291,7 +368,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* COLUNA 3: CAIXA RÁPIDO */}
+        {/* =========================================
+            COLUNA 3: CAIXA RÁPIDO
+        ========================================= */}
         <div className="col-span-1 lg:col-span-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b-2 border-stone-200 dark:border-stone-800">
             <Wallet className="w-5 h-5 text-stone-600" />
