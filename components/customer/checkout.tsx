@@ -1,4 +1,3 @@
-// components/customer/checkout.tsx
 "use client"
 
 import { useState } from "react"
@@ -33,7 +32,7 @@ function SuccessScreen() {
       </div>
       <h1 className="text-3xl font-bold text-foreground mb-3">Pedido Enviado!</h1>
       <p className="text-muted-foreground mb-8">
-        Seu pedido foi recebido e está aguardando aprovação. Em breve começaremos a preparar!
+        O seu pedido foi recebido e aguarda aprovação. Em breve começaremos a preparar!
       </p>
       <Button size="lg" onClick={resetOrder}>
         Fazer Novo Pedido
@@ -56,10 +55,10 @@ export function Checkout() {
   } = useOrder()
 
   const [phone, setPhone] = useState("")
+  const [addressNumber, setAddressNumber] = useState("") 
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [errors, setErrors] = useState<{ name?: string; address?: string; phone?: string }>({})
   
-  // Estado local para os produtos avulsos selecionados no carrinho
   const [selectedProducts, setSelectedProducts] = useState<OrderProduct[]>([])
 
   const total = calculateOrderTotal(items, selectedProducts)
@@ -83,7 +82,12 @@ export function Checkout() {
     const newErrors: typeof errors = {}
     if (!customerName.trim()) newErrors.name = "Nome é obrigatório"
     if (!phone.trim()) newErrors.phone = "Telefone é obrigatório"
-    if (!address.trim()) newErrors.address = "Endereço é obrigatório"
+    
+    const finalAddress = addressNumber.trim() 
+      ? `${address.trim()}, Nº ${addressNumber.trim()}`
+      : address.trim()
+
+    if (!finalAddress) newErrors.address = "Endereço é obrigatório"
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -93,7 +97,7 @@ export function Checkout() {
     addOrder({
       customerName: customerName.trim(),
       phone: phone.trim(),
-      address: address.trim(),
+      address: finalAddress, 
       paymentMethod,
       items,
       products: selectedProducts,
@@ -152,14 +156,14 @@ export function Checkout() {
           <form id="checkout-form" onSubmit={handleSubmit}>
             <CardHeader>
               <CardTitle>Finalizar Pedido</CardTitle>
-              <CardDescription>Preencha seus dados para entrega</CardDescription>
+              <CardDescription>Preencha os seus dados para entrega</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
                 <Input
                   id="name"
-                  placeholder="Seu nome completo"
+                  placeholder="O seu nome completo"
                   value={customerName}
                   onChange={(e) => {
                     setCustomerName(e.target.value)
@@ -186,18 +190,28 @@ export function Checkout() {
                 {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
               </div>
 
+              {/* ENDEREÇO E NÚMERO */}
               <div className="space-y-2">
-                <Label htmlFor="address">Endereço de Entrega</Label>
-                <Input
-                  id="address"
-                  placeholder="Rua, número, bairro"
-                  value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value)
-                    setErrors((prev) => ({ ...prev, address: undefined }))
-                  }}
-                  className={errors.address ? "border-destructive" : ""}
-                />
+                <Label>Endereço de Entrega</Label>
+                <div className="flex gap-3">
+                  <Input
+                    id="address"
+                    placeholder="Rua, bairro"
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value)
+                      setErrors((prev) => ({ ...prev, address: undefined }))
+                    }}
+                    className={cn("flex-1", errors.address ? "border-destructive" : "")}
+                  />
+                  <Input
+                    id="number"
+                    placeholder="Nº / Lote"
+                    value={addressNumber}
+                    onChange={(e) => setAddressNumber(e.target.value)}
+                    className="w-28"
+                  />
+                </div>
                 {errors.address && <p className="text-sm text-destructive">{errors.address}</p>}
               </div>
 

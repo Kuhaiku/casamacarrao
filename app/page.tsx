@@ -16,7 +16,7 @@ import {
   Check,
   AlertCircle,
   Star,
-  MapPin // <-- Ícone importado
+  MapPin 
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 
@@ -48,7 +48,7 @@ export default function CustomerHome() {
   // Estado para o feedback visual da sacola
   const [cartBump, setCartBump] = useState(false);
   
-  // NOVO: Estado de carregamento da localização
+  // Estado de carregamento da localização
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
   const [cartAvulsos, setCartAvulsos] = useState<
@@ -59,6 +59,7 @@ export default function CustomerHome() {
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [addressNumber, setAddressNumber] = useState(""); // ESTADO DO NÚMERO
   const [payment, setPayment] = useState<"pix" | "cartao" | "dinheiro">("pix");
   const [observation, setObservation] = useState("");
 
@@ -137,15 +138,19 @@ export default function CustomerHome() {
     setCartSelfService((prev) => prev.filter((item) => item.id !== cartId));
 
   const handleFinalize = () => {
-    if (!customerName || !phone || !address || totalItemsCount === 0) return;
+    // TRAVA: Só segue se o nome, telefone, rua E o número estiverem preenchidos
+    if (!customerName.trim() || !phone.trim() || !address.trim() || !addressNumber.trim() || totalItemsCount === 0) return;
+
+    // Concatenação apenas garantindo que o endereço será a junção dos dois
+    const finalAddress = `${address.trim()}, Nº ${addressNumber.trim()}`;
 
     const trackingId = crypto.randomUUID();
 
     addOrder({
       id: trackingId,
-      customerName,
-      phone,
-      address,
+      customerName: customerName.trim(),
+      phone: phone.trim(),
+      address: finalAddress,
       paymentMethod: payment,
       items: cartSelfService,
       products: cartAvulsos.map((p) => ({
@@ -162,7 +167,6 @@ export default function CustomerHome() {
     router.push(`/pedido/${trackingId}`);
   };
 
-  // NOVO: Função que puxa a localização via GPS e busca o endereço
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
       alert("Seu navegador não suporta geolocalização.");
@@ -185,10 +189,12 @@ export default function CustomerHome() {
             const formattedAddress = `${road}${suburb ? `, ${suburb}` : ""}${city ? ` - ${city}` : ""}`.replace(/^,\s*/, '');
             
             if (formattedAddress) {
-               setAddress(formattedAddress + ", Nº "); // Já deixa o espaço para o cliente pôr o número
+               setAddress(formattedAddress);
             } else {
                setAddress(data.display_name);
             }
+            // Limpa o número para obrigar o usuário a focar e preencher após puxar o GPS
+            setAddressNumber(""); 
           }
         } catch (error) {
           alert("Erro ao buscar o endereço. Por favor, digite manualmente.");
@@ -381,16 +387,25 @@ export default function CustomerHome() {
               className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
             />
             
-            {/* NOVO: Bloco do endereço com botão de GPS */}
             <div className="space-y-1.5">
-              <input
-                type="text"
-                placeholder="Endereço Completo de Entrega"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                disabled={isCartEmpty}
-                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Rua, bairro..."
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  disabled={isCartEmpty}
+                  className="flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
+                />
+                <input
+                  type="text"
+                  placeholder="Nº / Lote"
+                  value={addressNumber}
+                  onChange={(e) => setAddressNumber(e.target.value)}
+                  disabled={isCartEmpty}
+                  className="w-24 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 disabled:opacity-60"
+                />
+              </div>
               <button
                 onClick={handleGetLocation}
                 disabled={isCartEmpty || isFetchingLocation}
@@ -425,9 +440,10 @@ export default function CustomerHome() {
               ))}
             </div>
 
+            {/* BOTÃO COM DESABILITAÇÃO SE NÃO HOUVER NÚMERO */}
             <button
               onClick={handleFinalize}
-              disabled={isCartEmpty || !customerName || !phone || !address}
+              disabled={isCartEmpty || !customerName.trim() || !phone.trim() || !address.trim() || !addressNumber.trim()}
               className="w-full py-3 sm:py-3.5 mt-2 rounded-xl text-white font-bold text-sm bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-400 transition-colors"
             >
               Confirmar Pedido
