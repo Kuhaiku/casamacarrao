@@ -1,25 +1,43 @@
 // app/cozinha/page.tsx
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChefHat, Clock, AlertCircle, Star } from "lucide-react";
+import { Check, ChefHat, Clock, AlertCircle, Star, Columns, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 
+// NOVA FUNÇÃO: Trata a data para garantir que o navegador entenda que ela está em UTC
+function normalizeDate(dateString: string) {
+  if (!dateString) return new Date();
+  
+  // Padroniza a string substituindo espaço por 'T' (ex: "2024-04-10 16:18:00" -> "2024-04-10T16:18:00")
+  let isoString = dateString.replace(" ", "T");
+  
+  // Se a string não tiver indicação de fuso ('Z' ou '+00:00' / '-03:00'), forçamos o 'Z' no final indicando UTC
+  if (!isoString.includes("Z") && !isoString.match(/[+-]\d{2}:?\d{2}$/)) {
+    isoString += "Z";
+  }
+  
+  return new Date(isoString);
+}
+
 function formatTime(dateString: string) {
-  const date = new Date(dateString);
+  const date = normalizeDate(dateString);
   return date.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "America/Sao_Paulo", // Força a exibição no fuso de Brasília
   });
 }
 
 function getTimeSince(dateString: string) {
-  const diff = Date.now() - new Date(dateString).getTime();
+  const date = normalizeDate(dateString);
+  const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
+  
   if (minutes < 1) return "Agora";
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
@@ -66,7 +84,7 @@ function KitchenOrderCard({ order }: { order: any }) {
             
             <div className="flex items-center gap-2 mt-2 mb-3 text-stone-600 dark:text-stone-400 font-medium">
               <Clock className="h-4 w-4" />
-              <span className="text-sm">{formatTime(order.createdAt)}</span>
+              <span className="text-sm font-bold">{formatTime(order.createdAt)}</span>
               <Badge variant="secondary" className="font-bold">
                 {getTimeSince(order.createdAt)}
               </Badge>
@@ -140,7 +158,6 @@ function KitchenOrderCard({ order }: { order: any }) {
                   </div>
                 )}
 
-                {/* AQUI ENTRA A VISUALIZAÇÃO DOS EXTRAS NA COZINHA */}
                 {item.extras?.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900 flex gap-2 text-amber-700 dark:text-amber-500">
                     <span className="font-black min-w-[110px] flex items-center gap-1">
@@ -152,7 +169,6 @@ function KitchenOrderCard({ order }: { order: any }) {
                   </div>
                 )}
 
-                {/* LEGADO: Mantém o queijo antigo se houver */}
                 {item.extraCheese && (
                   <div className="mt-3 inline-block bg-yellow-100 border-2 border-yellow-400 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-500 px-3 py-1 rounded-lg font-black text-lg shadow-sm">
                     + QUEIJO EXTRA
@@ -212,8 +228,8 @@ function KitchenOrderCard({ order }: { order: any }) {
 
 export default function KitchenPage() {
   const { orders, sync } = useStore();
+  const [splitView, setSplitView] = useState(false);
 
-  // ATUALIZAÇÃO AUTOMÁTICA DA COZINHA (a cada 3 segundos)
   useEffect(() => {
     sync();
     const interval = setInterval(() => {
@@ -222,7 +238,14 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-  const approvedOrders = orders.filter((o) => o.status === "aprovado");
+  // Filtra e ORDENA os pedidos do mais antigo para o mais recente (usando a data normalizada também)
+  const approvedOrders = orders
+    .filter((o) => o.status === "aprovado")
+    .sort((a, b) => normalizeDate(a.createdAt).getTime() - normalizeDate(b.createdAt).getTime());
+
+  // Separação para a visualização dividida
+  const localOrders = approvedOrders.filter((o) => getOrderType(o.address) === "LOCAL");
+  const deliveryOrders = approvedOrders.filter((o) => getOrderType(o.address) === "ENTREGA");
 
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950">
@@ -244,11 +267,20 @@ export default function KitchenPage() {
               variant="secondary"
               className="ml-4 text-lg px-4 py-1 bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300 font-black"
             >
-              {approvedOrders.length}{" "}
-              {approvedOrders.length === 1 ? "pedido" : "pedidos"}
+              {approvedOrders.length} {approvedOrders.length === 1 ? "pedido" : "pedidos"}
             </Badge>
           </div>
           <nav className="flex items-center gap-4">
+            {/* Botão de Alternância de Visão */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setSplitView(!splitView)}
+              className="bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-700"
+              title={splitView ? "Ver Tudo" : "Dividir Tela"}
+            >
+              {splitView ? <LayoutGrid className="w-5 h-5" /> : <Columns className="w-5 h-5" />}
+            </Button>
             <Link
               href="/admin"
               className="text-sm font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors bg-stone-200 dark:bg-stone-800 px-4 py-2 rounded-lg"
@@ -270,10 +302,50 @@ export default function KitchenPage() {
               Os pedidos aprovados aparecerão aqui automaticamente.
             </p>
           </div>
+        ) : splitView ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            {/* Coluna: Local */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 bg-blue-100 border border-blue-300 dark:bg-blue-900/30 dark:border-blue-800 p-3 rounded-xl shadow-sm">
+                <span className="text-xl">🍽️</span>
+                <h2 className="text-xl font-black text-blue-900 dark:text-blue-100 uppercase">
+                  Consumo no Local
+                </h2>
+                <Badge variant="secondary" className="ml-auto bg-white/50 text-blue-900">{localOrders.length}</Badge>
+              </div>
+              <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
+                {localOrders.map((order) => (
+                  <KitchenOrderCard key={order.id} order={order} />
+                ))}
+                {localOrders.length === 0 && (
+                  <p className="text-stone-500 col-span-full text-center py-8">Nenhum pedido local na fila.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Coluna: Entrega */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 bg-purple-100 border border-purple-300 dark:bg-purple-900/30 dark:border-purple-800 p-3 rounded-xl shadow-sm">
+                <span className="text-xl">🛵</span>
+                <h2 className="text-xl font-black text-purple-900 dark:text-purple-100 uppercase">
+                  Entrega
+                </h2>
+                <Badge variant="secondary" className="ml-auto bg-white/50 text-purple-900">{deliveryOrders.length}</Badge>
+              </div>
+              <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
+                {deliveryOrders.map((order) => (
+                  <KitchenOrderCard key={order.id} order={order} />
+                ))}
+                {deliveryOrders.length === 0 && (
+                  <p className="text-stone-500 col-span-full text-center py-8">Nenhum pedido para entrega na fila.</p>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 items-start">
             {approvedOrders.map((order) => (
-              <KitchenOrderCard key={order.id} order={order}/>
+              <KitchenOrderCard key={order.id} order={order} />
             ))}
           </div>
         )}
