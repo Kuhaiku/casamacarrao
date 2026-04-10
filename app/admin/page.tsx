@@ -294,7 +294,7 @@ export default function AdminDashboardPage() {
                       <span>Via:</span>
                       <span className="uppercase text-purple-700 dark:text-purple-400 flex items-center gap-1">
                         {order.paymentMethod === "pix" && <QrCode className="w-3 h-3" />}
-                        {order.paymentMethod === "cartao" && <CreditCard className="w-3 h-3" />}
+                        {/* {order.paymentMethod === "cartao" && <CreditCard className="w-3 h-3" />} */}
                         {order.paymentMethod === "dinheiro" && <Banknote className="w-3 h-3" />}
                         {order.paymentMethod}
                       </span>
@@ -481,7 +481,7 @@ export default function AdminDashboardPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: "pix", label: "PIX", icon: QrCode },
-                    { id: "cartao", label: "Cartão", icon: CreditCard },
+                    // { id: "cartao", label: "Cartão", icon: CreditCard },
                     { id: "dinheiro", label: "Dinheiro", icon: Banknote }
                   ].map(method => (
                     <button

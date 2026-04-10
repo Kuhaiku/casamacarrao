@@ -22,7 +22,7 @@ import { useStore } from "@/lib/store";
 
 const PAY_META = {
   pix: { label: "PIX", icon: Smartphone },
-  cartao: { label: "Cartão", icon: CreditCard },
+  // cartao: { label: "Cartão", icon: CreditCard },
   dinheiro: { label: "Dinheiro", icon: Banknote },
 };
 
@@ -60,7 +60,8 @@ export default function CustomerHome() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [addressNumber, setAddressNumber] = useState(""); // ESTADO DO NÚMERO
-  const [payment, setPayment] = useState<"pix" | "cartao" | "dinheiro">("pix");
+  const [payment, setPayment] = useState<"pix" | "dinheiro">("pix");
+  // const [payment, setPayment] = useState<"pix" | "cartao" | "dinheiro">("pix");
   const [observation, setObservation] = useState("");
 
   const cartTotal = calculateOrderTotal(cartSelfService, cartAvulsos);
@@ -428,7 +429,8 @@ export default function CustomerHome() {
               {Object.entries(PAY_META).map(([key, { label, icon: Icon }]) => (
                 <button
                   key={key}
-                  onClick={() => setPayment(key as "pix" | "cartao" | "dinheiro")}
+                  onClick={() => setPayment(key as "pix" | "dinheiro")}
+                  // onClick={() => setPayment(key as "pix" | "cartao" | "dinheiro")}
                   disabled={isCartEmpty}
                   className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all disabled:opacity-50 ${payment === key && !isCartEmpty ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-500"}`}
                 >

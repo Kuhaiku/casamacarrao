@@ -18,7 +18,7 @@ function formatCurrency(value: number) {
 
 const paymentMethods: { id: PaymentMethod; label: string; icon: React.ElementType }[] = [
   { id: "pix", label: "PIX", icon: QrCode },
-  { id: "cartao", label: "Cartão", icon: CreditCard },
+  // { id: "cartao", label: "Cartão", icon: CreditCard },
   { id: "dinheiro", label: "Dinheiro", icon: Banknote },
 ]
 
