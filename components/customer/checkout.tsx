@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { CreditCard, Banknote, QrCode, ChevronLeft, Check, PartyPopper, Plus, Minus, Loader2 } from "lucide-react"
-import type { PaymentMethod, OrderProduct } from "@/lib/types"
-// Importamos a action do Mercado Pago (criaremos abaixo)
+// CORREÇÃO 1: Adicionado o OrderStatus na importação
+import type { PaymentMethod, OrderProduct, OrderStatus } from "@/lib/types"
 import { createPaymentPreference } from "@/lib/mercadopago-actions"
 
 function formatCurrency(value: number) {
@@ -87,7 +87,8 @@ export function Checkout() {
       paymentMethod,
       items,
       products: selectedProducts,
-      status: paymentMethod === "cartao" ? "aguardando_pagamento" : "novo",
+      // CORREÇÃO 2: Adicionado 'as OrderStatus' para tipagem forte
+      status: (paymentMethod === "cartao" ? "aguardando_pagamento" : "novo") as OrderStatus,
       isPaid: false,
       total,
     }
@@ -197,7 +198,7 @@ export function Checkout() {
             <Button type="submit" form="checkout-form" className="w-full" size="lg" disabled={isProcessing}>
               {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirmar Pedido"}
             </Button>
-            <Button variant="ghost" onClick={() => setStep(0)} className="w-full"><ChevronLeft className="h-4 w-4 mr-2" />Voltar</Button>
+            <Button type="button" variant="ghost" onClick={() => setStep(0)} className="w-full"><ChevronLeft className="h-4 w-4 mr-2" />Voltar</Button>
           </CardFooter>
         </Card>
       </div>

@@ -51,8 +51,8 @@ export type OrderStatus =
   | "despachado"
   | "entregue"
   | "cancelado";
-export type PaymentMethod =  "dinheiro" | "pix";
-// export type PaymentMethod = "cartao" | "dinheiro" | "pix";
+
+export type PaymentMethod = "cartao" | "dinheiro" | "pix";
 
 export interface ProductCategory {
   id: string;
