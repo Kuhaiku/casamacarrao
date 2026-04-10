@@ -6,17 +6,28 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChefHat, Clock, AlertCircle, Star, Columns, LayoutGrid } from "lucide-react";
+import { 
+  Check, 
+  ChefHat, 
+  Clock, 
+  AlertCircle, 
+  Star, 
+  Columns, 
+  LayoutGrid, 
+  ChevronDown, 
+  ChevronUp, 
+  ChevronsUp, 
+  ChevronsDown,
+  Flame
+} from "lucide-react";
 import Link from "next/link";
 
-// NOVA FUNÇÃO: Trata a data para garantir que o navegador entenda que ela está em UTC
+// Trata a data para garantir que o navegador entenda que ela está em UTC
 function normalizeDate(dateString: string) {
   if (!dateString) return new Date();
   
-  // Padroniza a string substituindo espaço por 'T' (ex: "2024-04-10 16:18:00" -> "2024-04-10T16:18:00")
   let isoString = dateString.replace(" ", "T");
   
-  // Se a string não tiver indicação de fuso ('Z' ou '+00:00' / '-03:00'), forçamos o 'Z' no final indicando UTC
   if (!isoString.includes("Z") && !isoString.match(/[+-]\d{2}:?\d{2}$/)) {
     isoString += "Z";
   }
@@ -29,7 +40,7 @@ function formatTime(dateString: string) {
   return date.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "America/Sao_Paulo", // Força a exibição no fuso de Brasília
+    timeZone: "America/Sao_Paulo",
   });
 }
 
@@ -44,16 +55,14 @@ function getTimeSince(dateString: string) {
   return `${hours}h ${minutes % 60}min`;
 }
 
-// Função para identificar se o pedido é no local ou entrega
 function getOrderType(address: string) {
   if (!address) return "ENTREGA";
   const trimmed = address.trim().toLowerCase();
-  // É local se começar com a palavra "mesa" ou se for apenas números
   const isMesa = trimmed.startsWith("mesa") || /^\d+$/.test(trimmed);
   return isMesa ? "LOCAL" : "ENTREGA";
 }
 
-function KitchenOrderCard({ order }: { order: any }) {
+function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpanded: boolean; onToggle: () => void }) {
   const { updateOrderStatus, sizes, menuItems, products } = useStore();
 
   const getSizeName = (sizeId: string) =>
@@ -65,7 +74,8 @@ function KitchenOrderCard({ order }: { order: any }) {
 
   const orderType = getOrderType(order.address);
 
-  const handleMarkAsReady = () => {
+  const handleMarkAsReady = (e: React.MouseEvent) => {
+    e.stopPropagation(); 
     if (orderType === "LOCAL") {
       updateOrderStatus(order.id, "entregue");
     } else {
@@ -74,8 +84,11 @@ function KitchenOrderCard({ order }: { order: any }) {
   };
 
   return (
-    <Card className="border-2 border-primary/20 bg-card shadow-md flex flex-col h-full">
-      <CardHeader className="pb-3 bg-primary/5 border-b border-primary/10">
+    <Card className={`border-2 border-primary/20 bg-card shadow-md flex flex-col transition-all duration-200 ${isExpanded ? 'h-full' : ''}`}>
+      <CardHeader 
+        className="pb-3 bg-primary/5 border-b border-primary/10 cursor-pointer hover:bg-primary/10 transition-colors select-none"
+        onClick={onToggle}
+      >
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="text-2xl font-black text-stone-800 dark:text-stone-100">
@@ -99,129 +112,136 @@ function KitchenOrderCard({ order }: { order: any }) {
                 🛵 Entrega
               </span>
             )}
-
           </div>
-          <Badge
-            variant="outline"
-            className="text-lg px-3 py-1 font-black bg-white dark:bg-stone-900 border-stone-300"
-          >
-            #{order.id.slice(0, 4)}
-          </Badge>
+          
+          <div className="flex flex-col items-end gap-3">
+            <Badge
+              variant="outline"
+              className="text-lg px-3 py-1 font-black bg-white dark:bg-stone-900 border-stone-300"
+            >
+              #{order.id.slice(0, 4)}
+            </Badge>
+            <div className="text-stone-400 dark:text-stone-500 bg-stone-200/50 dark:bg-stone-800/50 p-1.5 rounded-lg">
+              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            </div>
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pt-4 space-y-4 flex-1 flex flex-col">
-        {order.items &&
-          order.items.map((item: any, idx: number) => (
-            <div
-              key={`mac-${idx}`}
-              className="p-4 bg-stone-100 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700"
-            >
-              <div className="text-xl font-black mb-3 text-orange-600 dark:text-orange-500 uppercase tracking-wide">
-                Macarrão {getSizeName(item.sizeId)}
-              </div>
-
-              <div className="space-y-2 text-lg text-stone-700 dark:text-stone-300">
-                {item.pastaId && (
-                  <div className="flex gap-2">
-                    <span className="font-black min-w-[110px]">Massa:</span>
-                    <span className="font-medium">
-                      {getItemName(item.pastaId)}
-                    </span>
-                  </div>
-                )}
-
-                {item.sauces?.length > 0 && (
-                  <div className="flex gap-2">
-                    <span className="font-black min-w-[110px]">Molhos:</span>
-                    <span className="font-medium">
-                      {item.sauces.map(getItemName).join(", ")}
-                    </span>
-                  </div>
-                )}
-
-                {item.temperos?.length > 0 && (
-                  <div className="flex gap-2">
-                    <span className="font-black min-w-[110px]">Temperos:</span>
-                    <span className="font-medium">
-                      {item.temperos.map(getItemName).join(", ")}
-                    </span>
-                  </div>
-                )}
-
-                {item.ingredients?.length > 0 && (
-                  <div className="flex gap-2">
-                    <span className="font-black min-w-[110px]">Ingred.:</span>
-                    <span className="font-medium">
-                      {item.ingredients.map(getItemName).join(", ")}
-                    </span>
-                  </div>
-                )}
-
-                {item.extras?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900 flex gap-2 text-amber-700 dark:text-amber-500">
-                    <span className="font-black min-w-[110px] flex items-center gap-1">
-                      <Star className="w-4 h-4" /> Extras:
-                    </span>
-                    <span className="font-black">
-                      {item.extras.map(getItemName).join(", ")}
-                    </span>
-                  </div>
-                )}
-
-                {item.extraCheese && (
-                  <div className="mt-3 inline-block bg-yellow-100 border-2 border-yellow-400 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-500 px-3 py-1 rounded-lg font-black text-lg shadow-sm">
-                    + QUEIJO EXTRA
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-        {order.products && order.products.length > 0 && (
-          <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900">
-            <div className="text-sm font-black mb-2 text-blue-800 dark:text-blue-400 uppercase tracking-wider">
-              Outros Itens:
-            </div>
-            <div className="space-y-1.5">
-              {order.products.map((prod: any, idx: number) => (
-                <div
-                  key={`prod-${idx}`}
-                  className="text-xl font-black text-blue-950 dark:text-blue-300 flex items-center gap-2"
-                >
-                  <span className="bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded text-blue-900 dark:text-blue-100">
-                    {prod.quantity}x
-                  </span>
-                  {getProductName(prod.productId)}
+      {isExpanded && (
+        <CardContent className="pt-4 space-y-4 flex-1 flex flex-col animate-in slide-in-from-top-2 fade-in duration-200">
+          {order.items &&
+            order.items.map((item: any, idx: number) => (
+              <div
+                key={`mac-${idx}`}
+                className="p-4 bg-stone-100 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700"
+              >
+                <div className="text-xl font-black mb-3 text-orange-600 dark:text-orange-500 uppercase tracking-wide">
+                  Macarrão {getSizeName(item.sizeId)}
                 </div>
-              ))}
+
+                <div className="space-y-2 text-lg text-stone-700 dark:text-stone-300">
+                  {item.pastaId && (
+                    <div className="flex gap-2">
+                      <span className="font-black min-w-[110px]">Massa:</span>
+                      <span className="font-medium">
+                        {getItemName(item.pastaId)}
+                      </span>
+                    </div>
+                  )}
+
+                  {item.sauces?.length > 0 && (
+                    <div className="flex gap-2">
+                      <span className="font-black min-w-[110px]">Molhos:</span>
+                      <span className="font-medium">
+                        {item.sauces.map(getItemName).join(", ")}
+                      </span>
+                    </div>
+                  )}
+
+                  {item.temperos?.length > 0 && (
+                    <div className="flex gap-2">
+                      <span className="font-black min-w-[110px]">Temperos:</span>
+                      <span className="font-medium">
+                        {item.temperos.map(getItemName).join(", ")}
+                      </span>
+                    </div>
+                  )}
+
+                  {item.ingredients?.length > 0 && (
+                    <div className="flex gap-2">
+                      <span className="font-black min-w-[110px]">Ingred.:</span>
+                      <span className="font-medium">
+                        {item.ingredients.map(getItemName).join(", ")}
+                      </span>
+                    </div>
+                  )}
+
+                  {item.extras?.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-900 flex gap-2 text-amber-700 dark:text-amber-500">
+                      <span className="font-black min-w-[110px] flex items-center gap-1">
+                        <Star className="w-4 h-4" /> Extras:
+                      </span>
+                      <span className="font-black">
+                        {item.extras.map(getItemName).join(", ")}
+                      </span>
+                    </div>
+                  )}
+
+                  {item.extraCheese && (
+                    <div className="mt-3 inline-block bg-yellow-100 border-2 border-yellow-400 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-500 px-3 py-1 rounded-lg font-black text-lg shadow-sm">
+                      + QUEIJO EXTRA
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+          {order.products && order.products.length > 0 && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900">
+              <div className="text-sm font-black mb-2 text-blue-800 dark:text-blue-400 uppercase tracking-wider">
+                Outros Itens:
+              </div>
+              <div className="space-y-1.5">
+                {order.products.map((prod: any, idx: number) => (
+                  <div
+                    key={`prod-${idx}`}
+                    className="text-xl font-black text-blue-950 dark:text-blue-300 flex items-center gap-2"
+                  >
+                    <span className="bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded text-blue-900 dark:text-blue-100">
+                      {prod.quantity}x
+                    </span>
+                    {getProductName(prod.productId)}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {order.observation && (
-          <div className="p-4 bg-amber-100 dark:bg-amber-950/50 rounded-xl border-2 border-amber-400 dark:border-amber-700 shadow-sm">
-            <div className="text-sm font-black mb-2 text-amber-900 dark:text-amber-500 uppercase flex items-center gap-1.5 tracking-wider">
-              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-500" />{" "}
-              Observação do Cliente:
+          {order.observation && (
+            <div className="p-4 bg-amber-100 dark:bg-amber-950/50 rounded-xl border-2 border-amber-400 dark:border-amber-700 shadow-sm">
+              <div className="text-sm font-black mb-2 text-amber-900 dark:text-amber-500 uppercase flex items-center gap-1.5 tracking-wider">
+                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-500" />{" "}
+                Observação do Cliente:
+              </div>
+              <p className="text-xl font-bold text-amber-950 dark:text-amber-400 italic">
+                "{order.observation}"
+              </p>
             </div>
-            <p className="text-xl font-bold text-amber-950 dark:text-amber-400 italic">
-              "{order.observation}"
-            </p>
-          </div>
-        )}
+          )}
 
-        <div className="flex-1"></div>
+          <div className="flex-1"></div>
 
-        <Button
-          size="lg"
-          className="w-full text-lg py-7 font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg transition-transform active:scale-[0.98] mt-4"
-          onClick={handleMarkAsReady}
-        >
-          <Check className="h-7 w-7 mr-2" />
-          {orderType === "LOCAL" ? "Marcar como Entregue" : "Marcar como Pronto"}
-        </Button>
-      </CardContent>
+          <Button
+            size="lg"
+            className="w-full text-lg py-7 font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg transition-transform active:scale-[0.98] mt-4"
+            onClick={handleMarkAsReady}
+          >
+            <Check className="h-7 w-7 mr-2" />
+            {orderType === "LOCAL" ? "Marcar como Entregue" : "Marcar como Pronto"}
+          </Button>
+        </CardContent>
+      )}
     </Card>
   );
 }
@@ -229,6 +249,10 @@ function KitchenOrderCard({ order }: { order: any }) {
 export default function KitchenPage() {
   const { orders, sync } = useStore();
   const [splitView, setSplitView] = useState(false);
+  
+  // ESTADOS DE COLAPSO
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
+  const [globalExpandMode, setGlobalExpandMode] = useState<'all_open' | 'all_closed' | 'oldest_open'>('all_open');
 
   useEffect(() => {
     sync();
@@ -238,10 +262,41 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-  // Filtra e ORDENA os pedidos do mais antigo para o mais recente (usando a data normalizada também)
+  // Filtra e ORDENA os pedidos do mais antigo para o mais recente (FIFO)
   const approvedOrders = orders
     .filter((o) => o.status === "aprovado")
     .sort((a, b) => normalizeDate(a.createdAt).getTime() - normalizeDate(b.createdAt).getTime());
+
+  // Função para checar se um card está expandido (padrão é true/aberto)
+  const isExpanded = (id: string) => expandedMap[id] ?? true;
+
+  // Alterna o estado de um único pedido manualmente
+  const toggleOrder = (id: string) => {
+    setExpandedMap(prev => ({ ...prev, [id]: !(prev[id] ?? true) }));
+  };
+
+  // Alterna o estado global (Ciclo: Todos Abertos -> Todos Fechados -> Antigos Abertos -> Todos Abertos)
+  const handleCycleGlobalExpand = () => {
+    const nextMode =
+      globalExpandMode === 'all_open' ? 'all_closed'
+      : globalExpandMode === 'all_closed' ? 'oldest_open'
+      : 'all_open';
+
+    setGlobalExpandMode(nextMode);
+
+    const newMap: Record<string, boolean> = { ...expandedMap };
+    approvedOrders.forEach((order, idx) => {
+      if (nextMode === 'all_open') {
+        newMap[order.id] = true;
+      } else if (nextMode === 'all_closed') {
+        newMap[order.id] = false;
+      } else if (nextMode === 'oldest_open') {
+        // FIFO: Deixa aberto apenas os 3 primeiros pedidos do array (que são os mais antigos)
+        newMap[order.id] = idx < 3;
+      }
+    });
+    setExpandedMap(newMap);
+  };
 
   // Separação para a visualização dividida
   const localOrders = approvedOrders.filter((o) => getOrderType(o.address) === "LOCAL");
@@ -270,7 +325,18 @@ export default function KitchenPage() {
               {approvedOrders.length} {approvedOrders.length === 1 ? "pedido" : "pedidos"}
             </Badge>
           </div>
-          <nav className="flex items-center gap-4">
+          <nav className="flex items-center gap-3">
+            {/* BOTÃO DE CONTROLE DE EXPANSÃO (FIFO) */}
+            <Button
+              variant="outline"
+              onClick={handleCycleGlobalExpand}
+              className="bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-700 min-w-[210px] justify-center transition-all"
+            >
+              {globalExpandMode === 'all_open' && <><ChevronsUp className="w-5 h-5 mr-2 text-stone-600" /> Recolher Todos</>}
+              {globalExpandMode === 'all_closed' && <><Flame className="w-5 h-5 mr-2 text-orange-600" /> Focar nos Próximos</>}
+              {globalExpandMode === 'oldest_open' && <><ChevronsDown className="w-5 h-5 mr-2 text-green-600" /> Expandir Todos</>}
+            </Button>
+
             {/* Botão de Alternância de Visão */}
             <Button
               variant="outline"
@@ -281,6 +347,7 @@ export default function KitchenPage() {
             >
               {splitView ? <LayoutGrid className="w-5 h-5" /> : <Columns className="w-5 h-5" />}
             </Button>
+            
             <Link
               href="/admin"
               className="text-sm font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors bg-stone-200 dark:bg-stone-800 px-4 py-2 rounded-lg"
@@ -315,7 +382,12 @@ export default function KitchenPage() {
               </div>
               <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
                 {localOrders.map((order) => (
-                  <KitchenOrderCard key={order.id} order={order} />
+                  <KitchenOrderCard 
+                    key={order.id} 
+                    order={order} 
+                    isExpanded={isExpanded(order.id)} 
+                    onToggle={() => toggleOrder(order.id)} 
+                  />
                 ))}
                 {localOrders.length === 0 && (
                   <p className="text-stone-500 col-span-full text-center py-8">Nenhum pedido local na fila.</p>
@@ -334,7 +406,12 @@ export default function KitchenPage() {
               </div>
               <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
                 {deliveryOrders.map((order) => (
-                  <KitchenOrderCard key={order.id} order={order} />
+                  <KitchenOrderCard 
+                    key={order.id} 
+                    order={order} 
+                    isExpanded={isExpanded(order.id)} 
+                    onToggle={() => toggleOrder(order.id)} 
+                  />
                 ))}
                 {deliveryOrders.length === 0 && (
                   <p className="text-stone-500 col-span-full text-center py-8">Nenhum pedido para entrega na fila.</p>
@@ -345,7 +422,12 @@ export default function KitchenPage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 items-start">
             {approvedOrders.map((order) => (
-              <KitchenOrderCard key={order.id} order={order} />
+              <KitchenOrderCard 
+                key={order.id} 
+                order={order} 
+                isExpanded={isExpanded(order.id)} 
+                onToggle={() => toggleOrder(order.id)} 
+              />
             ))}
           </div>
         )}
