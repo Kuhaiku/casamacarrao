@@ -1,7 +1,7 @@
 // app/cozinha/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,20 +18,20 @@ import {
   ChevronUp, 
   ChevronsUp, 
   ChevronsDown,
-  Flame
+  Flame,
+  Utensils,
+  Volume2,
+  VolumeX,
+  BellRing
 } from "lucide-react";
 import Link from "next/link";
 
-// Trata a data para garantir que o navegador entenda que ela está em UTC
 function normalizeDate(dateString: string) {
   if (!dateString) return new Date();
-  
   let isoString = dateString.replace(" ", "T");
-  
   if (!isoString.includes("Z") && !isoString.match(/[+-]\d{2}:?\d{2}$/)) {
     isoString += "Z";
   }
-  
   return new Date(isoString);
 }
 
@@ -62,6 +62,40 @@ function getOrderType(address: string) {
   return isMesa ? "LOCAL" : "ENTREGA";
 }
 
+// NOVA FUNÇÃO: Sintetiza um som de campainha de balcão (Ding!)
+function playBell() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    
+    const ctx = new AudioContextClass();
+
+    // Frequências que simulam o som metálico de uma campainha
+    const frequencies = [1200, 1600, 2400];
+
+    frequencies.forEach((freq) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime); 
+      
+      // Efeito de "pancada" e decaimento (o som vai sumindo aos poucos)
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.02); // Ataque rápido
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5); // Sumindo lentamente
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 1.5);
+    });
+  } catch (error) {
+    console.error("Erro ao reproduzir alerta sonoro", error);
+  }
+}
+
 function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpanded: boolean; onToggle: () => void }) {
   const { updateOrderStatus, sizes, menuItems, products } = useStore();
 
@@ -83,10 +117,25 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
     }
   };
 
+  const diffMinutes = Math.floor((Date.now() - normalizeDate(order.createdAt).getTime()) / 60000);
+  let cardStyle = "border-primary/20 bg-card";
+  let headerStyle = "bg-primary/5 border-primary/10";
+  let timeBadgeStyle = "bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-200";
+
+  if (diffMinutes >= 25) {
+    cardStyle = "border-red-500 bg-red-50/50 dark:bg-red-950/20 shadow-red-500/20";
+    headerStyle = "bg-red-100 dark:bg-red-900/40 border-b border-red-200 dark:border-red-800";
+    timeBadgeStyle = "bg-red-600 text-white dark:bg-red-700 animate-pulse";
+  } else if (diffMinutes >= 15) {
+    cardStyle = "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 shadow-amber-400/20";
+    headerStyle = "bg-amber-100 dark:bg-amber-900/40 border-b border-amber-200 dark:border-amber-800";
+    timeBadgeStyle = "bg-amber-500 text-white dark:bg-amber-600";
+  }
+
   return (
-    <Card className={`border-2 border-primary/20 bg-card shadow-md flex flex-col transition-all duration-200 ${isExpanded ? 'h-full' : ''}`}>
+    <Card className={`border-2 flex flex-col transition-all duration-200 shadow-md ${cardStyle} ${isExpanded ? 'h-full' : ''}`}>
       <CardHeader 
-        className="pb-3 bg-primary/5 border-b border-primary/10 cursor-pointer hover:bg-primary/10 transition-colors select-none"
+        className={`pb-3 cursor-pointer hover:opacity-80 transition-opacity select-none ${headerStyle}`}
         onClick={onToggle}
       >
         <div className="flex items-start justify-between">
@@ -95,10 +144,10 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
               {order.customerName}
             </CardTitle>
             
-            <div className="flex items-center gap-2 mt-2 mb-3 text-stone-600 dark:text-stone-400 font-medium">
+            <div className="flex items-center gap-2 mt-2 mb-3 font-medium">
               <Clock className="h-4 w-4" />
               <span className="text-sm font-bold">{formatTime(order.createdAt)}</span>
-              <Badge variant="secondary" className="font-bold">
+              <Badge className={`font-bold ${timeBadgeStyle} hover:${timeBadgeStyle}`}>
                 {getTimeSince(order.createdAt)}
               </Badge>
             </div>
@@ -121,7 +170,7 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
             >
               #{order.id.slice(0, 4)}
             </Badge>
-            <div className="text-stone-400 dark:text-stone-500 bg-stone-200/50 dark:bg-stone-800/50 p-1.5 rounded-lg">
+            <div className="text-stone-400 dark:text-stone-500 bg-black/5 dark:bg-white/5 p-1.5 rounded-lg">
               {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
             </div>
           </div>
@@ -134,7 +183,7 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
             order.items.map((item: any, idx: number) => (
               <div
                 key={`mac-${idx}`}
-                className="p-4 bg-stone-100 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700"
+                className="p-4 bg-white/60 dark:bg-black/20 rounded-xl border border-stone-200 dark:border-stone-700/50"
               >
                 <div className="text-xl font-black mb-3 text-orange-600 dark:text-orange-500 uppercase tracking-wide">
                   Macarrão {getSizeName(item.sizeId)}
@@ -198,7 +247,7 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
             ))}
 
           {order.products && order.products.length > 0 && (
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900">
+            <div className="p-4 bg-blue-50/80 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900">
               <div className="text-sm font-black mb-2 text-blue-800 dark:text-blue-400 uppercase tracking-wider">
                 Outros Itens:
               </div>
@@ -219,7 +268,7 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
           )}
 
           {order.observation && (
-            <div className="p-4 bg-amber-100 dark:bg-amber-950/50 rounded-xl border-2 border-amber-400 dark:border-amber-700 shadow-sm">
+            <div className="p-4 bg-amber-100/80 dark:bg-amber-950/50 rounded-xl border-2 border-amber-400 dark:border-amber-700 shadow-sm">
               <div className="text-sm font-black mb-2 text-amber-900 dark:text-amber-500 uppercase flex items-center gap-1.5 tracking-wider">
                 <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-500" />{" "}
                 Observação do Cliente:
@@ -247,12 +296,14 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
 }
 
 export default function KitchenPage() {
-  const { orders, sync } = useStore();
+  const { orders, sync, sizes } = useStore();
   const [splitView, setSplitView] = useState(false);
   
-  // ESTADOS DE COLAPSO
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   const [globalExpandMode, setGlobalExpandMode] = useState<'all_open' | 'all_closed' | 'oldest_open'>('all_open');
+  
+  const [knownOrders, setKnownOrders] = useState<string[]>([]);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(false);
 
   useEffect(() => {
     sync();
@@ -262,20 +313,51 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-  // Filtra e ORDENA os pedidos do mais antigo para o mais recente (FIFO)
   const approvedOrders = orders
     .filter((o) => o.status === "aprovado")
     .sort((a, b) => normalizeDate(a.createdAt).getTime() - normalizeDate(b.createdAt).getTime());
 
-  // Função para checar se um card está expandido (padrão é true/aberto)
+  // LÓGICA DE ALERTA SONORO (Agora com som de campainha)
+  useEffect(() => {
+    const currentIds = approvedOrders.map(o => o.id);
+    const hasNew = currentIds.some(id => !knownOrders.includes(id));
+
+    if (hasNew && knownOrders.length > 0 && isSoundEnabled) {
+      playBell(); 
+    }
+    
+    if (currentIds.length !== knownOrders.length || hasNew) {
+      setKnownOrders(currentIds);
+    }
+  }, [approvedOrders, knownOrders, isSoundEnabled]);
+
+  const handleEnableSound = () => {
+    setIsSoundEnabled(true);
+    playBell(); // Toca a campainha para confirmar que ativou
+  };
+
+  const productionSummary = useMemo(() => {
+    const counts: Record<string, number> = {};
+    let totalItems = 0;
+    
+    approvedOrders.forEach((order) => {
+      if (order.items) {
+        order.items.forEach((item: any) => {
+          const sizeName = sizes.find((s) => s.id === item.sizeId)?.name || "Massa";
+          counts[sizeName] = (counts[sizeName] || 0) + 1;
+          totalItems++;
+        });
+      }
+    });
+    return { counts, totalItems };
+  }, [approvedOrders, sizes]);
+
   const isExpanded = (id: string) => expandedMap[id] ?? true;
 
-  // Alterna o estado de um único pedido manualmente
   const toggleOrder = (id: string) => {
     setExpandedMap(prev => ({ ...prev, [id]: !(prev[id] ?? true) }));
   };
 
-  // Alterna o estado global (Ciclo: Todos Abertos -> Todos Fechados -> Antigos Abertos -> Todos Abertos)
   const handleCycleGlobalExpand = () => {
     const nextMode =
       globalExpandMode === 'all_open' ? 'all_closed'
@@ -291,22 +373,20 @@ export default function KitchenPage() {
       } else if (nextMode === 'all_closed') {
         newMap[order.id] = false;
       } else if (nextMode === 'oldest_open') {
-        // FIFO: Deixa aberto apenas os 3 primeiros pedidos do array (que são os mais antigos)
         newMap[order.id] = idx < 3;
       }
     });
     setExpandedMap(newMap);
   };
 
-  // Separação para a visualização dividida
   const localOrders = approvedOrders.filter((o) => getOrderType(o.address) === "LOCAL");
   const deliveryOrders = approvedOrders.filter((o) => getOrderType(o.address) === "ENTREGA");
 
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950">
       <header className="border-b bg-white dark:bg-stone-900 sticky top-0 z-10 shadow-sm">
-        <div className="container flex h-20 items-center justify-between px-4 max-w-[1400px] mx-auto">
-          <div className="flex items-center gap-4">
+        <div className="container flex flex-col md:flex-row h-auto md:h-20 py-4 md:py-0 items-center justify-between px-4 max-w-[1400px] mx-auto gap-4">
+          <div className="flex items-center gap-4 w-full md:w-auto">
             <div className="bg-orange-100 dark:bg-orange-900/30 p-2.5 rounded-xl">
               <ChefHat className="h-8 w-8 text-orange-600 dark:text-orange-500" />
             </div>
@@ -325,8 +405,26 @@ export default function KitchenPage() {
               {approvedOrders.length} {approvedOrders.length === 1 ? "pedido" : "pedidos"}
             </Badge>
           </div>
-          <nav className="flex items-center gap-3">
-            {/* BOTÃO DE CONTROLE DE EXPANSÃO (FIFO) */}
+          <nav className="flex flex-wrap items-center justify-center md:justify-end gap-3 w-full md:w-auto">
+            
+            {!isSoundEnabled ? (
+              <Button
+                variant="destructive"
+                onClick={handleEnableSound}
+                className="font-bold animate-pulse shadow-md"
+              >
+                <BellRing className="w-5 h-5 mr-2" /> Ativar Campainha
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                disabled
+                className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 font-bold opacity-100"
+              >
+                <Volume2 className="w-5 h-5 mr-2" /> Som Ativado
+              </Button>
+            )}
+
             <Button
               variant="outline"
               onClick={handleCycleGlobalExpand}
@@ -337,7 +435,6 @@ export default function KitchenPage() {
               {globalExpandMode === 'oldest_open' && <><ChevronsDown className="w-5 h-5 mr-2 text-green-600" /> Expandir Todos</>}
             </Button>
 
-            {/* Botão de Alternância de Visão */}
             <Button
               variant="outline"
               size="icon"
@@ -356,6 +453,23 @@ export default function KitchenPage() {
             </Link>
           </nav>
         </div>
+
+        {productionSummary.totalItems > 0 && (
+          <div className="bg-orange-50 border-t border-orange-100 dark:bg-orange-950/30 dark:border-orange-900/50 py-2.5 px-4">
+            <div className="container max-w-[1400px] mx-auto flex items-center gap-4 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-2 text-orange-800 dark:text-orange-500 font-black text-sm uppercase tracking-wider shrink-0">
+                <Utensils className="w-4 h-4" /> Em Produção:
+              </div>
+              <div className="flex gap-2">
+                {Object.entries(productionSummary.counts).map(([name, count]) => (
+                  <Badge key={name} variant="outline" className="bg-white dark:bg-stone-900 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-400 font-bold px-3 py-1 text-sm whitespace-nowrap">
+                    {count}x {name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="container py-8 px-4 max-w-[1400px] mx-auto">
@@ -371,7 +485,6 @@ export default function KitchenPage() {
           </div>
         ) : splitView ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            {/* Coluna: Local */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 bg-blue-100 border border-blue-300 dark:bg-blue-900/30 dark:border-blue-800 p-3 rounded-xl shadow-sm">
                 <span className="text-xl">🍽️</span>
@@ -395,7 +508,6 @@ export default function KitchenPage() {
               </div>
             </div>
 
-            {/* Coluna: Entrega */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 bg-purple-100 border border-purple-300 dark:bg-purple-900/30 dark:border-purple-800 p-3 rounded-xl shadow-sm">
                 <span className="text-xl">🛵</span>
