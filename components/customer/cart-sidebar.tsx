@@ -1,122 +1,250 @@
-import { ShoppingBag, Trash2, MapPin, Star, Smartphone, Banknote } from "lucide-react";
+"use client"
 
-const PAY_META = {
-  pix: { label: "PIX", icon: Smartphone },
-  dinheiro: { label: "Dinheiro", icon: Banknote },
-};
+import { useState, useEffect, useMemo } from "react";
+import { ShoppingBag, Trash2, Smartphone, Banknote, CreditCard, Loader2, MapPin } from "lucide-react";
+import { validateBairro } from "@/lib/actions";
+import { createPaymentPreference } from "@/lib/mercadopago-actions";
+import { useToast } from "@/hooks/use-toast";
 
 export function CartSidebar(props: any) {
+  const { toast } = useToast();
   const { 
-    cartTotal, totalItemsCount, cartSelfService, cartAvulsos, isCartEmpty,
-    customerName, phone, address, addressNumber, observation, payment,
-    setCustomerName, setPhone, setAddress, setAddressNumber, setObservation, setPayment,
-    handleGetLocation, isFetchingLocation, handleFinalize, handleRemoveSelfService, handleRemoveAvulso,
-    sizes, settings, menuItems, formatCurrency, setIsMobileCartOpen
+    cartSubtotal, totalItemsCount, cartSelfService, cartAvulsos,
+    handleRemoveSelfService, handleRemoveAvulso, sizes, settings, formatCurrency, setIsMobileCartOpen, addOrder, router, products
   } = props;
+
+  const isCartEmpty = totalItemsCount === 0;
+
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [payment, setPayment] = useState<"pix" | "dinheiro" | "cartao">("pix");
+  const [observation, setObservation] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
+  // Estado do Endereço (Preenchido via GPS ou Manual)
+  const [addressData, setAddressData] = useState({
+    logradouro: "", numero: "", bairro: "", cidade: "", estado: "", cep: ""
+  });
+  
+  const [isValidatingArea, setIsValidatingArea] = useState(false);
+  const [bairroStatus, setBairroStatus] = useState<{valido: boolean; taxa_entrega: number; mensagem?: string} | null>(null);
+
+  // Validação Automática sempre que o bairro mudar
+  useEffect(() => {
+    const checkArea = async () => {
+      if (!addressData.bairro) {
+        setBairroStatus({ valido: false, taxa_entrega: 0, mensagem: "Informe o bairro para calcular a entrega" });
+        return;
+      }
+
+      setIsValidatingArea(true);
+      // Forçamos a cidade como Araruama se estiver vazio para ajudar na busca
+      const res = await validateBairro(addressData.bairro, addressData.cidade || "Araruama");
+      setBairroStatus(res);
+      setIsValidatingArea(false);
+    };
+
+    const timer = setTimeout(checkArea, 800);
+    return () => clearTimeout(timer);
+  }, [addressData.bairro, addressData.cidade]);
+
+  // Cálculos de Taxas
+  const taxaEmbalagem = useMemo(() => {
+    const taxaGlobal = settings.taxaEmbalagemGlobal || 2.00;
+    const taxaSelfService = cartSelfService.length * taxaGlobal;
+    const taxaAvulsos = cartAvulsos.reduce((acc: number, item: any) => {
+      const prod = products.find((p: any) => p.id === item.productId);
+      return prod?.tem_embalagem ? acc + (taxaGlobal * item.quantity) : acc;
+    }, 0);
+    return taxaSelfService + taxaAvulsos;
+  }, [cartSelfService, cartAvulsos, products, settings]);
+
+  const taxaEntrega = bairroStatus?.valido ? bairroStatus.taxa_entrega : 0;
+  
+  const taxaCartao = useMemo(() => {
+    if (payment !== "cartao") return 0;
+    const base = cartSubtotal + taxaEmbalagem + taxaEntrega;
+    return (base * ((settings.taxaCartaoPercentual || 0) / 100)) + (settings.taxaCartaoFixa || 0);
+  }, [payment, cartSubtotal, taxaEmbalagem, taxaEntrega, settings]);
+
+  const totalFinal = cartSubtotal + taxaEmbalagem + taxaEntrega + taxaCartao;
+
+  // Trava do botão de finalizar
+  const isAddressInvalid = !bairroStatus || !bairroStatus.valido;
+  const isBlockSubmit = settings.isOpen === false || isCartEmpty || isAddressInvalid || isValidatingArea;
+
+  // Função de Geolocalização por Botão
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "Erro", description: "GPS não suportado.", variant: "destructive" });
+      return;
+    }
+    setIsFetchingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          if (data && data.address) {
+            setAddressData({
+              logradouro: data.address.road || "",
+              numero: "",
+              bairro: data.address.suburb || data.address.neighbourhood || "",
+              cidade: data.address.city || data.address.town || "Araruama",
+              estado: data.address.state || "RJ",
+              cep: data.address.postcode || ""
+            });
+            toast({ title: "Localizado!", description: "Confirme os dados e adicione o número." });
+          }
+        } catch (error) {
+          toast({ title: "Erro", description: "Falha ao obter endereço.", variant: "destructive" });
+        } finally {
+          setIsFetchingLocation(false);
+        }
+      },
+      () => {
+        setIsFetchingLocation(false);
+        toast({ title: "GPS Desativado", description: "Ative a localização no seu celular.", variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleFinalize = async () => {
+    if (isBlockSubmit) return;
+    if (!addressData.logradouro || !addressData.numero || !addressData.bairro) {
+      toast({ title: "Atenção", description: "Preencha Rua, Bairro e Número.", variant: "destructive" });
+      return;
+    }
+
+    setIsProcessing(true);
+    const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`;
+    const trackingId = crypto.randomUUID();
+
+    const orderData = {
+      id: trackingId, customerName, phone, address: finalAddress, paymentMethod: payment,
+      items: cartSelfService, products: cartAvulsos.map((p: any) => ({ productId: p.productId, quantity: p.quantity })),
+      observation, total: totalFinal, status: payment === "cartao" ? "aguardando_pagamento" : "novo",
+      isPaid: false, isAccounted: false, tipoPedido: "delivery", taxaEmbalagem, taxaEntrega, taxaCartao, subtotal: cartSubtotal
+    };
+
+    await addOrder(orderData);
+
+    if (payment === "cartao") {
+      const res = await createPaymentPreference(orderData, totalFinal);
+      if (res.success && res.init_point) {
+        window.location.href = res.init_point;
+        return;
+      }
+    }
+
+    setIsProcessing(false);
+    router.push(`/pedido/${trackingId}`);
+  };
 
   return (
     <div className="flex flex-col h-full bg-white">
-      <div className="p-4 sm:p-5 border-b border-stone-100 bg-stone-50 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg sm:text-xl font-bold text-stone-800 flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-orange-600" /> Sua Sacola
-          </h2>
-          <p className="text-xs text-stone-500 mt-0.5">{totalItemsCount} item(s)</p>
-        </div>
-        <button onClick={() => setIsMobileCartOpen(false)} className="lg:hidden text-stone-500 font-medium p-2 text-sm bg-stone-200 rounded-lg">
-          Voltar
-        </button>
+      <div className="p-4 border-b border-stone-100 bg-stone-50 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-stone-800 flex items-center gap-2">
+          <ShoppingBag className="w-5 h-5 text-orange-600" /> Sua Sacola
+        </h2>
+        <button onClick={() => setIsMobileCartOpen(false)} className="lg:hidden text-stone-500 font-medium p-2 text-xs bg-stone-200 rounded-lg">Fechar</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {isCartEmpty ? (
           <div className="text-center py-10 text-stone-400">
-            <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Sua sacola está vazia.</p>
+            <ShoppingBag className="w-10 h-10 mx-auto mb-2 opacity-20" />
+            <p className="text-sm italic">Adicione itens para continuar</p>
           </div>
         ) : (
-          <>
-            {cartSelfService.map((item: any) => {
-              const size = sizes.find((s: any) => s.id === item.sizeId);
-              let sub = size?.price || 0;
-              if (size) {
-                if (!size.strictMaxIngredients) sub += Math.max(0, item.ingredients.length - size.maxIngredients) * (settings.extraIngredientPrice || 0);
-                if (!size.strictMaxSauces) sub += Math.max(0, item.sauces.length - size.maxSauces) * (settings.extraSaucePrice || 0);
-                if (!size.strictMaxPastas && item.pastas?.length) sub += Math.max(0, item.pastas.length - size.maxPastas) * (settings.extraPastaPrice || 0);
-                item.extras?.forEach((extId: string) => {
-                  const extraItem = menuItems.find((m: any) => m.id === extId);
-                  if (extraItem && extraItem.price) sub += extraItem.price;
-                });
-                if (item.extraCheese) sub += 3.0;
-              }
-              return (
-                <div key={item.id} className="flex justify-between items-start border-b border-stone-100 pb-3">
-                  <div className="flex-1 pr-2">
-                    <p className="font-bold text-stone-800 text-sm leading-tight">Macarrão {size?.name}</p>
-                    <p className="text-[11px] sm:text-xs text-stone-500 mt-1 leading-snug">
-                      {menuItems.find((m: any) => m.id === item.pastaId)?.name} • {item.sauces?.map((sId: string) => menuItems.find((m: any) => m.id === sId)?.name).join(", ")}
-                    </p>
-                    {item.extras?.length > 0 && (
-                      <p className="text-[11px] text-amber-600 font-bold mt-0.5 flex items-center gap-1">
-                        <Star className="w-3 h-3" /> {item.extras.map((eId: string) => menuItems.find((m:any) => m.id === eId)?.name).join(", ")}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <span className="font-semibold text-stone-700 text-sm">{formatCurrency(sub)}</span>
-                    <button onClick={() => handleRemoveSelfService(item.id)} className="text-stone-300 hover:text-red-500 p-1"><Trash2 className="w-4 h-4" /></button>
-                  </div>
+          <div className="space-y-3">
+             {/* Lista de itens (Self-service e Avulsos) */}
+             {cartSelfService.map((item: any) => (
+                <div key={item.id} className="flex justify-between items-center bg-stone-50 p-2 rounded-lg border border-stone-100">
+                  <span className="text-xs font-bold text-stone-700">1x Macarrão {sizes.find((s:any)=>s.id===item.sizeId)?.name}</span>
+                  <button onClick={() => handleRemoveSelfService(item.id)} className="text-stone-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
-              );
-            })}
-            {cartAvulsos.map((item: any) => (
-              <div key={item.id} className="flex justify-between items-center border-b border-stone-100 pb-3">
-                <div className="flex-1 pr-2">
-                  <p className="font-bold text-stone-800 text-sm leading-tight">{item.quantity}x {item.product.name}</p>
+             ))}
+             {cartAvulsos.map((item: any) => (
+                <div key={item.id} className="flex justify-between items-center bg-stone-50 p-2 rounded-lg border border-stone-100">
+                  <span className="text-xs font-bold text-stone-700">{item.quantity}x {item.product.name}</span>
+                  <button onClick={() => handleRemoveAvulso(item.id)} className="text-stone-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                  <span className="font-semibold text-stone-700 text-sm">{formatCurrency(item.product.price * item.quantity)}</span>
-                  <button onClick={() => handleRemoveAvulso(item.id)} className="text-stone-300 hover:text-red-500 p-1"><Trash2 className="w-4 h-4" /></button>
-                </div>
-              </div>
-            ))}
-          </>
+             ))}
+          </div>
         )}
       </div>
 
-      <div className="p-4 sm:p-5 bg-stone-50 border-t border-stone-200 space-y-3 sm:space-y-4 shrink-0">
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-sm font-bold text-stone-600">Total a Pagar</span>
-          <span className={`text-xl sm:text-2xl font-black ${isCartEmpty ? "text-stone-400" : "text-orange-700"}`}>
-            {formatCurrency(cartTotal)}
-          </span>
+      <div className="p-4 bg-stone-50 border-t border-stone-200 space-y-4 shrink-0">
+        
+        {/* Identificação */}
+        <div className="grid grid-cols-2 gap-2">
+          <input type="text" placeholder="Seu Nome" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={!settings.isOpen} className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-600" />
+          <input type="tel" placeholder="WhatsApp" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!settings.isOpen} className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-600" />
         </div>
 
-        <div className="space-y-2 sm:space-y-3">
-          <input type="text" placeholder="Seu Nome" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={isCartEmpty} className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100" />
-          <input type="tel" placeholder="Telefone" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isCartEmpty} className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100" />
-          <div className="space-y-1.5">
-            <div className="flex gap-2">
-              <input type="text" placeholder="Rua, bairro..." value={address} onChange={(e) => setAddress(e.target.value)} disabled={isCartEmpty} className="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100" />
-              <input type="text" placeholder="Nº / Lote" value={addressNumber} onChange={(e) => setAddressNumber(e.target.value)} disabled={isCartEmpty} className="w-24 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100" />
-            </div>
-            <button onClick={handleGetLocation} disabled={isCartEmpty || isFetchingLocation} className="w-full flex items-center justify-center gap-1.5 py-2 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-lg text-xs font-bold transition-colors disabled:opacity-50">
-              <MapPin className="w-3.5 h-3.5 text-orange-600" /> {isFetchingLocation ? "Buscando localização..." : "Usar minha localização atual"}
-            </button>
-          </div>
-          <textarea placeholder="Observação (Ex: Troco para R$50...)" value={observation} onChange={(e) => setObservation(e.target.value)} disabled={isCartEmpty} className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-600 outline-none disabled:bg-stone-100 resize-none h-14" />
-          <div className="grid grid-cols-2 gap-1 sm:gap-2">
-            {Object.entries(PAY_META).map(([key, { label, icon: Icon }]) => (
-              <button key={key} onClick={() => setPayment(key as "pix" | "dinheiro")} disabled={isCartEmpty} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all disabled:opacity-50 ${payment === key && !isCartEmpty ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-500"}`}>
-                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-[9px] sm:text-[10px] font-bold uppercase">{label}</span>
-              </button>
-            ))}
-          </div>
-          <button onClick={handleFinalize} disabled={isCartEmpty || !customerName.trim() || !phone.trim() || !address.trim() || !addressNumber.trim()} className="w-full py-3 sm:py-3.5 mt-2 rounded-xl text-white font-bold text-sm bg-green-600 hover:bg-green-700 disabled:bg-stone-300 transition-colors">
-            Confirmar Pedido
+        {/* Endereço Manual com Botão GPS */}
+        <div className="space-y-2 bg-white p-3 rounded-xl border border-stone-200 shadow-sm">
+          <button 
+            onClick={handleGetLocation} 
+            disabled={!settings.isOpen || isFetchingLocation} 
+            className="w-full flex items-center justify-center gap-2 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg border border-orange-200 text-xs font-black transition-all mb-2"
+          >
+            {isFetchingLocation ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+            {isFetchingLocation ? "Buscando endereço..." : "PREENCHER VIA GPS"}
           </button>
+
+          <div className="flex gap-2">
+            <input type="text" placeholder="Nome da Rua" value={addressData.logradouro} onChange={(e) => setAddressData({...addressData, logradouro: e.target.value})} disabled={!settings.isOpen} className="flex-1 border-b py-1.5 text-sm outline-none focus:border-orange-600" />
+            <input type="text" placeholder="Nº" value={addressData.numero} onChange={(e) => setAddressData({...addressData, numero: e.target.value})} disabled={!settings.isOpen} className="w-14 border-b py-1.5 text-sm outline-none focus:border-orange-600 text-center" />
+          </div>
+          
+          <div className="flex gap-2 items-center">
+            <input type="text" placeholder="Bairro (Para cálculo do frete)" value={addressData.bairro} onChange={(e) => setAddressData({...addressData, bairro: e.target.value})} disabled={!settings.isOpen} className="flex-1 border-b py-1.5 text-sm outline-none focus:border-orange-600 font-bold" />
+            {isValidatingArea && <Loader2 className="w-4 h-4 animate-spin text-orange-600" />}
+          </div>
+
+          {bairroStatus?.valido === false && (
+            <p className="text-[10px] font-bold text-red-600 uppercase mt-1 leading-tight">{bairroStatus.mensagem}</p>
+          )}
         </div>
+
+        {/* Resumo Financeiro */}
+        <div className="text-[11px] font-bold text-stone-500 uppercase space-y-1 bg-white p-2 rounded-lg border border-stone-100">
+          <div className="flex justify-between"><span>Subtotal:</span><span>{formatCurrency(cartSubtotal)}</span></div>
+          {taxaEmbalagem > 0 && <div className="flex justify-between"><span>Embalagem:</span><span>{formatCurrency(taxaEmbalagem)}</span></div>}
+          <div className="flex justify-between">
+            <span>Entrega:</span>
+            <span>{isValidatingArea ? "Calculando..." : formatCurrency(taxaEntrega)}</span>
+          </div>
+          {taxaCartao > 0 && <div className="flex justify-between text-orange-600"><span>Taxa Cartão:</span><span>{formatCurrency(taxaCartao)}</span></div>}
+        </div>
+
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-black text-stone-500 uppercase">Total do Pedido</span>
+          <span className="text-2xl font-black text-orange-700">{formatCurrency(totalFinal)}</span>
+        </div>
+
+        {/* Seletor de Pagamento */}
+        <div className="grid grid-cols-3 gap-2">
+          <button onClick={() => setPayment("pix")} disabled={!settings.isOpen} className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all ${payment === "pix" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400"}`}><Smartphone className="w-4 h-4" /><span className="text-[9px] font-black">PIX</span></button>
+          <button onClick={() => setPayment("dinheiro")} disabled={!settings.isOpen} className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all ${payment === "dinheiro" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400"}`}><Banknote className="w-4 h-4" /><span className="text-[9px] font-black">DINHEIRO</span></button>
+          {settings.mercadoPagoAtivo && (
+             <button onClick={() => setPayment("cartao")} disabled={!settings.isOpen} className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all ${payment === "cartao" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400"}`}><CreditCard className="w-4 h-4" /><span className="text-[9px] font-black">CARTÃO</span></button>
+          )}
+        </div>
+
+        <button 
+          onClick={handleFinalize} 
+          disabled={isBlockSubmit || isProcessing} 
+          className="w-full py-4 rounded-2xl text-white font-black text-sm bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-500 transition-all flex justify-center items-center gap-2 shadow-lg active:scale-95"
+        >
+          {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingBag className="w-5 h-5" />}
+          {isProcessing ? "PROCESSANDO..." : "FINALIZAR PEDIDO"}
+        </button>
       </div>
     </div>
   );

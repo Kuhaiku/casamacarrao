@@ -42,12 +42,26 @@ export function useGoogleAddress(apiKey: string) {
         for (const component of place.address_components) {
           const type = component.types[0];
           switch (type) {
-            case "route": newAddress.logradouro = component.long_name; break;
-            case "street_number": newAddress.numero = component.long_name; break;
-            case "sublocality_level_1": case "sublocality": newAddress.bairro = component.long_name; break;
-            case "administrative_area_level_2": newAddress.cidade = component.long_name; break;
-            case "administrative_area_level_1": newAddress.estado = component.short_name; break;
-            case "postal_code": newAddress.cep = component.long_name; break;
+            case "route": 
+              newAddress.logradouro = component.long_name; 
+              break;
+            case "street_number": 
+              newAddress.numero = component.long_name; 
+              break;
+            case "sublocality_level_1": 
+            case "sublocality": 
+            case "neighborhood": // AQUI ESTAVA O PROBLEMA!
+              newAddress.bairro = component.long_name; 
+              break;
+            case "administrative_area_level_2": 
+              newAddress.cidade = component.long_name; 
+              break;
+            case "administrative_area_level_1": 
+              newAddress.estado = component.short_name; 
+              break;
+            case "postal_code": 
+              newAddress.cep = component.long_name; 
+              break;
           }
         }
         setAddressData(newAddress);

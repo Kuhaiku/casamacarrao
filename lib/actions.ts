@@ -349,34 +349,36 @@ export async function dbDispatch(action: string, payload: any) {
 export async function validateBairro(bairro: string, cidade: string) {
   try {
     const [rows]: any = await pool.query(
-      // Retiramos os '%' para que a busca seja exata. 'Centro' só puxará 'Centro'.
       `SELECT taxa_entrega, ativo FROM bairros_atendidos 
        WHERE nome LIKE ? AND cidade LIKE ? ORDER BY id DESC LIMIT 1`,
-      [bairro, cidade] 
+      [`%${bairro.trim()}%`, `%${cidade.trim()}%`]
     );
 
-    // 1. Bairro não existe na tabela
+    // 1. Não achou no banco
     if (rows.length === 0) {
       return { 
         valido: false, 
         taxa_entrega: 0, 
-        mensagem: `Infelizmente, ainda não atendemos o bairro ${bairro}.` 
+        mensagem: `Ainda não atendemos o bairro ${bairro.trim() || 'informado'}.` 
       };
     }
 
-    // 2. TRAVA BLINDADA: Converte "0", 0, ou Buffer forçadamente para Número. 
-    // Se for qualquer coisa diferente de 1, ele bloqueia na hora.
-    const isAtivo = Number(rows[0].ativo) === 1;
+    const ativoRaw = rows[0].ativo;
+    
+    // 2. Trava absoluta: Verifica todas as formas que o MySQL pode devolver o "1"
+    let isAtivo = false;
+    if (ativoRaw === 1 || ativoRaw === true || ativoRaw === '1') isAtivo = true;
+    if (Buffer.isBuffer(ativoRaw) && ativoRaw.length > 0 && ativoRaw[0] === 1) isAtivo = true;
 
+    // 3. Se for 0, false, ou Buffer [0], ele trava!
     if (!isAtivo) {
       return { 
         valido: false, 
         taxa_entrega: 0, 
-        mensagem: `As entregas para ${bairro} estão temporariamente suspensas.` 
+        mensagem: `As entregas para ${bairro.trim()} estão suspensas.` 
       };
     }
 
-    // 3. Tudo certo e ativo, libera a taxa!
     return { 
       valido: true, 
       taxa_entrega: Number(rows[0].taxa_entrega) 
@@ -384,10 +386,6 @@ export async function validateBairro(bairro: string, cidade: string) {
 
   } catch (error) {
     console.error("Erro ao validar bairro:", error);
-    return { 
-      valido: false, 
-      taxa_entrega: 0, 
-      mensagem: "Erro ao consultar a área de entrega." 
-    };
+    return { valido: false, taxa_entrega: 0, mensagem: "Erro ao consultar a área." };
   }
 }
