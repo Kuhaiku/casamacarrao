@@ -1,28 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useStore } from "@/lib/store"
 import { useOrder } from "@/lib/order-context"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { validateBairro } from "@/lib/actions"
+import { createPaymentPreference } from "@/lib/mercadopago-actions"
+import { useGoogleAddress } from "@/hooks/use-google-address"
+
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { CreditCard, Banknote, QrCode, ChevronLeft, Check, PartyPopper, Plus, Minus, Loader2 } from "lucide-react"
-// CORREÇÃO 1: Adicionado o OrderStatus na importação
-import type { PaymentMethod, OrderProduct, OrderStatus } from "@/lib/types"
-import { createPaymentPreference } from "@/lib/mercadopago-actions"
+import { CreditCard, Banknote, QrCode, ChevronLeft, PartyPopper, Plus, Minus, Loader2, AlertCircle } from "lucide-react"
+
+import type { OrderProduct, OrderStatus, BairroValidation } from "@/lib/types"
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
-
-const paymentMethods: { id: PaymentMethod; label: string; icon: React.ElementType }[] = [
-  { id: "pix", label: "PIX", icon: QrCode },
-  { id: "cartao", label: "Cartão", icon: CreditCard },
-  { id: "dinheiro", label: "Dinheiro", icon: Banknote },
-]
 
 function SuccessScreen() {
   const { resetOrder } = useOrder()
@@ -31,25 +29,83 @@ function SuccessScreen() {
       <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
         <PartyPopper className="h-10 w-10 text-primary" />
       </div>
-      <h1 className="text-3xl font-bold text-foreground mb-3">Pedido Enviado!</h1>
-      <p className="text-muted-foreground mb-8">O seu pedido foi recebido e aguarda aprovação.</p>
+      <h1 className="text-3xl font-bold text-foreground mb-3">Pedido Recebido!</h1>
+      <p className="text-muted-foreground mb-8">Acompanhe seu pedido pelo WhatsApp.</p>
       <Button size="lg" onClick={resetOrder}>Fazer Novo Pedido</Button>
     </div>
   )
 }
 
 export function Checkout() {
-  const { addOrder, calculateOrderTotal, sizes, menuItems, products, productCategories } = useStore()
-  const { items, customerName, address, paymentMethod, setCustomerName, setAddress, setPaymentMethod, setStep } = useOrder()
+  const { toast } = useToast()
+  const { addOrder, calculateOrderTotal, sizes, products, productCategories, settings } = useStore()
+  const { items, customerName, setCustomerName, paymentMethod, setPaymentMethod, setStep } = useOrder()
 
+  const [tipoPedido, setTipoPedido] = useState<"delivery" | "mesa">("delivery")
   const [phone, setPhone] = useState("")
-  const [addressNumber, setAddressNumber] = useState("") 
+  const [selectedProducts, setSelectedProducts] = useState<OrderProduct[]>([])
+  
+  // Controle de Interface
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [errors, setErrors] = useState<{ name?: string; address?: string; phone?: string }>({})
-  const [selectedProducts, setSelectedProducts] = useState<OrderProduct[]>([])
+  const [isValidatingArea, setIsValidatingArea] = useState(false)
+  const [bairroStatus, setBairroStatus] = useState<BairroValidation | null>(null)
 
-  const total = calculateOrderTotal(items, selectedProducts)
+  // API do Google
+  const { inputRef, addressData, setAddressData } = useGoogleAddress(process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "")
+
+  // 1. Validação Automática do Bairro / Taxa de Entrega
+  useEffect(() => {
+    const checkArea = async () => {
+      if (tipoPedido !== "delivery" || !addressData.bairro || !addressData.cidade) {
+        setBairroStatus(null)
+        return
+      }
+
+      setIsValidatingArea(true)
+      const res = await validateBairro(addressData.bairro, addressData.cidade)
+      setBairroStatus(res)
+      setIsValidatingArea(false)
+
+      if (!res.valido) {
+        toast({ variant: "destructive", title: "Área Bloqueada", description: res.mensagem })
+      }
+    }
+
+    const timer = setTimeout(checkArea, 800)
+    return () => clearTimeout(timer)
+  }, [addressData.bairro, addressData.cidade, tipoPedido, toast])
+
+  // 2. Cálculo da Taxa de Embalagem Dinâmica
+  const taxaEmbalagem = useMemo(() => {
+    if (tipoPedido === "mesa") return 0
+    const taxaGlobal = settings.taxaEmbalagemGlobal || 2.00
+    
+    // Calcula para produtos extras marcados com "tem_embalagem"
+    const produtosFee = selectedProducts.reduce((acc, sp) => {
+      const prod = products.find(p => p.id === sp.productId)
+      return prod?.tem_embalagem ? acc + (taxaGlobal * sp.quantity) : acc
+    }, 0)
+
+    // Calcula 1 embalagem por Macarrão montado
+    const macarraoFee = items.length * taxaGlobal
+    
+    return produtosFee + macarraoFee
+  }, [tipoPedido, items, selectedProducts, products, settings.taxaEmbalagemGlobal])
+
+  // 3. Totais e Taxa do Cartão de Crédito
+  const subtotal = calculateOrderTotal(items, selectedProducts)
+  const taxaEntrega = tipoPedido === "delivery" && bairroStatus?.valido ? bairroStatus.taxa_entrega : 0
+  
+  const taxaCartao = useMemo(() => {
+    if (paymentMethod !== "cartao") return 0
+    const base = subtotal + taxaEmbalagem + taxaEntrega
+    const percentual = settings.taxaCartaoPercentual || 3.5
+    const fixa = settings.taxaCartaoFixa || 0
+    return (base * (percentual / 100)) + fixa
+  }, [paymentMethod, subtotal, taxaEmbalagem, taxaEntrega, settings])
+
+  const total = subtotal + taxaEmbalagem + taxaEntrega + taxaCartao
 
   const handleUpdateProduct = (productId: string, delta: number) => {
     setSelectedProducts(prev => {
@@ -62,41 +118,37 @@ export function Checkout() {
     })
   }
 
+  // 4. Lógica de Bloqueio de Expediente
+  const isAddressInvalid = tipoPedido === "delivery" && (!bairroStatus?.valido)
+  const isBlockSubmit = settings.isOpen === false || isAddressInvalid || isProcessing || isValidatingArea
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isBlockSubmit) return
     setIsProcessing(true)
     
-    const newErrors: typeof errors = {}
-    if (!customerName.trim()) newErrors.name = "Nome é obrigatório"
-    if (!phone.trim()) newErrors.phone = "Telefone é obrigatório"
-    const finalAddress = addressNumber.trim() ? `${address.trim()}, Nº ${addressNumber.trim()}` : address.trim()
-    if (!finalAddress) newErrors.address = "Endereço é obrigatório"
+    const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`
     
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      setIsProcessing(false)
-      return
-    }
-
-    const orderId = crypto.randomUUID()
     const orderData = {
-      id: orderId,
+      id: crypto.randomUUID(),
       customerName: customerName.trim(),
       phone: phone.trim(),
-      address: finalAddress, 
+      address: tipoPedido === "delivery" ? finalAddress : "Retirada/Mesa", 
       paymentMethod,
       items,
       products: selectedProducts,
-      // CORREÇÃO 2: Adicionado 'as OrderStatus' para tipagem forte
       status: (paymentMethod === "cartao" ? "aguardando_pagamento" : "novo") as OrderStatus,
       isPaid: false,
+      tipoPedido,
+      subtotal,
+      taxaEmbalagem,
+      taxaEntrega,
+      taxaCartao,
       total,
     }
 
-    // Salva o pedido no banco
-    await addOrder(orderData)
+    await addOrder(orderData as any)
 
-    // Lógica nova: Mercado Pago para cartão
     if (paymentMethod === "cartao") {
       const res = await createPaymentPreference(orderData, total)
       if (res.success && res.init_point) {
@@ -112,62 +164,85 @@ export function Checkout() {
   if (isSubmitted) return <SuccessScreen />
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2 max-w-4xl mx-auto p-4">
+    <div className="grid gap-8 lg:grid-cols-2 max-w-5xl mx-auto p-4">
       <div className="space-y-6">
-        {/* Renderização de Categorias/Produtos Adicionais igual ao seu código original */}
-        {productCategories.filter(c => c.isActive).map(cat => {
-            const catProds = products.filter(p => p.categoryId === cat.id && p.isActive)
-            if (catProds.length === 0) return null
-            return (
-                <Card key={cat.id}>
-                    <CardHeader className="pb-3"><CardTitle className="text-lg">Adicionar {cat.name}</CardTitle></CardHeader>
-                    <CardContent className="grid gap-3">
-                        {catProds.map(prod => {
-                            const qty = selectedProducts.find(p => p.productId === prod.id)?.quantity || 0
-                            return (
-                                <div key={prod.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                    <div><p className="font-medium">{prod.name}</p><p className="text-sm text-muted-foreground">{formatCurrency(prod.price)}</p></div>
-                                    <div className="flex items-center gap-3">
-                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUpdateProduct(prod.id, -1)} disabled={qty === 0}><Minus className="h-3 w-3" /></Button>
-                                        <span className="w-4 text-center font-medium">{qty}</span>
-                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUpdateProduct(prod.id, 1)}><Plus className="h-3 w-3" /></Button>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </CardContent>
-                </Card>
-            )
-        })}
+        
+        {/* Banner de Controle de Expediente */}
+        {settings.isOpen === false && (
+          <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
+            <AlertCircle className="h-5 w-5" />
+            <AlertTitle className="font-bold">Aviso Importante</AlertTitle>
+            <AlertDescription>Nosso delivery está fora de atendimento no momento.</AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <form id="checkout-form" onSubmit={handleSubmit}>
             <CardHeader><CardTitle>Finalizar Pedido</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input id="name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+            <CardContent className="space-y-6">
+              
+              <div className="grid grid-cols-2 gap-4">
+                <Button type="button" variant={tipoPedido === "delivery" ? "default" : "outline"} onClick={() => setTipoPedido("delivery")} disabled={!settings.isOpen}>Delivery</Button>
+                <Button type="button" variant={tipoPedido === "mesa" ? "default" : "outline"} onClick={() => setTipoPedido("mesa")} disabled={!settings.isOpen}>Retirada / Mesa</Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefone</Label>
-                <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(22) 99999-9999" />
-              </div>
-              <div className="space-y-2">
-                <Label>Endereço</Label>
-                <div className="flex gap-2">
-                  <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} className="flex-1" />
-                  <Input value={addressNumber} onChange={(e) => setAddressNumber(e.target.value)} className="w-24" placeholder="Nº" />
+
+              <div className="space-y-4 border-t pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome</Label>
+                  <Input id="name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={!settings.isOpen} required />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone (WhatsApp)</Label>
+                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(22) 99999-9999" disabled={!settings.isOpen} required />
+                </div>
+
+                {tipoPedido === "delivery" && (
+                  <div className="space-y-4 bg-muted/30 p-4 rounded-lg border">
+                    <div className="space-y-2">
+                      <Label>Buscar Endereço</Label>
+                      <Input ref={inputRef} placeholder="Digite seu endereço e selecione..." disabled={!settings.isOpen} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2 space-y-2">
+                        <Label>Logradouro</Label>
+                        <Input value={addressData.logradouro} onChange={(e) => setAddressData({...addressData, logradouro: e.target.value})} disabled required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Nº</Label>
+                        <Input value={addressData.numero} onChange={(e) => setAddressData({...addressData, numero: e.target.value})} disabled={!settings.isOpen} required />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>Bairro {isValidatingArea && <Loader2 className="inline h-3 w-3 animate-spin ml-2" />}</Label>
+                        <Input value={addressData.bairro} onChange={(e) => setAddressData({...addressData, bairro: e.target.value})} disabled required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Cidade</Label>
+                        <Input value={addressData.cidade} disabled />
+                      </div>
+                    </div>
+                    {bairroStatus?.valido === false && (
+                      <p className="text-sm text-destructive font-medium mt-1">{bairroStatus.mensagem}</p>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="space-y-3">
+
+              <div className="space-y-3 pt-4 border-t">
                 <Label>Forma de Pagamento</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {paymentMethods.map((m) => (
-                    <button key={m.id} type="button" onClick={() => setPaymentMethod(m.id)} className={cn("p-3 rounded-lg border-2 flex flex-col items-center gap-1", paymentMethod === m.id ? "border-primary bg-primary/5" : "border-border")}>
-                      <m.icon className="h-5 w-5" />
-                      <span className="text-xs font-medium">{m.label}</span>
+                  <button type="button" onClick={() => setPaymentMethod("pix")} disabled={!settings.isOpen} className={cn("p-3 rounded-lg border-2 flex flex-col items-center gap-1", paymentMethod === "pix" ? "border-primary bg-primary/5" : "border-border opacity-70")}>
+                    <QrCode className="h-5 w-5" /> <span className="text-xs font-medium">PIX</span>
+                  </button>
+                  <button type="button" onClick={() => setPaymentMethod("dinheiro")} disabled={!settings.isOpen} className={cn("p-3 rounded-lg border-2 flex flex-col items-center gap-1", paymentMethod === "dinheiro" ? "border-primary bg-primary/5" : "border-border opacity-70")}>
+                    <Banknote className="h-5 w-5" /> <span className="text-xs font-medium">Dinheiro</span>
+                  </button>
+                  {settings.mercadoPagoAtivo && (
+                    <button type="button" onClick={() => setPaymentMethod("cartao")} disabled={!settings.isOpen} className={cn("p-3 rounded-lg border-2 flex flex-col items-center gap-1", paymentMethod === "cartao" ? "border-primary bg-primary/5" : "border-border opacity-70")}>
+                      <CreditCard className="h-5 w-5" /> <span className="text-xs font-medium">Cartão</span>
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -176,29 +251,66 @@ export function Checkout() {
       </div>
 
       <div className="space-y-6">
-        <Card>
-          <CardHeader><CardTitle>Resumo</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            {items.map((item, i) => (
-                <div key={i} className="text-sm p-2 bg-muted rounded">
-                    {sizes.find(s => s.id === item.sizeId)?.name}
+        <Card className="sticky top-6">
+          <CardHeader><CardTitle>Resumo do Pedido</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            
+            <div className="space-y-2">
+              {items.map((item, i) => (
+                  <div key={i} className="text-sm p-2 bg-muted rounded flex justify-between">
+                      <span>1x {sizes.find(s => s.id === item.sizeId)?.name}</span>
+                  </div>
+              ))}
+              {selectedProducts.map(sp => {
+                const prod = products.find(p => p.id === sp.productId)
+                return (
+                  <div key={sp.productId} className="flex justify-between text-sm italic">
+                      <span>{sp.quantity}x {prod?.name}</span>
+                      <span>{formatCurrency((prod?.price || 0) * sp.quantity)}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="border-t pt-4 space-y-2 text-sm text-muted-foreground">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              {taxaEmbalagem > 0 && (
+                <div className="flex justify-between">
+                  <span>Taxa de Embalagem</span>
+                  <span>{formatCurrency(taxaEmbalagem)}</span>
                 </div>
-            ))}
-            {selectedProducts.map(sp => (
-                <div key={sp.productId} className="flex justify-between text-sm italic">
-                    <span>{sp.quantity}x {products.find(p => p.id === sp.productId)?.name}</span>
+              )}
+              {tipoPedido === "delivery" && (
+                <div className="flex justify-between">
+                  <span>Taxa de Entrega</span>
+                  <span>
+                    {isValidatingArea ? <Loader2 className="h-3 w-3 animate-spin" /> : taxaEntrega > 0 ? formatCurrency(taxaEntrega) : "---"}
+                  </span>
                 </div>
-            ))}
+              )}
+              {taxaCartao > 0 && (
+                <div className="flex justify-between text-orange-600 font-medium">
+                  <span>Taxa Cartão de Crédito</span>
+                  <span>{formatCurrency(taxaCartao)}</span>
+                </div>
+              )}
+            </div>
+
           </CardContent>
-          <CardFooter className="flex-col gap-3 border-t pt-4">
+          <CardFooter className="flex-col gap-4 border-t pt-6 bg-muted/10">
             <div className="flex justify-between w-full text-xl font-bold">
               <span>Total</span>
               <span className="text-primary">{formatCurrency(total)}</span>
             </div>
-            <Button type="submit" form="checkout-form" className="w-full" size="lg" disabled={isProcessing}>
-              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirmar Pedido"}
+            <Button type="submit" form="checkout-form" className="w-full" size="lg" disabled={isBlockSubmit}>
+              {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Confirmar Pedido"}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setStep(0)} className="w-full"><ChevronLeft className="h-4 w-4 mr-2" />Voltar</Button>
+            <Button type="button" variant="ghost" onClick={() => setStep(0)} className="w-full" disabled={isProcessing}>
+              <ChevronLeft className="h-4 w-4 mr-2" /> Editar Carrinho
+            </Button>
           </CardFooter>
         </Card>
       </div>

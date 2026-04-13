@@ -2,6 +2,7 @@
 
 // 1. Adicionado "extra" para os novos adicionais com preço individual
 export type CategoryType = "pasta" | "sauce" | "seasoning" | "ingredient" | "extra";
+export type TipoPedido = "delivery" | "mesa";
 
 export interface Size {
   id: string;
@@ -42,6 +43,11 @@ export interface OrderItem {
   extras?: string[]; // Array para guardar os IDs dos itens extras adicionados
   extraCheese?: boolean; // Mantido como opcional para não quebrar compatibilidade de pedidos antigos
 }
+export interface BairroValidation {
+  valido: boolean;
+  taxa_entrega: number;
+  mensagem?: string;
+}
 
 // ADICIONADO "despachado" (Saiu para entrega)
 export type OrderStatus =
@@ -66,6 +72,7 @@ export interface Product {
   name: string;
   price: number;
   isActive: boolean;
+  tem_embalagem?: boolean;
 }
 
 export interface OrderProduct {
@@ -88,6 +95,11 @@ export interface Order {
   isAccounted?: boolean;
   deliveredAt?: string;
   observation?: string;
+  tipoPedido?: TipoPedido;
+  taxaEntrega?: number;
+  taxaEmbalagem?: number;
+  taxaCartao?: number;
+  subtotal?: number;
 }
 
 export interface FinancialEntry {
@@ -120,4 +132,9 @@ export interface StoreState {
   tips: FinancialEntry[];
   cashRegisters: CashRegister[];
   registerOpenedAt: string;
+  isOpen?: boolean;
+  taxaEmbalagemGlobal?: number;
+  mercadoPagoAtivo?: boolean;
+  taxaCartaoPercentual?: number;
+  taxaCartaoFixa?: number;
 }

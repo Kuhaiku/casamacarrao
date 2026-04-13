@@ -1,0 +1,4 @@
+http://undefined/sucesso?collection_id=153813225221&collection_status=approved&payment_id=153813225221&status=approved&external_reference=null&payment_type=credit_card&merchant_order_id=39933791370&preference_id=274681452-4f994c55-2960-4387-bdad-4c7fd0d11a3c&site_id=MLB&processing_mode=aggregator&merchant_account_id=null
+
+
+criar a possibilidade de poder editar o valor e o nome dos itens avulsos

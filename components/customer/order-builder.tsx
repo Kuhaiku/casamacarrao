@@ -1,312 +1,345 @@
-// components/customer/order-builder.tsx
-"use client"
+"use client";
 
-import { useStore } from "@/lib/store"
-import { useOrder } from "@/lib/order-context"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Check, AlertCircle, Ban } from "lucide-react"
-import type { CategoryType, MenuItem } from "@/lib/types"
+import { useState } from "react";
+import { Check, AlertCircle, Star, ShoppingBag } from "lucide-react";
 
-function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+// 1. Tipagem das propriedades (resolvendo o erro do TypeScript)
+interface OrderBuilderProps {
+  db: {
+    sizes: any[];
+    menuItems: any[];
+    settings: any;
+  };
+  onFinish: (order: any) => void;
+  formatCurrency: (value: number) => string;
 }
 
-const steps = [
-  { id: 1, label: "Massa", category: "pasta" as CategoryType },
-  { id: 2, label: "Molho", category: "sauce" as CategoryType },
-  { id: 3, label: "Ingredientes", category: "ingredient" as CategoryType },
-  { id: 4, label: "Temperos", category: "seasoning" as CategoryType },
-  { id: 5, label: "Extras", category: null },
-]
+export function OrderBuilder({ db, onFinish, formatCurrency }: OrderBuilderProps) {
+  const [step, setStep] = useState(0);
+  const STEPS = ["Tamanho", "Massa", "Molhos", "Temperos", "Ingredientes"];
 
-function StepIndicator({ currentStep }: { currentStep: number }) {
+  const [order, setOrder] = useState({
+    sizeId: null as string | null,
+    pastaId: null as string | null,
+    sauces: [] as string[],
+    temperos: [] as string[],
+    ingredients: [] as string[],
+    extras: [] as string[],
+  });
+
+  const setOrd = (patch: any) => setOrder((p) => ({ ...p, ...patch }));
+
+  const canAdvance = () => {
+    if (step === 0) return !!order.sizeId;
+    if (step === 1) return !!order.pastaId;
+    if (step === 2) return order.sauces.length > 0;
+    return true;
+  };
+
+  const selectedSize = db.sizes.find((s: any) => s.id === order.sizeId);
+  let currentTotal = selectedSize?.price || 0;
+  
+  if (selectedSize) {
+    if (!selectedSize.strictMaxSauces) {
+      currentTotal += Math.max(0, order.sauces.length - selectedSize.maxSauces) * (db.settings.extraSaucePrice || 0);
+    }
+    if (!selectedSize.strictMaxIngredients) {
+      currentTotal += Math.max(0, order.ingredients.length - selectedSize.maxIngredients) * (db.settings.extraIngredientPrice || 0);
+    }
+    
+    order.extras.forEach((extId: string) => {
+      const extraItem = db.menuItems.find((m:any) => m.id === extId);
+      if(extraItem && extraItem.price) currentTotal += extraItem.price;
+    });
+  }
+
+  const massas = db.menuItems.filter((i: any) => i.isActive && i.category === "pasta");
+  const molhos = db.menuItems.filter((i: any) => i.isActive && i.category === "sauce");
+  const temperos = db.menuItems.filter((i: any) => i.isActive && i.category === "seasoning");
+  const ingredientes = db.menuItems.filter((i: any) => i.isActive && i.category === "ingredient");
+  const extras = db.menuItems.filter((i: any) => i.isActive && i.category === "extra");
+
   return (
-    <div className="flex items-center justify-center gap-2 mb-6">
-      {steps.map((step, idx) => (
-        <div key={step.id} className="flex items-center">
-          <div
-            className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
-              currentStep === step.id
-                ? "bg-primary text-primary-foreground"
-                : currentStep > step.id
-                ? "bg-primary/20 text-primary"
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            {currentStep > step.id ? <Check className="h-4 w-4" /> : step.id}
+    <div className="max-w-xl mx-auto w-full flex flex-col">
+      {selectedSize && (
+        <div className="sticky top-0 z-20 mb-4 bg-stone-900 rounded-xl px-4 py-3 flex items-center justify-between shadow-lg shrink-0">
+          <div>
+            <p className="text-stone-400 text-[10px] sm:text-xs">
+              Macarrão {selectedSize.name}
+            </p>
+            <p className="text-white text-lg sm:text-xl font-bold">
+              {formatCurrency(currentTotal)}
+            </p>
           </div>
-          {idx < steps.length - 1 && (
+        </div>
+      )}
+
+      <div className="flex items-center gap-1 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] whitespace-nowrap w-full shrink-0">
+        {STEPS.map((name, i) => (
+          <div key={i} className="flex items-center shrink-0">
             <div
-              className={cn(
-                "w-8 h-0.5 mx-1",
-                currentStep > step.id ? "bg-primary/40" : "bg-muted"
-              )}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ItemSelector({
-  items,
-  selected,
-  onToggle,
-  max,
-  extraPrice,
-  isSeasoning = false,
-  isStrict = false,
-}: {
-  items: MenuItem[]
-  selected: string[]
-  onToggle: (id: string) => void
-  max: number
-  extraPrice: number
-  isSeasoning?: boolean
-  isStrict?: boolean
-}) {
-  const isOverLimit = !isSeasoning && selected.length > max
-  const extraCount = Math.max(0, selected.length - max)
-
-  return (
-    <div className="space-y-4">
-      {!isSeasoning && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            Selecionados: <span className="font-medium text-foreground">{selected.length}</span> / {max}
-            {isStrict && <span className="ml-1 text-xs">(Limite Fixo)</span>}
-          </span>
-          {isOverLimit && !isStrict && (
-            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
-              <AlertCircle className="h-3 w-3 mr-1" />
-              +{extraCount} extra ({formatCurrency(extraCount * extraPrice)})
-            </Badge>
-          )}
-        </div>
-      )}
-      {isSeasoning && (
-        <p className="text-sm text-muted-foreground">Escolha quantos temperos quiser!</p>
-      )}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {items.map((item) => {
-          const isSelected = selected.includes(item.id)
-          const wouldExceed = !isSeasoning && !isSelected && selected.length >= max
-          const isDisabled = isStrict && wouldExceed
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => onToggle(item.id)}
-              disabled={isDisabled}
-              className={cn(
-                "p-4 rounded-lg border-2 text-left transition-all relative overflow-hidden",
-                isSelected
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50 hover:bg-muted/50",
-                wouldExceed && !isStrict && "border-dashed",
-                isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-transparent"
-              )}
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all ${
+                i < step ? "bg-green-600 text-white" : i === step ? "bg-orange-700 text-white" : "bg-stone-200 text-stone-500"
+              }`}
             >
-              <div className="flex items-center justify-between">
-                <span className={cn("font-medium", isSelected && "text-primary")}>
-                  {item.name}
-                </span>
-                {isSelected && (
-                  <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
-                )}
-                {isDisabled && (
-                   <Ban className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
-                )}
-              </div>
-              
-              {/* Mostra o preço extra apenas se for ultrapassar e NÃO for estrito */}
-              {wouldExceed && !isSelected && !isStrict && (
-                <span className="text-xs text-muted-foreground block mt-1">
-                  +{formatCurrency(extraPrice)}
-                </span>
-              )}
-
-              {/* Mostra aviso de bloqueado se for estrito */}
-              {isDisabled && (
-                <span className="text-xs text-muted-foreground block mt-1">
-                  Limite atingido
-                </span>
-              )}
-            </button>
-          )
-        })}
+              {i < step && <Check className="w-3 h-3 inline mr-1" />}
+              {name}
+            </div>
+            {i < STEPS.length - 1 && (
+              <div
+                className={`w-3 sm:w-4 h-0.5 mx-1 ${i < step ? "bg-green-500" : "bg-stone-300"}`}
+              />
+            )}
+          </div>
+        ))}
       </div>
-    </div>
-  )
-}
 
-function ExtrasStep() {
-  const { settings } = useStore()
-  const { currentItem, updateCurrentItem } = useOrder()
-
-  if (!currentItem) return null
-
-  return (
-    <div className="space-y-6">
-      <div className="p-4 rounded-lg border-2 border-dashed">
-        <label className="flex items-center gap-3 cursor-pointer">
-          <Checkbox
-            checked={currentItem.extraCheese}
-            onCheckedChange={(checked) => updateCurrentItem({ extraCheese: !!checked })}
-          />
-          <div className="flex-1">
-            <div className="font-medium">Queijo Extra</div>
-            <div className="text-sm text-muted-foreground">
-              Uma camada extra de queijo derretido
+      <div className="bg-white rounded-2xl border border-stone-200 p-4 sm:p-6 shadow-sm mb-6 flex-1">
+        {step === 0 && (
+          <div className="animate-in fade-in duration-300">
+            <h2 className="text-lg sm:text-xl font-bold text-stone-800 mb-1">Escolha o Tamanho</h2>
+            <p className="text-xs sm:text-sm text-stone-500 mb-4">Cada tamanho tem seus próprios limites.</p>
+            <div className="space-y-3">
+              {db.sizes.map((sz: any) => (
+                <button
+                  key={sz.id}
+                  onClick={() => setOrd({ sizeId: sz.id })}
+                  className={`w-full text-left p-3 sm:p-4 rounded-xl border-2 transition-all ${
+                    order.sizeId === sz.id ? "border-orange-600 bg-orange-50" : "border-stone-200 hover:border-orange-300 bg-white"
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                    <div>
+                      <p className="font-bold text-stone-800 text-base sm:text-lg">{sz.name}</p>
+                      <div className="flex flex-wrap gap-1.5 sm:gap-3 mt-1.5 text-[10px] sm:text-xs text-stone-500 font-medium">
+                        <span className="bg-white/50 px-1.5 rounded">🍝 {sz.maxPastas} massa</span>
+                        <span className="bg-white/50 px-1.5 rounded">🥫 {sz.maxSauces} molho{sz.maxSauces > 1 ? "s" : ""}</span>
+                        <span className="bg-white/50 px-1.5 rounded">🥓 {sz.maxIngredients} ingr.</span>
+                      </div>
+                    </div>
+                    <p className="text-xl sm:text-2xl font-black text-orange-700">{formatCurrency(sz.price)}</p>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
-          <Badge variant="secondary">
-            
-          </Badge>
-        </label>
-      </div>
-    </div>
-  )
-}
-
-export function OrderBuilder() {
-  const { menuItems, sizes, settings } = useStore()
-  const { currentItem, updateCurrentItem, step, setStep, addItemToCart } = useOrder()
-
-  if (!currentItem) return null
-
-  const size = sizes.find((s) => s.id === currentItem.sizeId)
-  if (!size) return null
-
-  const currentStepConfig = steps[step - 1]
-  const activeItems = menuItems.filter(
-    (item) => item.isActive && item.category === currentStepConfig?.category
-  )
-
-  const getSelected = (): string[] => {
-    switch (currentStepConfig?.category) {
-      case "pasta": return currentItem.pastas
-      case "sauce": return currentItem.sauces
-      case "ingredient": return currentItem.ingredients
-      case "seasoning": return currentItem.seasonings
-      default: return []
-    }
-  }
-
-  const getMax = (): number => {
-    switch (currentStepConfig?.category) {
-      case "pasta": return size.maxPastas
-      case "sauce": return size.maxSauces
-      case "ingredient": return size.maxIngredients
-      default: return Infinity
-    }
-  }
-
-  // Nova função para checar se a categoria atual tem limite estrito
-  const getIsStrict = (): boolean => {
-    switch (currentStepConfig?.category) {
-      case "pasta": return !!size.strictMaxPastas
-      case "sauce": return !!size.strictMaxSauces
-      case "ingredient": return !!size.strictMaxIngredients
-      default: return false
-    }
-  }
-
-  const handleToggle = (id: string) => {
-    const selected = getSelected()
-    const field = currentStepConfig?.category === "pasta" ? "pastas"
-      : currentStepConfig?.category === "sauce" ? "sauces"
-      : currentStepConfig?.category === "ingredient" ? "ingredients"
-      : "seasonings"
-    
-    // Se a regra for estrita e tentar adicionar além do limite, bloqueia a ação.
-    // (Isso é uma segurança extra além do 'disabled' no botão)
-    const isStrict = getIsStrict()
-    const max = getMax()
-    
-    if (selected.includes(id)) {
-      // Permitir desmarcar sempre
-      updateCurrentItem({ [field]: selected.filter((s) => s !== id) })
-    } else {
-      // Bloquear se for estrito e já estiver no limite
-      if (isStrict && selected.length >= max && currentStepConfig?.category !== "seasoning") {
-        return
-      }
-      // Adicionar se não for estrito ou se não atingiu o limite
-      updateCurrentItem({ [field]: [...selected, id] })
-    }
-  }
-
-  const canProceed = () => {
-    switch (step) {
-      case 1: return currentItem.pastas.length > 0
-      case 2: return currentItem.sauces.length > 0
-      default: return true
-    }
-  }
-
-  const handleNext = () => {
-    if (step < 5) {
-      setStep(step + 1)
-    } else {
-      addItemToCart()
-    }
-  }
-
-  const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1)
-    } else {
-      setStep(0)
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Montando: {size.name}</CardTitle>
-            <CardDescription>
-              {currentStepConfig?.label || ""}
-            </CardDescription>
-          </div>
-          <Badge variant="outline">{formatCurrency(size.price)}</Badge>
-        </div>
-        <StepIndicator currentStep={step} />
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {step === 5 ? (
-          <ExtrasStep />
-        ) : (
-          <ItemSelector
-            items={activeItems}
-            selected={getSelected()}
-            onToggle={handleToggle}
-            max={getMax()}
-            extraPrice={settings.extraIngredientPrice}
-            isSeasoning={currentStepConfig?.category === "seasoning"}
-            isStrict={getIsStrict()}
-          />
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t">
-          <Button variant="outline" onClick={handleBack}>
-            <ChevronLeft className="h-4 w-4 mr-2" />
+        {step === 1 && (
+          <div className="animate-in fade-in duration-300">
+            <h2 className="text-lg sm:text-xl font-bold text-stone-800 mb-4">Escolha a Massa</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              {massas.map((m: any) => (
+                <button
+                  key={m.id}
+                  onClick={() => setOrd({ pastaId: m.id })}
+                  className={`p-3 sm:p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[90px] ${
+                    order.pastaId === m.id ? "border-orange-600 bg-orange-50" : "border-stone-200 hover:border-orange-300 bg-white"
+                  }`}
+                >
+                  <span className="text-xl sm:text-2xl block mb-1 sm:mb-2">🍝</span>
+                  <span className={`text-[11px] sm:text-sm font-bold leading-tight ${order.pastaId === m.id ? "text-orange-900" : "text-stone-700"}`}>
+                    {m.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="animate-in fade-in duration-300">
+            <div className="flex justify-between items-center mb-1">
+              <h2 className="text-lg sm:text-xl font-bold text-stone-800">Molhos</h2>
+              <span className="text-[10px] sm:text-xs font-bold bg-stone-100 px-2 py-1 rounded-full text-stone-600">
+                {order.sauces.length}/{selectedSize?.maxSauces}
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-stone-500 mb-3 sm:mb-4">Adicionais custam {formatCurrency(db.settings.extraSaucePrice || 0)}.</p>
+            
+            {order.sauces.length > (selectedSize?.maxSauces || 1) && !selectedSize?.strictMaxSauces && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 sm:p-3 rounded-xl flex items-center gap-2 mb-4 text-[11px] sm:text-sm font-medium">
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 shrink-0" /> 
+                Molhos extras (+{formatCurrency((order.sauces.length - selectedSize!.maxSauces) * (db.settings.extraSaucePrice || 0))})
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              {molhos.map((m: any) => {
+                const isActive = order.sauces.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      if (isActive) setOrd({ sauces: order.sauces.filter((id) => id !== m.id) });
+                      else if (!selectedSize?.strictMaxSauces || order.sauces.length < selectedSize.maxSauces) setOrd({ sauces: [...order.sauces, m.id] });
+                    }}
+                    className={`p-3 sm:p-4 rounded-xl border-2 text-center relative transition-all flex flex-col items-center justify-center min-h-[90px] ${
+                      isActive ? "border-red-600 bg-red-50" : "border-stone-200 hover:border-red-300 bg-white"
+                    }`}
+                  >
+                    <span className="text-xl sm:text-2xl block mb-1 sm:mb-2">🥫</span>
+                    <span className={`text-[11px] sm:text-sm font-bold leading-tight ${isActive ? "text-red-900" : "text-stone-700"}`}>
+                      {m.name}
+                    </span>
+                    {isActive && (
+                      <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 text-white" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="animate-in fade-in duration-300">
+            <h2 className="text-lg sm:text-xl font-bold text-stone-800 mb-1">Temperos (Grátis)</h2>
+            <p className="text-xs sm:text-sm text-stone-500 mb-3 sm:mb-4">Escolha quantos quiser!</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              {temperos.map((t: any) => {
+                const isActive = order.temperos.includes(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      if (isActive) setOrd({ temperos: order.temperos.filter((id) => id !== t.id) });
+                      else setOrd({ temperos: [...order.temperos, t.id] });
+                    }}
+                    className={`p-2.5 sm:p-3 rounded-xl border-2 text-center relative transition-all flex flex-col items-center justify-center min-h-[70px] ${
+                      isActive ? "border-green-600 bg-green-50" : "border-stone-200 hover:border-green-300 bg-white"
+                    }`}
+                  >
+                    <span className="text-lg sm:text-xl block mb-1">🌿</span>
+                    <span className={`text-[10px] sm:text-xs font-bold leading-tight ${isActive ? "text-green-900" : "text-stone-700"}`}>
+                      {t.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="animate-in fade-in duration-300">
+            <div className="flex justify-between items-center mb-1">
+              <h2 className="text-lg sm:text-xl font-bold text-stone-800">Ingredientes</h2>
+              <span className="text-[10px] sm:text-xs font-bold bg-stone-100 px-2 py-1 rounded-full text-stone-600">
+                {order.ingredients.length}/{selectedSize?.maxIngredients}
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-stone-500 mb-3 sm:mb-4">Adicionais custam {formatCurrency(db.settings.extraIngredientPrice || 0)}.</p>
+            
+            {order.ingredients.length > (selectedSize?.maxIngredients || 4) && !selectedSize?.strictMaxIngredients && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 sm:p-3 rounded-xl flex items-center gap-2 mb-4 text-[11px] sm:text-sm font-medium">
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 shrink-0" /> 
+                Ingredientes extras (+{formatCurrency((order.ingredients.length - selectedSize!.maxIngredients) * (db.settings.extraIngredientPrice || 0))})
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-6">
+              {ingredientes.map((i: any) => {
+                const isActive = order.ingredients.includes(i.id);
+                return (
+                  <button
+                    key={i.id}
+                    onClick={() => {
+                      if (isActive) setOrd({ ingredients: order.ingredients.filter((id) => id !== i.id) });
+                      else if (!selectedSize?.strictMaxIngredients || order.ingredients.length < selectedSize.maxIngredients) setOrd({ ingredients: [...order.ingredients, i.id] });
+                    }}
+                    className={`p-2.5 sm:p-3 rounded-xl border-2 text-center relative transition-all min-h-[50px] flex items-center justify-center ${
+                      isActive ? "border-amber-500 bg-amber-50" : "border-stone-200 hover:border-amber-300 bg-white"
+                    }`}
+                  >
+                    <span className={`text-[10px] sm:text-xs font-bold leading-tight ${isActive ? "text-amber-900" : "text-stone-700"}`}>
+                      {i.name}
+                    </span>
+                    {isActive && (
+                      <div className="absolute -top-1.5 -right-1.5 w-4 h-4 sm:w-5 sm:h-5 bg-amber-500 rounded-full flex items-center justify-center border-2 border-white">
+                        <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {extras.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-stone-200">
+                <h3 className="text-sm font-bold text-stone-800 mb-1">Adicionais Extras</h3>
+                <p className="text-[11px] sm:text-xs text-stone-500 mb-3">Turbine seu pedido! (Valores cobrados à parte)</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {extras.map((e: any) => {
+                    const isActive = order.extras.includes(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        onClick={() => {
+                          if (isActive) setOrd({ extras: order.extras.filter((id: string) => id !== e.id) });
+                          else setOrd({ extras: [...order.extras, e.id] });
+                        }}
+                        className={`w-full flex items-center justify-between p-3 sm:p-4 rounded-xl border-2 transition-all ${
+                          isActive ? "border-amber-400 bg-amber-50" : "border-stone-200 hover:border-amber-300 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <Star className={`w-4 h-4 sm:w-5 sm:h-5 ${isActive ? "text-amber-500" : "text-stone-300"}`} />
+                          <div className="text-left">
+                            <p className={`font-bold text-xs sm:text-sm ${isActive ? "text-amber-900" : "text-stone-800"}`}>
+                              {e.name}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <span className="font-bold text-amber-600 text-xs sm:text-sm">
+                            +{formatCurrency(e.price || 0)}
+                          </span>
+                          {isActive && (
+                            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-400 flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2 sm:gap-3 shrink-0">
+        {step > 0 && (
+          <button
+            onClick={() => setStep((s) => s - 1)}
+            className="px-4 sm:px-6 py-2.5 sm:py-3 border border-stone-300 rounded-xl font-bold text-stone-600 hover:bg-stone-100 text-xs sm:text-sm"
+          >
             Voltar
-          </Button>
-          <Button onClick={handleNext} disabled={!canProceed()}>
-            {step === 5 ? "Adicionar ao Carrinho" : "Próximo"}
-            {step < 5 && <ChevronRight className="h-4 w-4 ml-2" />}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
+          </button>
+        )}
+        {step < STEPS.length - 1 ? (
+          <button
+            onClick={() => setStep((s) => s + 1)}
+            disabled={!canAdvance()}
+            className="flex-1 py-2.5 sm:py-3 bg-orange-700 text-white rounded-xl font-bold disabled:bg-stone-300 disabled:text-stone-500 text-xs sm:text-sm transition-colors"
+          >
+            Avançar
+          </button>
+        ) : (
+          <button
+            onClick={() => onFinish(order)}
+            className="flex-1 py-2.5 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg text-xs sm:text-sm transition-transform active:scale-95"
+          >
+            <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" /> Adicionar à Sacola
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

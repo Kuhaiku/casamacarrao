@@ -19,6 +19,9 @@ const mapBooleans = (obj: any) => {
           "isActive",
           "isPaid",
           "isAccounted",
+          "isOpen",             // ADICIONADO
+          "mercadoPagoAtivo",   // ADICIONADO
+          "tem_embalagem"       // ADICIONADO
         ].includes(key)
       ) {
         newObj[key] = newObj[key] === 1;
@@ -27,7 +30,6 @@ const mapBooleans = (obj: any) => {
   }
   return newObj;
 };
-
 export async function verifyAdminPassword(password: string) {
   return password === process.env.ADMIN_PASSWORD;
 }
@@ -37,86 +39,70 @@ export async function verifyMotoboyPassword(password: string) {
 }
 
 export async function getStoreData() {
-  const [sizes] = await pool.query("SELECT * FROM sizes");
-  const [menuItems] = await pool.query("SELECT * FROM menu_items");
-  const [productCategories] = await pool.query(
-    "SELECT * FROM product_categories",
-  );
-  const [products] = await pool.query("SELECT * FROM products");
-  const [settingsResult]: any = await pool.query(
-    "SELECT * FROM store_settings WHERE id = 1",
-  );
-  const [orders] = await pool.query(
-    "SELECT * FROM orders WHERE isAccounted = 0",
-  );
-  const [expenses] = await pool.query(
-    "SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0",
-    ["expense"],
-  );
-  const [tips] = await pool.query(
-    "SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0",
-    ["tip"],
-  );
-  const [registers] = await pool.query(
-    "SELECT * FROM cash_registers ORDER BY closedAt DESC LIMIT 10",
-  );
+  try {
+    const [sizes] = await pool.query("SELECT * FROM sizes");
+    const [menuItems] = await pool.query("SELECT * FROM menu_items");
+    const [productCategories] = await pool.query("SELECT * FROM product_categories");
+    const [products] = await pool.query("SELECT * FROM products");
+    const [settingsResult]: any = await pool.query("SELECT * FROM store_settings WHERE id = 1");
+    const [orders] = await pool.query("SELECT * FROM orders WHERE isAccounted = 0");
+    const [expenses] = await pool.query("SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0", ["expense"]);
+    const [tips] = await pool.query("SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0", ["tip"]);
+    const [registers] = await pool.query("SELECT * FROM cash_registers ORDER BY closedAt DESC LIMIT 10");
 
-  const settings = settingsResult[0];
+    const settings = settingsResult[0] || {};
 
-  return {
-    sizes: (sizes as any[])
-      .map(mapBooleans)
-      .map((s) => ({ ...s, price: Number(s.price) })),
-    
-    // CORREÇÃO: Agora ele garante que o preço dos extras seja lido como Número (ou 0)
-    menuItems: (menuItems as any[])
-      .map(mapBooleans)
-      .map((m) => ({ ...m, price: Number(m.price || 0) })),
+    return {
+      sizes: (sizes as any[]).map(mapBooleans).map((s) => ({ ...s, price: Number(s.price) })),
+      menuItems: (menuItems as any[]).map(mapBooleans).map((m) => ({ ...m, price: Number(m.price || 0) })),
+      productCategories: (productCategories as any[]).map(mapBooleans),
+      products: (products as any[]).map(mapBooleans).map((p) => ({ ...p, price: Number(p.price) })),
+      settings: {
+        extraPastaPrice: Number(settings.extraPastaPrice || 0),
+        extraSaucePrice: Number(settings.extraSaucePrice || 0),
+        extraIngredientPrice: Number(settings.extraIngredientPrice || 0),
+        whatsappMessage: settings.whatsappMessage || '',
+        autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
+        isOpen: settings.isOpen === 1 || settings.isOpen === true || settings.isOpen === undefined,
+        taxaEmbalagemGlobal: Number(settings.taxaEmbalagemGlobal || 2),
+        mercadoPagoAtivo: settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
+        taxaCartaoPercentual: Number(settings.taxaCartaoPercentual || 3.5),
+        taxaCartaoFixa: Number(settings.taxaCartaoFixa || 0)
+      },
+      registerOpenedAt: new Date(settings.registerOpenedAt || Date.now()).toISOString(),
+      orders: (orders as any[]).map(mapBooleans).map((o) => {
+        // Proteção contra JSON inválido no banco de dados antigo
+        let parsedItems = [];
+        let parsedProducts = [];
+        try { parsedItems = typeof o.items === "string" ? JSON.parse(o.items) : o.items; } catch (e) {}
+        try { parsedProducts = o.products ? (typeof o.products === "string" ? JSON.parse(o.products) : o.products) : []; } catch (e) {}
 
-    productCategories: (productCategories as any[]).map(mapBooleans),
-    products: (products as any[])
-      .map(mapBooleans)
-      .map((p) => ({ ...p, price: Number(p.price) })),
-    settings: {
-      extraPastaPrice: Number(settings.extraPastaPrice || 0),
-      extraSaucePrice: Number(settings.extraSaucePrice || 0),
-      extraIngredientPrice: Number(settings.extraIngredientPrice || 0),
-      whatsappMessage: settings.whatsappMessage,
-      autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
-    },
-    registerOpenedAt: new Date(settings.registerOpenedAt).toISOString(),
-    orders: (orders as any[]).map(mapBooleans).map((o) => ({
-      ...o,
-      total: Number(o.total),
-      createdAt: new Date(o.createdAt).toISOString(),
-      deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined,
-      items: typeof o.items === "string" ? JSON.parse(o.items) : o.items,
-      products: o.products
-        ? typeof o.products === "string"
-          ? JSON.parse(o.products)
-          : o.products
-        : [],
-    })),
-    expenses: (expenses as any[]).map(mapBooleans).map((e) => ({
-      ...e,
-      amount: Number(e.amount),
-      date: new Date(e.date).toISOString(),
-    })),
-    tips: (tips as any[]).map(mapBooleans).map((t) => ({
-      ...t,
-      amount: Number(t.amount),
-      date: new Date(t.date).toISOString(),
-    })),
-    cashRegisters: (registers as any[]).map((r) => ({
-      ...r,
-      totalSales: Number(r.totalSales),
-      totalExpenses: Number(r.totalExpenses),
-      totalTips: Number(r.totalTips),
-      netTotal: Number(r.netTotal),
-      openedAt: new Date(r.openedAt).toISOString(),
-      closedAt: new Date(r.closedAt).toISOString(),
-    })),
-  };
+        return {
+          ...o,
+          total: Number(o.total),
+          createdAt: new Date(o.createdAt).toISOString(),
+          deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined,
+          items: parsedItems,
+          products: parsedProducts,
+        };
+      }),
+      expenses: (expenses as any[]).map(mapBooleans).map((e) => ({ ...e, amount: Number(e.amount), date: new Date(e.date).toISOString() })),
+      tips: (tips as any[]).map(mapBooleans).map((t) => ({ ...t, amount: Number(t.amount), date: new Date(t.date).toISOString() })),
+      cashRegisters: (registers as any[]).map((r) => ({
+        ...r,
+        totalSales: Number(r.totalSales),
+        totalExpenses: Number(r.totalExpenses),
+        totalTips: Number(r.totalTips),
+        netTotal: Number(r.netTotal),
+        openedAt: new Date(r.openedAt).toISOString(),
+        closedAt: new Date(r.closedAt).toISOString(),
+      })),
+    };
+  } catch (error) {
+    // 🚨 ISSO AQUI VAI TE MOSTRAR EXATAMENTE O QUE ESTÁ QUEBRANDO
+    console.error("❌ ERRO FATAL AO BUSCAR DADOS DO BANCO:", error);
+    throw error; 
+  }
 }
 
 export async function dbDispatch(action: string, payload: any) {
@@ -252,11 +238,10 @@ export async function dbDispatch(action: string, payload: any) {
 
     case "UPDATE_ORDER_STATUS":
       if (payload.deliveredAt) {
-        await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [
-          payload.status,
-          new Date(payload.deliveredAt),
-          payload.id,
-        ]);
+        await pool.query(
+          "UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?",
+          [payload.status, new Date(payload.deliveredAt), payload.id],
+        );
       } else {
         await pool.query("UPDATE orders SET status = ? WHERE id = ?", [
           payload.status,
@@ -270,7 +255,7 @@ export async function dbDispatch(action: string, payload: any) {
         ]);
       }
       break;
-      
+
     case "TOGGLE_ORDER_PAID":
       await pool.query("UPDATE orders SET isPaid = NOT isPaid WHERE id = ?", [
         payload.id,
@@ -359,5 +344,50 @@ export async function dbDispatch(action: string, payload: any) {
         connection.release();
       }
       break;
+  }
+}
+export async function validateBairro(bairro: string, cidade: string) {
+  try {
+    const [rows]: any = await pool.query(
+      // Retiramos os '%' para que a busca seja exata. 'Centro' só puxará 'Centro'.
+      `SELECT taxa_entrega, ativo FROM bairros_atendidos 
+       WHERE nome LIKE ? AND cidade LIKE ? ORDER BY id DESC LIMIT 1`,
+      [bairro, cidade] 
+    );
+
+    // 1. Bairro não existe na tabela
+    if (rows.length === 0) {
+      return { 
+        valido: false, 
+        taxa_entrega: 0, 
+        mensagem: `Infelizmente, ainda não atendemos o bairro ${bairro}.` 
+      };
+    }
+
+    // 2. TRAVA BLINDADA: Converte "0", 0, ou Buffer forçadamente para Número. 
+    // Se for qualquer coisa diferente de 1, ele bloqueia na hora.
+    const isAtivo = Number(rows[0].ativo) === 1;
+
+    if (!isAtivo) {
+      return { 
+        valido: false, 
+        taxa_entrega: 0, 
+        mensagem: `As entregas para ${bairro} estão temporariamente suspensas.` 
+      };
+    }
+
+    // 3. Tudo certo e ativo, libera a taxa!
+    return { 
+      valido: true, 
+      taxa_entrega: Number(rows[0].taxa_entrega) 
+    };
+
+  } catch (error) {
+    console.error("Erro ao validar bairro:", error);
+    return { 
+      valido: false, 
+      taxa_entrega: 0, 
+      mensagem: "Erro ao consultar a área de entrega." 
+    };
   }
 }

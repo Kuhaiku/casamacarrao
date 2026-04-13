@@ -10,6 +10,7 @@ interface OrderContextValue {
   customerName: string
   address: string
   paymentMethod: PaymentMethod
+  tipoPedido: "delivery" | "mesa"
   
   startNewItem: (sizeId: string) => void
   updateCurrentItem: (updates: Partial<OrderItem>) => void
@@ -21,6 +22,7 @@ interface OrderContextValue {
   setCustomerName: (name: string) => void
   setAddress: (address: string) => void
   setPaymentMethod: (method: PaymentMethod) => void
+  setTipoPedido: (tipo: "delivery" | "mesa") => void
   
   resetOrder: () => void
 }
@@ -34,6 +36,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [customerName, setCustomerName] = useState("")
   const [address, setAddress] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix")
+  
+  // O Hook deve ficar sempre dentro do corpo do componente
+  const [tipoPedido, setTipoPedido] = useState<"delivery" | "mesa">("delivery")
 
   const startNewItem = useCallback((sizeId: string) => {
     setCurrentItem({
@@ -74,6 +79,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     setCustomerName("")
     setAddress("")
     setPaymentMethod("pix")
+    setTipoPedido("delivery")
   }, [])
 
   return (
@@ -85,6 +91,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         customerName,
         address,
         paymentMethod,
+        tipoPedido,
         startNewItem,
         updateCurrentItem,
         addItemToCart,
@@ -94,6 +101,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         setCustomerName,
         setAddress,
         setPaymentMethod,
+        setTipoPedido,
         resetOrder,
       }}
     >
