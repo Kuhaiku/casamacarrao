@@ -2,3 +2,15 @@ http://undefined/sucesso?collection_id=153813225221&collection_status=approved&p
 
 
 Criar o filtro dos entregadores
+
+Fixar a sacola da página da mesa na parte superior enquanto scrola a tela.
+
+Adicionar a Tag para o painel do nosso adm "aprovado automaticamente" e "aprovado pelo operador"
+
+Adicionar no gestão de cardápio na aba operação o "em funcionamento" vs "fora de atendimento" que vai ser para ligar e desligar o delivery, preciso que a mensagem que apareça seja personalizavel, isso tambem preciso que possa ser programado tipo de segunda a domingo horario de funcionamento, personalizavel para cada dia, outra coisa ligar e desligar o delivery não interfere no pedido da mesa
+
+Fechar a conta na parte da mesa eu preciso poder registrar metodo de pagamento como cartão tambem, no caso para salvar o método de pagamento da mesa
+
+Modificar a logica de aprovação dos pedidos da mesa, no painel admin precisamos ter a possibilidade de "travar" aprocação automática das mesas como padrão ou seja se o pedido tiver vindo de uma mesa o aprovado automaticamente é suspendido
+
+Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado
