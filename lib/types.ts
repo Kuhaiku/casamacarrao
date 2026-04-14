@@ -1,6 +1,5 @@
 // lib/types.ts
 
-// 1. Adicionado "extra" para os novos adicionais com preço individual
 export type CategoryType = "pasta" | "sauce" | "seasoning" | "ingredient" | "extra";
 export type TipoPedido = "delivery" | "mesa";
 
@@ -14,6 +13,7 @@ export interface Size {
   strictMaxIngredients: boolean;
   maxSauces: number;
   strictMaxSauces: boolean;
+  taxaEmbalagem?: number;
 }
 
 export interface MenuItem {
@@ -21,17 +21,20 @@ export interface MenuItem {
   name: string;
   category: CategoryType;
   isActive: boolean;
-  price?: number; // Adicionado para guardar o preço dos itens da categoria 'extra'
+  price?: number;
 }
 
 export interface StoreSettings {
-  // Configurações de excesso separadas por categoria
   extraPastaPrice?: number; 
   extraSaucePrice?: number; 
   extraIngredientPrice: number;
-  // O extraCheesePrice foi removido, pois agora os extras são dinâmicos
   whatsappMessage?: string;
   autoApprove?: boolean;
+  isOpen?: boolean;
+  taxaEmbalagemGlobal?: number;
+  mercadoPagoAtivo?: boolean;
+  taxaCartaoPercentual?: number;
+  taxaCartaoFixa?: number;
 }
 
 export interface OrderItem {
@@ -40,16 +43,16 @@ export interface OrderItem {
   sauces: string[];
   seasonings: string[];
   ingredients: string[];
-  extras?: string[]; // Array para guardar os IDs dos itens extras adicionados
-  extraCheese?: boolean; // Mantido como opcional para não quebrar compatibilidade de pedidos antigos
+  extras?: string[];
+  extraCheese?: boolean;
 }
+
 export interface BairroValidation {
   valido: boolean;
   taxa_entrega: number;
   mensagem?: string;
 }
 
-// ADICIONADO "despachado" (Saiu para entrega)
 export type OrderStatus =
   | "novo"
   | "aprovado"
@@ -73,6 +76,8 @@ export interface Product {
   price: number;
   isActive: boolean;
   tem_embalagem?: boolean;
+  tipoEmbalagem?: "nenhuma" | "padrao" | "personalizada";
+  taxaEmbalagem?: number;
 }
 
 export interface OrderProduct {
@@ -133,8 +138,4 @@ export interface StoreState {
   cashRegisters: CashRegister[];
   registerOpenedAt: string;
   isOpen?: boolean;
-  taxaEmbalagemGlobal?: number;
-  mercadoPagoAtivo?: boolean;
-  taxaCartaoPercentual?: number;
-  taxaCartaoFixa?: number;
 }

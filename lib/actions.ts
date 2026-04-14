@@ -19,9 +19,9 @@ const mapBooleans = (obj: any) => {
           "isActive",
           "isPaid",
           "isAccounted",
-          "isOpen",             // ADICIONADO
-          "mercadoPagoAtivo",   // ADICIONADO
-          "tem_embalagem"       // ADICIONADO
+          "isOpen",
+          "mercadoPagoAtivo",
+          "tem_embalagem",
         ].includes(key)
       ) {
         newObj[key] = newObj[key] === 1;
@@ -30,6 +30,7 @@ const mapBooleans = (obj: any) => {
   }
   return newObj;
 };
+
 export async function verifyAdminPassword(password: string) {
   return password === process.env.ADMIN_PASSWORD;
 }
@@ -42,52 +43,109 @@ export async function getStoreData() {
   try {
     const [sizes] = await pool.query("SELECT * FROM sizes");
     const [menuItems] = await pool.query("SELECT * FROM menu_items");
-    const [productCategories] = await pool.query("SELECT * FROM product_categories");
+    const [productCategories] = await pool.query(
+      "SELECT * FROM product_categories",
+    );
     const [products] = await pool.query("SELECT * FROM products");
-    const [settingsResult]: any = await pool.query("SELECT * FROM store_settings WHERE id = 1");
-    const [orders] = await pool.query("SELECT * FROM orders WHERE isAccounted = 0");
-    const [expenses] = await pool.query("SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0", ["expense"]);
-    const [tips] = await pool.query("SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0", ["tip"]);
-    const [registers] = await pool.query("SELECT * FROM cash_registers ORDER BY closedAt DESC LIMIT 10");
+    const [settingsResult]: any = await pool.query(
+      "SELECT * FROM store_settings WHERE id = 1",
+    );
+    const [orders] = await pool.query(
+      "SELECT * FROM orders WHERE isAccounted = 0",
+    );
+    const [expenses] = await pool.query(
+      "SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0",
+      ["expense"],
+    );
+    const [tips] = await pool.query(
+      "SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0",
+      ["tip"],
+    );
+    const [registers] = await pool.query(
+      "SELECT * FROM cash_registers ORDER BY closedAt DESC LIMIT 10",
+    );
 
     const settings = settingsResult[0] || {};
 
     return {
-      sizes: (sizes as any[]).map(mapBooleans).map((s) => ({ ...s, price: Number(s.price) })),
-      menuItems: (menuItems as any[]).map(mapBooleans).map((m) => ({ ...m, price: Number(m.price || 0) })),
+      sizes: (sizes as any[])
+        .map(mapBooleans)
+        .map((s) => ({
+          ...s,
+          price: Number(s.price),
+          taxaEmbalagem: Number(s.taxaEmbalagem || 0),
+        })),
+      menuItems: (menuItems as any[])
+        .map(mapBooleans)
+        .map((m) => ({ ...m, price: Number(m.price || 0) })),
       productCategories: (productCategories as any[]).map(mapBooleans),
-      products: (products as any[]).map(mapBooleans).map((p) => ({ ...p, price: Number(p.price) })),
+      products: (products as any[])
+        .map(mapBooleans)
+        .map((p) => ({
+          ...p,
+          price: Number(p.price),
+          taxaEmbalagem: Number(p.taxaEmbalagem || 0),
+        })),
       settings: {
         extraPastaPrice: Number(settings.extraPastaPrice || 0),
         extraSaucePrice: Number(settings.extraSaucePrice || 0),
         extraIngredientPrice: Number(settings.extraIngredientPrice || 0),
-        whatsappMessage: settings.whatsappMessage || '',
-        autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
-        isOpen: settings.isOpen === 1 || settings.isOpen === true || settings.isOpen === undefined,
+        whatsappMessage: settings.whatsappMessage || "",
+        autoApprove:
+          settings.autoApprove === 1 || settings.autoApprove === true,
+        isOpen:
+          settings.isOpen === 1 ||
+          settings.isOpen === true ||
+          settings.isOpen === undefined,
         taxaEmbalagemGlobal: Number(settings.taxaEmbalagemGlobal || 2),
-        mercadoPagoAtivo: settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
+        mercadoPagoAtivo:
+          settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
         taxaCartaoPercentual: Number(settings.taxaCartaoPercentual || 3.5),
-        taxaCartaoFixa: Number(settings.taxaCartaoFixa || 0)
+        taxaCartaoFixa: Number(settings.taxaCartaoFixa || 0),
       },
-      registerOpenedAt: new Date(settings.registerOpenedAt || Date.now()).toISOString(),
+      registerOpenedAt: new Date(
+        settings.registerOpenedAt || Date.now(),
+      ).toISOString(),
       orders: (orders as any[]).map(mapBooleans).map((o) => {
-        // Proteção contra JSON inválido no banco de dados antigo
         let parsedItems = [];
         let parsedProducts = [];
-        try { parsedItems = typeof o.items === "string" ? JSON.parse(o.items) : o.items; } catch (e) {}
-        try { parsedProducts = o.products ? (typeof o.products === "string" ? JSON.parse(o.products) : o.products) : []; } catch (e) {}
+        try {
+          parsedItems =
+            typeof o.items === "string" ? JSON.parse(o.items) : o.items;
+        } catch (e) {}
+        try {
+          parsedProducts = o.products
+            ? typeof o.products === "string"
+              ? JSON.parse(o.products)
+              : o.products
+            : [];
+        } catch (e) {}
 
         return {
           ...o,
           total: Number(o.total),
           createdAt: new Date(o.createdAt).toISOString(),
-          deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined,
+          deliveredAt: o.deliveredAt
+            ? new Date(o.deliveredAt).toISOString()
+            : undefined,
           items: parsedItems,
           products: parsedProducts,
         };
       }),
-      expenses: (expenses as any[]).map(mapBooleans).map((e) => ({ ...e, amount: Number(e.amount), date: new Date(e.date).toISOString() })),
-      tips: (tips as any[]).map(mapBooleans).map((t) => ({ ...t, amount: Number(t.amount), date: new Date(t.date).toISOString() })),
+      expenses: (expenses as any[])
+        .map(mapBooleans)
+        .map((e) => ({
+          ...e,
+          amount: Number(e.amount),
+          date: new Date(e.date).toISOString(),
+        })),
+      tips: (tips as any[])
+        .map(mapBooleans)
+        .map((t) => ({
+          ...t,
+          amount: Number(t.amount),
+          date: new Date(t.date).toISOString(),
+        })),
       cashRegisters: (registers as any[]).map((r) => ({
         ...r,
         totalSales: Number(r.totalSales),
@@ -99,9 +157,8 @@ export async function getStoreData() {
       })),
     };
   } catch (error) {
-    // 🚨 ISSO AQUI VAI TE MOSTRAR EXATAMENTE O QUE ESTÁ QUEBRANDO
     console.error("❌ ERRO FATAL AO BUSCAR DADOS DO BANCO:", error);
-    throw error; 
+    throw error;
   }
 }
 
@@ -109,7 +166,7 @@ export async function dbDispatch(action: string, payload: any) {
   switch (action) {
     case "ADD_SIZE":
       await pool.query(
-        "INSERT INTO sizes (id, name, price, maxPastas, strictMaxPastas, maxIngredients, strictMaxIngredients, maxSauces, strictMaxSauces) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sizes (id, name, price, maxPastas, strictMaxPastas, maxIngredients, strictMaxIngredients, maxSauces, strictMaxSauces, taxaEmbalagem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
           payload.id || randomUUID(),
           payload.name,
@@ -120,6 +177,7 @@ export async function dbDispatch(action: string, payload: any) {
           payload.strictMaxIngredients,
           payload.maxSauces,
           payload.strictMaxSauces,
+          payload.taxaEmbalagem || 0,
         ],
       );
       break;
@@ -133,7 +191,6 @@ export async function dbDispatch(action: string, payload: any) {
       await pool.query("DELETE FROM sizes WHERE id = ?", [payload.id]);
       break;
     case "ADD_MENU_ITEM":
-      // CORREÇÃO: Adicionada a coluna "price" no INSERT para salvar no MySQL
       await pool.query(
         "INSERT INTO menu_items (id, name, category, isActive, price) VALUES (?, ?, ?, ?, ?)",
         [
@@ -141,7 +198,7 @@ export async function dbDispatch(action: string, payload: any) {
           payload.name,
           payload.category,
           payload.isActive,
-          payload.price || 0, // Se não for um extra, salva como 0
+          payload.price || 0,
         ],
       );
       break;
@@ -182,13 +239,15 @@ export async function dbDispatch(action: string, payload: any) {
       break;
     case "ADD_PRODUCT":
       await pool.query(
-        "INSERT INTO products (id, categoryId, name, price, isActive) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO products (id, categoryId, name, price, isActive, tipoEmbalagem, taxaEmbalagem) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [
           payload.id || randomUUID(),
           payload.categoryId,
           payload.name,
           payload.price,
           payload.isActive ?? true,
+          payload.tipoEmbalagem || "nenhuma",
+          payload.taxaEmbalagem || 0,
         ],
       );
       break;
@@ -346,46 +405,48 @@ export async function dbDispatch(action: string, payload: any) {
       break;
   }
 }
+
 export async function validateBairro(bairro: string, cidade: string) {
   try {
     const [rows]: any = await pool.query(
       `SELECT taxa_entrega, ativo FROM bairros_atendidos 
        WHERE nome LIKE ? AND cidade LIKE ? ORDER BY id DESC LIMIT 1`,
-      [`%${bairro.trim()}%`, `%${cidade.trim()}%`]
+      [`%${bairro.trim()}%`, `%${cidade.trim()}%`],
     );
 
-    // 1. Não achou no banco
     if (rows.length === 0) {
-      return { 
-        valido: false, 
-        taxa_entrega: 0, 
-        mensagem: `Ainda não atendemos o bairro ${bairro.trim() || 'informado'}.` 
+      return {
+        valido: false,
+        taxa_entrega: 0,
+        mensagem: `Ainda não atendemos o bairro ${bairro.trim() || "informado"}.`,
       };
     }
 
     const ativoRaw = rows[0].ativo;
-    
-    // 2. Trava absoluta: Verifica todas as formas que o MySQL pode devolver o "1"
-    let isAtivo = false;
-    if (ativoRaw === 1 || ativoRaw === true || ativoRaw === '1') isAtivo = true;
-    if (Buffer.isBuffer(ativoRaw) && ativoRaw.length > 0 && ativoRaw[0] === 1) isAtivo = true;
 
-    // 3. Se for 0, false, ou Buffer [0], ele trava!
+    let isAtivo = false;
+    if (ativoRaw === 1 || ativoRaw === true || ativoRaw === "1") isAtivo = true;
+    if (Buffer.isBuffer(ativoRaw) && ativoRaw.length > 0 && ativoRaw[0] === 1)
+      isAtivo = true;
+
     if (!isAtivo) {
-      return { 
-        valido: false, 
-        taxa_entrega: 0, 
-        mensagem: `As entregas para ${bairro.trim()} estão suspensas.` 
+      return {
+        valido: false,
+        taxa_entrega: 0,
+        mensagem: `As entregas para ${bairro.trim()} estão suspensas.`,
       };
     }
 
-    return { 
-      valido: true, 
-      taxa_entrega: Number(rows[0].taxa_entrega) 
+    return {
+      valido: true,
+      taxa_entrega: Number(rows[0].taxa_entrega),
     };
-
   } catch (error) {
     console.error("Erro ao validar bairro:", error);
-    return { valido: false, taxa_entrega: 0, mensagem: "Erro ao consultar a área." };
+    return {
+      valido: false,
+      taxa_entrega: 0,
+      mensagem: "Erro ao consultar a área.",
+    };
   }
 }
