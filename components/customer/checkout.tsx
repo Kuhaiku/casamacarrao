@@ -1,3 +1,4 @@
+// components/customer/checkout.tsx
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
@@ -45,16 +46,13 @@ export function Checkout() {
   const [phone, setPhone] = useState("")
   const [selectedProducts, setSelectedProducts] = useState<OrderProduct[]>([])
   
-  // Controle de Interface
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isValidatingArea, setIsValidatingArea] = useState(false)
   const [bairroStatus, setBairroStatus] = useState<BairroValidation | null>(null)
 
-  // API do Google
   const { inputRef, addressData, setAddressData } = useGoogleAddress(process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "")
 
-  // 1. Validação Automática do Bairro / Taxa de Entrega
   useEffect(() => {
     const checkArea = async () => {
       if (tipoPedido !== "delivery" || !addressData.bairro || !addressData.cidade) {
@@ -76,24 +74,37 @@ export function Checkout() {
     return () => clearTimeout(timer)
   }, [addressData.bairro, addressData.cidade, tipoPedido, toast])
 
-  // 2. Cálculo da Taxa de Embalagem Dinâmica
+// Cálculo da Taxa de Embalagem Dinâmica (Corrigido para nova regra e tipos numéricos)
   const taxaEmbalagem = useMemo(() => {
-    if (tipoPedido === "mesa") return 0
-    const taxaGlobal = settings.taxaEmbalagemGlobal || 2.00
+    if (tipoPedido === "mesa") return 0;
+    const taxaGlobal = Number(settings.taxaEmbalagemGlobal) || 2.00;
     
-    // Calcula para produtos extras marcados com "tem_embalagem"
     const produtosFee = selectedProducts.reduce((acc, sp) => {
-      const prod = products.find(p => p.id === sp.productId)
-      return prod?.tem_embalagem ? acc + (taxaGlobal * sp.quantity) : acc
-    }, 0)
+      const prod = products.find(p => p.id === sp.productId);
+      if (!prod) return acc;
+      
+      let itemFee = 0;
+      if (prod.tipoEmbalagem === 'padrao') {
+        itemFee = taxaGlobal;
+      } else if (prod.tipoEmbalagem === 'personalizada') {
+        itemFee = Number(prod.taxaEmbalagem) || 0;
+      } else if (prod.tem_embalagem) {
+        itemFee = taxaGlobal;
+      }
+      
+      return acc + (itemFee * sp.quantity);
+    }, 0);
 
-    // Calcula 1 embalagem por Macarrão montado
-    const macarraoFee = items.length * taxaGlobal
+    const macarraoFee = items.reduce((acc, item) => {
+      const size = sizes.find(s => s.id === item.sizeId);
+      // Força a conversão para número
+      const fee = size?.taxaEmbalagem ? Number(size.taxaEmbalagem) : taxaGlobal;
+      return acc + fee;
+    }, 0);
     
-    return produtosFee + macarraoFee
-  }, [tipoPedido, items, selectedProducts, products, settings.taxaEmbalagemGlobal])
+    return produtosFee + macarraoFee;
+  }, [tipoPedido, items, selectedProducts, products, settings.taxaEmbalagemGlobal, sizes]);
 
-  // 3. Totais e Taxa do Cartão de Crédito
   const subtotal = calculateOrderTotal(items, selectedProducts)
   const taxaEntrega = tipoPedido === "delivery" && bairroStatus?.valido ? bairroStatus.taxa_entrega : 0
   
@@ -118,7 +129,6 @@ export function Checkout() {
     })
   }
 
-  // 4. Lógica de Bloqueio de Expediente
   const isAddressInvalid = tipoPedido === "delivery" && (!bairroStatus?.valido)
   const isBlockSubmit = settings.isOpen === false || isAddressInvalid || isProcessing || isValidatingArea
 
@@ -150,11 +160,26 @@ export function Checkout() {
     await addOrder(orderData as any)
 
     if (paymentMethod === "cartao") {
-      const res = await createPaymentPreference(orderData, total)
-      if (res.success && res.init_point) {
-        window.location.href = res.init_point
-        return
-      }
+      const orderData = {
+      id: crypto.randomUUID(),
+      customerName: customerName.trim(),
+      phone: phone.trim(),
+      address: tipoPedido === "delivery" ? finalAddress : "Retirada/Mesa", 
+      paymentMethod,
+      items,
+      products: selectedProducts,
+      status: (paymentMethod === "cartao" ? "aguardando_pagamento" : "novo") as OrderStatus,
+      isPaid: false,
+      tipoPedido,
+      subtotal,
+      taxaEmbalagem,
+      taxaEntrega,
+      taxaCartao,
+      total,
+      createdAt: new Date().toISOString() // <--- Adicionado aqui
+    }
+
+    await addOrder(orderData as any)
     }
 
     setIsProcessing(false)
@@ -167,7 +192,6 @@ export function Checkout() {
     <div className="grid gap-8 lg:grid-cols-2 max-w-5xl mx-auto p-4">
       <div className="space-y-6">
         
-        {/* Banner de Controle de Expediente */}
         {settings.isOpen === false && (
           <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
             <AlertCircle className="h-5 w-5" />

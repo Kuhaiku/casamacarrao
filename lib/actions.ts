@@ -19,9 +19,9 @@ const mapBooleans = (obj: any) => {
           "isActive",
           "isPaid",
           "isAccounted",
-          "isOpen",
-          "mercadoPagoAtivo",
-          "tem_embalagem",
+          "isOpen",             
+          "mercadoPagoAtivo",   
+          "tem_embalagem"       
         ].includes(key)
       ) {
         newObj[key] = newObj[key] === 1;
@@ -38,6 +38,7 @@ export async function verifyAdminPassword(password: string) {
 export async function verifyMotoboyPassword(password: string) {
   return password === process.env.MOTOBOY_PASSWORD;
 }
+
 export async function verifyFinanceiroPassword(password: string) {
   return password === process.env.FINANCEIRO_PASSWORD;
 }
@@ -46,109 +47,53 @@ export async function getStoreData() {
   try {
     const [sizes] = await pool.query("SELECT * FROM sizes");
     const [menuItems] = await pool.query("SELECT * FROM menu_items");
-    const [productCategories] = await pool.query(
-      "SELECT * FROM product_categories",
-    );
+    const [productCategories] = await pool.query("SELECT * FROM product_categories");
     const [products] = await pool.query("SELECT * FROM products");
-    const [settingsResult]: any = await pool.query(
-      "SELECT * FROM store_settings WHERE id = 1",
-    );
-    const [orders] = await pool.query(
-      "SELECT * FROM orders WHERE isAccounted = 0",
-    );
-    const [expenses] = await pool.query(
-      "SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0",
-      ["expense"],
-    );
-    const [tips] = await pool.query(
-      "SELECT * FROM financial_entries WHERE type = ? AND isAccounted = 0",
-      ["tip"],
-    );
-    const [registers] = await pool.query(
-      "SELECT * FROM cash_registers ORDER BY closedAt DESC LIMIT 10",
-    );
+    const [settingsResult]: any = await pool.query("SELECT * FROM store_settings WHERE id = 1");
+    
+    // ALTERAÇÃO: Trazendo o histórico para o frontend poder listar os fechados
+    const [orders] = await pool.query("SELECT * FROM orders ORDER BY createdAt DESC LIMIT 1500");
+    const [expenses] = await pool.query("SELECT * FROM financial_entries WHERE type = 'expense' ORDER BY id DESC LIMIT 500");
+    const [tips] = await pool.query("SELECT * FROM financial_entries WHERE type = 'tip' ORDER BY id DESC LIMIT 500");
+    const [registers] = await pool.query("SELECT * FROM cash_registers ORDER BY closedAt DESC LIMIT 30");
 
     const settings = settingsResult[0] || {};
 
     return {
-      sizes: (sizes as any[])
-        .map(mapBooleans)
-        .map((s) => ({
-          ...s,
-          price: Number(s.price),
-          taxaEmbalagem: Number(s.taxaEmbalagem || 0),
-        })),
-      menuItems: (menuItems as any[])
-        .map(mapBooleans)
-        .map((m) => ({ ...m, price: Number(m.price || 0) })),
+      sizes: (sizes as any[]).map(mapBooleans).map((s) => ({ ...s, price: Number(s.price) })),
+      menuItems: (menuItems as any[]).map(mapBooleans).map((m) => ({ ...m, price: Number(m.price || 0) })),
       productCategories: (productCategories as any[]).map(mapBooleans),
-      products: (products as any[])
-        .map(mapBooleans)
-        .map((p) => ({
-          ...p,
-          price: Number(p.price),
-          taxaEmbalagem: Number(p.taxaEmbalagem || 0),
-        })),
+      products: (products as any[]).map(mapBooleans).map((p) => ({ ...p, price: Number(p.price) })),
       settings: {
         extraPastaPrice: Number(settings.extraPastaPrice || 0),
         extraSaucePrice: Number(settings.extraSaucePrice || 0),
         extraIngredientPrice: Number(settings.extraIngredientPrice || 0),
-        whatsappMessage: settings.whatsappMessage || "",
-        autoApprove:
-          settings.autoApprove === 1 || settings.autoApprove === true,
-        isOpen:
-          settings.isOpen === 1 ||
-          settings.isOpen === true ||
-          settings.isOpen === undefined,
+        whatsappMessage: settings.whatsappMessage || '',
+        autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
+        isOpen: settings.isOpen === 1 || settings.isOpen === true || settings.isOpen === undefined,
         taxaEmbalagemGlobal: Number(settings.taxaEmbalagemGlobal || 2),
-        mercadoPagoAtivo:
-          settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
+        mercadoPagoAtivo: settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
         taxaCartaoPercentual: Number(settings.taxaCartaoPercentual || 3.5),
-        taxaCartaoFixa: Number(settings.taxaCartaoFixa || 0),
+        taxaCartaoFixa: Number(settings.taxaCartaoFixa || 0)
       },
-      registerOpenedAt: new Date(
-        settings.registerOpenedAt || Date.now(),
-      ).toISOString(),
+      registerOpenedAt: new Date(settings.registerOpenedAt || Date.now()).toISOString(),
       orders: (orders as any[]).map(mapBooleans).map((o) => {
         let parsedItems = [];
         let parsedProducts = [];
-        try {
-          parsedItems =
-            typeof o.items === "string" ? JSON.parse(o.items) : o.items;
-        } catch (e) {}
-        try {
-          parsedProducts = o.products
-            ? typeof o.products === "string"
-              ? JSON.parse(o.products)
-              : o.products
-            : [];
-        } catch (e) {}
+        try { parsedItems = typeof o.items === "string" ? JSON.parse(o.items) : o.items; } catch (e) {}
+        try { parsedProducts = o.products ? (typeof o.products === "string" ? JSON.parse(o.products) : o.products) : []; } catch (e) {}
 
         return {
           ...o,
           total: Number(o.total),
           createdAt: new Date(o.createdAt).toISOString(),
-          deliveredAt: o.deliveredAt
-            ? new Date(o.deliveredAt).toISOString()
-            : undefined,
+          deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined,
           items: parsedItems,
           products: parsedProducts,
         };
       }),
-      expenses: (expenses as any[])
-        .map(mapBooleans)
-        .map((e) => ({
-          ...e,
-          amount: Number(e.amount),
-          date: new Date(e.date).toISOString(),
-        })),
-      tips: (tips as any[])
-        .map(mapBooleans)
-        .map((t) => ({
-          ...t,
-          amount: Number(t.amount),
-          date: new Date(t.date).toISOString(),
-        })),
+      expenses: (expenses as any[]).map(mapBooleans).map((e) => ({ ...e, amount: Number(e.amount), date: new Date(e.date || Date.now()).toISOString() })),
+      tips: (tips as any[]).map(mapBooleans).map((t) => ({ ...t, amount: Number(t.amount), date: new Date(t.date || Date.now()).toISOString() })),
       cashRegisters: (registers as any[]).map((r) => ({
         ...r,
         totalSales: Number(r.totalSales),
@@ -161,7 +106,7 @@ export async function getStoreData() {
     };
   } catch (error) {
     console.error("❌ ERRO FATAL AO BUSCAR DADOS DO BANCO:", error);
-    throw error;
+    throw error; 
   }
 }
 
@@ -169,26 +114,12 @@ export async function dbDispatch(action: string, payload: any) {
   switch (action) {
     case "ADD_SIZE":
       await pool.query(
-        "INSERT INTO sizes (id, name, price, maxPastas, strictMaxPastas, maxIngredients, strictMaxIngredients, maxSauces, strictMaxSauces, taxaEmbalagem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-          payload.id || randomUUID(),
-          payload.name,
-          payload.price,
-          payload.maxPastas,
-          payload.strictMaxPastas,
-          payload.maxIngredients,
-          payload.strictMaxIngredients,
-          payload.maxSauces,
-          payload.strictMaxSauces,
-          payload.taxaEmbalagem || 0,
-        ],
+        "INSERT INTO sizes (id, name, price, maxPastas, strictMaxPastas, maxIngredients, strictMaxIngredients, maxSauces, strictMaxSauces) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [payload.id || randomUUID(), payload.name, payload.price, payload.maxPastas, payload.strictMaxPastas, payload.maxIngredients, payload.strictMaxIngredients, payload.maxSauces, payload.strictMaxSauces]
       );
       break;
     case "UPDATE_SIZE":
-      await pool.query("UPDATE sizes SET ? WHERE id = ?", [
-        payload.updates,
-        payload.id,
-      ]);
+      await pool.query("UPDATE sizes SET ? WHERE id = ?", [payload.updates, payload.id]);
       break;
     case "DELETE_SIZE":
       await pool.query("DELETE FROM sizes WHERE id = ?", [payload.id]);
@@ -196,26 +127,14 @@ export async function dbDispatch(action: string, payload: any) {
     case "ADD_MENU_ITEM":
       await pool.query(
         "INSERT INTO menu_items (id, name, category, isActive, price) VALUES (?, ?, ?, ?, ?)",
-        [
-          payload.id || randomUUID(),
-          payload.name,
-          payload.category,
-          payload.isActive,
-          payload.price || 0,
-        ],
+        [payload.id || randomUUID(), payload.name, payload.category, payload.isActive, payload.price || 0]
       );
       break;
     case "UPDATE_MENU_ITEM":
-      await pool.query("UPDATE menu_items SET ? WHERE id = ?", [
-        payload.updates,
-        payload.id,
-      ]);
+      await pool.query("UPDATE menu_items SET ? WHERE id = ?", [payload.updates, payload.id]);
       break;
     case "TOGGLE_MENU_ITEM":
-      await pool.query(
-        "UPDATE menu_items SET isActive = NOT isActive WHERE id = ?",
-        [payload.id],
-      );
+      await pool.query("UPDATE menu_items SET isActive = NOT isActive WHERE id = ?", [payload.id]);
       break;
     case "DELETE_MENU_ITEM":
       await pool.query("DELETE FROM menu_items WHERE id = ?", [payload.id]);
@@ -224,180 +143,81 @@ export async function dbDispatch(action: string, payload: any) {
       await pool.query("UPDATE store_settings SET ? WHERE id = 1", [payload]);
       break;
     case "ADD_PRODUCT_CATEGORY":
-      await pool.query(
-        "INSERT INTO product_categories (id, name, isActive) VALUES (?, ?, ?)",
-        [payload.id || randomUUID(), payload.name, payload.isActive ?? true],
-      );
+      await pool.query("INSERT INTO product_categories (id, name, isActive) VALUES (?, ?, ?)", [payload.id || randomUUID(), payload.name, payload.isActive ?? true]);
       break;
     case "UPDATE_PRODUCT_CATEGORY":
-      await pool.query("UPDATE product_categories SET ? WHERE id = ?", [
-        payload.updates,
-        payload.id,
-      ]);
+      await pool.query("UPDATE product_categories SET ? WHERE id = ?", [payload.updates, payload.id]);
       break;
     case "DELETE_PRODUCT_CATEGORY":
-      await pool.query("DELETE FROM product_categories WHERE id = ?", [
-        payload.id,
-      ]);
+      await pool.query("DELETE FROM product_categories WHERE id = ?", [payload.id]);
       break;
     case "ADD_PRODUCT":
-      await pool.query(
-        "INSERT INTO products (id, categoryId, name, price, isActive, tipoEmbalagem, taxaEmbalagem) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [
-          payload.id || randomUUID(),
-          payload.categoryId,
-          payload.name,
-          payload.price,
-          payload.isActive ?? true,
-          payload.tipoEmbalagem || "nenhuma",
-          payload.taxaEmbalagem || 0,
-        ],
-      );
+      await pool.query("INSERT INTO products (id, categoryId, name, price, isActive) VALUES (?, ?, ?, ?, ?)", [payload.id || randomUUID(), payload.categoryId, payload.name, payload.price, payload.isActive ?? true]);
       break;
     case "UPDATE_PRODUCT":
-      await pool.query("UPDATE products SET ? WHERE id = ?", [
-        payload.updates,
-        payload.id,
-      ]);
+      await pool.query("UPDATE products SET ? WHERE id = ?", [payload.updates, payload.id]);
       break;
     case "TOGGLE_PRODUCT":
-      await pool.query(
-        "UPDATE products SET isActive = NOT isActive WHERE id = ?",
-        [payload.id],
-      );
+      await pool.query("UPDATE products SET isActive = NOT isActive WHERE id = ?", [payload.id]);
       break;
     case "DELETE_PRODUCT":
       await pool.query("DELETE FROM products WHERE id = ?", [payload.id]);
       break;
-
     case "ADD_ORDER": {
-      const [settingRows]: any = await pool.query(
-        "SELECT autoApprove FROM store_settings WHERE id = 1",
-      );
-      const isAutoApprove =
-        settingRows[0]?.autoApprove === 1 ||
-        settingRows[0]?.autoApprove === true;
+      const [settingRows]: any = await pool.query("SELECT autoApprove FROM store_settings WHERE id = 1");
+      const isAutoApprove = settingRows[0]?.autoApprove === 1 || settingRows[0]?.autoApprove === true;
       const finalStatus = isAutoApprove ? "aprovado" : payload.status || "novo";
-
       await pool.query(
         "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-          payload.id || randomUUID(),
-          payload.customerName,
-          payload.phone,
-          payload.address,
-          payload.paymentMethod,
-          finalStatus,
-          payload.isPaid,
-          payload.total,
-          JSON.stringify(payload.items),
-          JSON.stringify(payload.products || []),
-          payload.observation || "",
-        ],
+        [payload.id || randomUUID(), payload.customerName, payload.phone, payload.address, payload.paymentMethod, finalStatus, payload.isPaid, payload.total, JSON.stringify(payload.items), JSON.stringify(payload.products || []), payload.observation || ""]
       );
       break;
     }
-
     case "UPDATE_ORDER_STATUS":
       if (payload.deliveredAt) {
-        await pool.query(
-          "UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?",
-          [payload.status, new Date(payload.deliveredAt), payload.id],
-        );
+        await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [payload.status, new Date(payload.deliveredAt), payload.id]);
       } else {
-        await pool.query("UPDATE orders SET status = ? WHERE id = ?", [
-          payload.status,
-          payload.id,
-        ]);
+        await pool.query("UPDATE orders SET status = ? WHERE id = ?", [payload.status, payload.id]);
       }
-
       if (payload.status === "cancelado") {
-        await pool.query("UPDATE orders SET isPaid = 0 WHERE id = ?", [
-          payload.id,
-        ]);
+        await pool.query("UPDATE orders SET isPaid = 0 WHERE id = ?", [payload.id]);
       }
       break;
-
     case "TOGGLE_ORDER_PAID":
-      await pool.query("UPDATE orders SET isPaid = NOT isPaid WHERE id = ?", [
-        payload.id,
-      ]);
+      await pool.query("UPDATE orders SET isPaid = NOT isPaid WHERE id = ?", [payload.id]);
       break;
     case "ADD_EXPENSE":
-      await pool.query(
-        "INSERT INTO financial_entries (id, type, description, amount) VALUES (?, ?, ?, ?)",
-        [randomUUID(), "expense", payload.description, payload.amount],
-      );
+      await pool.query("INSERT INTO financial_entries (id, type, description, amount) VALUES (?, ?, ?, ?)", [randomUUID(), "expense", payload.description, payload.amount]);
       break;
     case "DELETE_EXPENSE":
-      await pool.query(
-        'DELETE FROM financial_entries WHERE id = ? AND type = "expense"',
-        [payload.id],
-      );
+      await pool.query('DELETE FROM financial_entries WHERE id = ? AND type = "expense"', [payload.id]);
       break;
     case "ADD_TIP":
-      await pool.query(
-        "INSERT INTO financial_entries (id, type, description, amount) VALUES (?, ?, ?, ?)",
-        [randomUUID(), "tip", payload.description, payload.amount],
-      );
+      await pool.query("INSERT INTO financial_entries (id, type, description, amount) VALUES (?, ?, ?, ?)", [randomUUID(), "tip", payload.description, payload.amount]);
       break;
     case "DELETE_TIP":
-      await pool.query(
-        'DELETE FROM financial_entries WHERE id = ? AND type = "tip"',
-        [payload.id],
-      );
+      await pool.query('DELETE FROM financial_entries WHERE id = ? AND type = "tip"', [payload.id]);
       break;
     case "CLOSE_REGISTER":
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
-        const [activeOrders]: any = await connection.query(
-          "SELECT total FROM orders WHERE isAccounted = 0 AND isPaid = 1 AND status != 'cancelado'",
-        );
-        const [activeExpenses]: any = await connection.query(
-          'SELECT amount FROM financial_entries WHERE isAccounted = 0 AND type = "expense"',
-        );
-        const [activeTips]: any = await connection.query(
-          'SELECT amount FROM financial_entries WHERE isAccounted = 0 AND type = "tip"',
-        );
-        const [settingsResult]: any = await connection.query(
-          "SELECT registerOpenedAt FROM store_settings WHERE id = 1",
-        );
-        const totalSales = activeOrders.reduce(
-          (acc: number, o: any) => acc + Number(o.total),
-          0,
-        );
-        const totalExpenses = activeExpenses.reduce(
-          (acc: number, e: any) => acc + Number(e.amount),
-          0,
-        );
-        const totalTips = activeTips.reduce(
-          (acc: number, t: any) => acc + Number(t.amount),
-          0,
-        );
+        const [activeOrders]: any = await connection.query("SELECT total FROM orders WHERE isAccounted = 0 AND isPaid = 1 AND status != 'cancelado'");
+        const [activeExpenses]: any = await connection.query('SELECT amount FROM financial_entries WHERE isAccounted = 0 AND type = "expense"');
+        const [activeTips]: any = await connection.query('SELECT amount FROM financial_entries WHERE isAccounted = 0 AND type = "tip"');
+        const [settingsResult]: any = await connection.query("SELECT registerOpenedAt FROM store_settings WHERE id = 1");
+        
+        const totalSales = activeOrders.reduce((acc: number, o: any) => acc + Number(o.total), 0);
+        const totalExpenses = activeExpenses.reduce((acc: number, e: any) => acc + Number(e.amount), 0);
+        const totalTips = activeTips.reduce((acc: number, t: any) => acc + Number(t.amount), 0);
 
         await connection.query(
           "INSERT INTO cash_registers (id, openedAt, totalSales, totalExpenses, totalTips, netTotal, orderCount) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [
-            randomUUID(),
-            settingsResult[0].registerOpenedAt,
-            totalSales,
-            totalExpenses,
-            totalTips,
-            totalSales + totalTips - totalExpenses,
-            activeOrders.length,
-          ],
+          [randomUUID(), settingsResult[0].registerOpenedAt, totalSales, totalExpenses, totalTips, totalSales + totalTips - totalExpenses, activeOrders.length]
         );
-        await connection.query(
-          "UPDATE orders SET isAccounted = 1 WHERE isAccounted = 0 AND isPaid = 1",
-        );
-        await connection.query(
-          "UPDATE financial_entries SET isAccounted = 1 WHERE isAccounted = 0",
-        );
-        await connection.query(
-          "UPDATE store_settings SET registerOpenedAt = CURRENT_TIMESTAMP WHERE id = 1",
-        );
-
+        await connection.query("UPDATE orders SET isAccounted = 1 WHERE isAccounted = 0 AND isPaid = 1");
+        await connection.query("UPDATE financial_entries SET isAccounted = 1 WHERE isAccounted = 0");
+        await connection.query("UPDATE store_settings SET registerOpenedAt = CURRENT_TIMESTAMP WHERE id = 1");
         await connection.commit();
       } catch (err) {
         await connection.rollback();
@@ -412,44 +232,19 @@ export async function dbDispatch(action: string, payload: any) {
 export async function validateBairro(bairro: string, cidade: string) {
   try {
     const [rows]: any = await pool.query(
-      `SELECT taxa_entrega, ativo FROM bairros_atendidos 
-       WHERE nome LIKE ? AND cidade LIKE ? ORDER BY id DESC LIMIT 1`,
-      [`%${bairro.trim()}%`, `%${cidade.trim()}%`],
+      `SELECT taxa_entrega, ativo FROM bairros_atendidos WHERE nome LIKE ? AND cidade LIKE ? ORDER BY id DESC LIMIT 1`,
+      [`%${bairro.trim()}%`, `%${cidade.trim()}%`]
     );
-
-    if (rows.length === 0) {
-      return {
-        valido: false,
-        taxa_entrega: 0,
-        mensagem: `Ainda não atendemos o bairro ${bairro.trim() || "informado"}.`,
-      };
-    }
-
+    if (rows.length === 0) return { valido: false, taxa_entrega: 0, mensagem: `Ainda não atendemos o bairro ${bairro.trim() || 'informado'}.` };
+    
     const ativoRaw = rows[0].ativo;
-
     let isAtivo = false;
-    if (ativoRaw === 1 || ativoRaw === true || ativoRaw === "1") isAtivo = true;
-    if (Buffer.isBuffer(ativoRaw) && ativoRaw.length > 0 && ativoRaw[0] === 1)
-      isAtivo = true;
-
-    if (!isAtivo) {
-      return {
-        valido: false,
-        taxa_entrega: 0,
-        mensagem: `As entregas para ${bairro.trim()} estão suspensas.`,
-      };
-    }
-
-    return {
-      valido: true,
-      taxa_entrega: Number(rows[0].taxa_entrega),
-    };
+    if (ativoRaw === 1 || ativoRaw === true || ativoRaw === '1') isAtivo = true;
+    if (Buffer.isBuffer(ativoRaw) && ativoRaw.length > 0 && ativoRaw[0] === 1) isAtivo = true;
+    
+    if (!isAtivo) return { valido: false, taxa_entrega: 0, mensagem: `As entregas para ${bairro.trim()} estão suspensas.` };
+    return { valido: true, taxa_entrega: Number(rows[0].taxa_entrega) };
   } catch (error) {
-    console.error("Erro ao validar bairro:", error);
-    return {
-      valido: false,
-      taxa_entrega: 0,
-      mensagem: "Erro ao consultar a área.",
-    };
+    return { valido: false, taxa_entrega: 0, mensagem: "Erro ao consultar a área." };
   }
 }

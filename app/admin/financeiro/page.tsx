@@ -1,97 +1,238 @@
 // app/admin/financeiro/page.tsx
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useStore } from "@/lib/store"
-import { verifyFinanceiroPassword } from "@/lib/actions"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { 
-  Trash2, DollarSign, TrendingDown, HeartHandshake, LockKeyhole, 
-  ShieldCheck, ArrowRightLeft, Wallet, AlertCircle, Eye, EyeOff
-} from "lucide-react"
-import { toast } from "sonner"
+import { useState, useEffect } from "react";
+import { useStore } from "@/lib/store";
+import { verifyFinanceiroPassword } from "@/lib/actions";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Trash2,
+  DollarSign,
+  TrendingDown,
+  HeartHandshake,
+  LockKeyhole,
+  ShieldCheck,
+  Wallet,
+  AlertCircle,
+  ShoppingBag,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { toast } from "sonner";
 
 function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+// Helper para alinhar o fuso horário UTC do banco para o horário local de Brasília (-3h)
+function ajustarFusoHorario(dateString?: string) {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString);
+    date.setHours(date.getHours() - 3);
+    return date.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "Data inválida";
+  }
 }
 
 export default function FinanceiroPage() {
-  const [isMounted, setIsMounted] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [authPassword, setAuthPassword] = useState("")
-  const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [isMounted, setIsMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authPassword, setAuthPassword] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [expandedReg, setExpandedReg] = useState<string | null>(null); // Controle de expansão do histórico
 
-  const { 
-    orders, expenses, tips, cashRegisters, registerOpenedAt, 
-    addExpense, deleteExpense, addTip, deleteTip, closeRegister 
-  } = useStore()
+  const {
+    orders,
+    expenses,
+    tips,
+    cashRegisters,
+    registerOpenedAt,
+    addExpense,
+    deleteExpense,
+    addTip,
+    deleteTip,
+    closeRegister,
+    sync,
+  } = useStore();
 
-  const [expenseDesc, setExpenseDesc] = useState("")
-  const [expenseAmount, setExpenseAmount] = useState("")
-  const [tipDesc, setTipDesc] = useState("")
-  const [tipAmount, setTipAmount] = useState("")
+  const [expenseDesc, setExpenseDesc] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [tipDesc, setTipDesc] = useState("");
+  const [tipAmount, setTipAmount] = useState("");
 
   useEffect(() => {
-    setIsMounted(true)
-  }, [])
+    setIsMounted(true);
+    sync();
+  }, [sync]);
 
-  if (!isMounted) return null
+  if (!isMounted) return null;
 
-  // Processamento Seguro (só renderiza o layout após a senha)
-  const currentOrders = orders.filter(o => !o.isAccounted && o.isPaid)
-  const currentExpenses = expenses.filter(e => !e.isAccounted)
-  const currentTips = tips.filter(t => !t.isAccounted)
+  // Filtra itens APENAS do turno atual para as métricas da aba principal
+  const currentOrders = orders.filter(
+    (o) => !o.isAccounted && o.isPaid && o.status !== "cancelado",
+  );
+  const currentExpenses = expenses.filter((e) => !e.isAccounted);
+  const currentTips = tips.filter((t) => !t.isAccounted);
 
-  const totalSales = currentOrders.reduce((acc, o) => acc + o.total, 0)
-  const totalExpenses = currentExpenses.reduce((acc, e) => acc + e.amount, 0)
-  const totalTips = currentTips.reduce((acc, t) => acc + t.amount, 0)
-  const netTotal = (totalSales + totalTips) - totalExpenses
+  const totalSales = currentOrders.reduce((acc, o) => acc + o.total, 0);
+  const totalExpenses = currentExpenses.reduce((acc, e) => acc + e.amount, 0);
+  const totalTips = currentTips.reduce((acc, t) => acc + t.amount, 0);
+  const netTotal = totalSales + totalTips - totalExpenses;
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsAuthenticating(true)
+    e.preventDefault();
+    setIsAuthenticating(true);
     try {
-      const valid = await verifyFinanceiroPassword(authPassword)
+      const valid = await verifyFinanceiroPassword(authPassword);
       if (valid) {
-        setIsAuthenticated(true)
-        toast.success("Acesso Liberado")
+        setIsAuthenticated(true);
+        toast.success("Acesso Liberado");
       } else {
-        toast.error("Senha incorreta.")
+        toast.error("Senha incorreta.");
       }
     } catch (error) {
-      toast.error("Erro ao processar senha.")
+      toast.error("Erro ao processar senha.");
     } finally {
-      setIsAuthenticating(false)
-      setAuthPassword("")
+      setIsAuthenticating(false);
+      setAuthPassword("");
     }
-  }
+  };
 
-  const handleAddEntry = (type: 'expense' | 'tip') => {
-    if (type === 'expense') {
-      if (!expenseDesc || !expenseAmount) return
-      addExpense({ description: expenseDesc, amount: parseFloat(expenseAmount) })
-      setExpenseDesc(""); setExpenseAmount("")
-      toast.success("Despesa adicionada")
+  const handleAddEntry = (type: "expense" | "tip") => {
+    if (type === "expense") {
+      if (!expenseDesc || !expenseAmount) return;
+      addExpense({
+        description: expenseDesc,
+        amount: parseFloat(expenseAmount.replace(",", ".")),
+      });
+      setExpenseDesc("");
+      setExpenseAmount("");
+      toast.success("Despesa adicionada");
     } else {
-      if (!tipDesc || !tipAmount) return
-      addTip({ description: tipDesc, amount: parseFloat(tipAmount) })
-      setTipDesc(""); setTipAmount("")
-      toast.success("Gorjeta adicionada")
+      if (!tipDesc || !tipAmount) return;
+      addTip({
+        description: tipDesc,
+        amount: parseFloat(tipAmount.replace(",", ".")),
+      });
+      setTipDesc("");
+      setTipAmount("");
+      toast.success("Gorjeta adicionada");
     }
-  }
+  };
 
   const handleCloseRegister = () => {
-    if (confirm("Tem certeza que deseja fechar o caixa? Todos os registros atuais serão arquivados e zerados.")) {
-      closeRegister()
-      toast.success("Caixa fechado com sucesso.")
+    if (
+      confirm(
+        "Tem certeza que deseja fechar o caixa? Todos os registros atuais serão arquivados e zerados.",
+      )
+    ) {
+      closeRegister();
+      toast.success("Caixa fechado com sucesso.");
     }
-  }
+  };
 
-  // TELA DE BLOQUEIO
+  // Render da tabela de pedidos reutilizável para o Turno Atual e Fechados
+  const renderOrdersTable = (listaPedidos: any[]) => (
+    <div className="max-h-[500px] overflow-y-auto">
+      <Table>
+        <TableHeader className="bg-stone-50 sticky top-0 shadow-sm z-10">
+          <TableRow>
+            <TableHead className="w-[140px]">Data e Hora</TableHead>
+            <TableHead>Cliente / Endereço</TableHead>
+            <TableHead>Origem</TableHead>
+            <TableHead>Pagamento</TableHead>
+            <TableHead className="text-right">Total</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {listaPedidos.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={5}
+                className="text-center py-10 text-stone-400 font-medium border-b-0 bg-white"
+              >
+                Nenhuma venda concluída encontrada para este período.
+              </TableCell>
+            </TableRow>
+          ) : (
+            listaPedidos
+              .sort(
+                (a, b) =>
+                  new Date(b.createdAt).getTime() -
+                  new Date(a.createdAt).getTime(),
+              )
+              .map((order) => {
+                const isMesa =
+                  order.address.toLowerCase().includes("mesa") ||
+                  /^\d+$/.test(order.address.trim());
+                return (
+                  <TableRow
+                    key={order.id}
+                    className="hover:bg-stone-50/50 bg-white"
+                  >
+                    <TableCell className="text-xs text-stone-500 font-medium">
+                      {ajustarFusoHorario(order.createdAt)}
+                    </TableCell>
+                    <TableCell className="font-bold text-stone-800">
+                      {order.customerName}
+                      <div className="text-xs font-normal text-stone-500 truncate max-w-[300px]">
+                        {order.address}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={
+                          isMesa
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-purple-50 text-purple-700 border-purple-200"
+                        }
+                      >
+                        {isMesa ? "Local / Mesa" : "Delivery"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="uppercase text-xs font-bold text-stone-600">
+                      {order.paymentMethod}
+                    </TableCell>
+                    <TableCell className="text-right font-black text-green-600 text-base">
+                      {formatCurrency(order.total)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
+  // BLOQUEIO
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[70vh] animate-in fade-in zoom-in-95 duration-500">
@@ -101,31 +242,39 @@ export default function FinanceiroPage() {
               <div className="mx-auto bg-stone-200 w-16 h-16 rounded-full flex items-center justify-center mb-2">
                 <ShieldCheck className="w-8 h-8 text-stone-600" />
               </div>
-              <CardTitle className="text-2xl font-black text-stone-800">Acesso Restrito</CardTitle>
-              <CardDescription className="text-base">Módulo Financeiro Exclusivo</CardDescription>
+              <CardTitle className="text-2xl font-black text-stone-800">
+                Acesso Restrito
+              </CardTitle>
+              <CardDescription className="text-base">
+                Módulo Financeiro Exclusivo
+              </CardDescription>
             </CardHeader>
             <CardContent className="pt-8 pb-8 space-y-4 px-8">
               <div className="space-y-2">
-                <Input 
-                  type="password" 
-                  placeholder="Digite a senha financeira" 
+                <Input
+                  type="password"
+                  placeholder="Digite a senha financeira"
                   className="h-12 text-center text-lg tracking-widest"
-                  autoFocus 
-                  value={authPassword} 
-                  onChange={(e) => setAuthPassword(e.target.value)} 
+                  autoFocus
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
                 />
               </div>
-              <Button type="submit" className="w-full h-12 text-lg font-bold bg-stone-800 hover:bg-stone-900" disabled={isAuthenticating}>
+              <Button
+                type="submit"
+                className="w-full h-12 text-lg font-bold bg-stone-800 hover:bg-stone-900"
+                disabled={isAuthenticating}
+              >
                 {isAuthenticating ? "Verificando..." : "Desbloquear Acesso"}
               </Button>
             </CardContent>
           </form>
         </Card>
       </div>
-    )
+    );
   }
 
-  // TELA DO FINANCEIRO (Desbloqueada)
+  // TELA DESBLOQUEADA
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 max-w-[1400px] mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-800">
@@ -133,150 +282,293 @@ export default function FinanceiroPage() {
           <h1 className="text-3xl font-black text-stone-800 dark:text-stone-100 flex items-center gap-3">
             <Wallet className="w-8 h-8 text-green-600" /> Cofre Financeiro
           </h1>
-          <p className="text-stone-500 font-medium mt-1">Transparência e controle absoluto sobre o fluxo de caixa.</p>
+          <p className="text-stone-500 font-medium mt-1">
+            Transparência e controle absoluto sobre o fluxo de caixa.
+          </p>
         </div>
-        <Button onClick={() => setIsAuthenticated(false)} variant="outline" className="font-bold border-stone-300">
+        <Button
+          onClick={() => setIsAuthenticated(false)}
+          variant="outline"
+          className="font-bold border-stone-300"
+        >
           <LockKeyhole className="w-4 h-4 mr-2" /> Bloquear Tela
         </Button>
       </div>
 
       <Tabs defaultValue="atual" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2 bg-stone-200/50 p-1 rounded-xl h-12">
-          <TabsTrigger value="atual" className="rounded-lg font-bold data-[state=active]:bg-stone-800 data-[state=active]:text-white">Caixa do Turno</TabsTrigger>
-          <TabsTrigger value="historico" className="rounded-lg font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Relatórios Fechados</TabsTrigger>
+          <TabsTrigger
+            value="atual"
+            className="rounded-lg font-bold data-[state=active]:bg-stone-800 data-[state=active]:text-white"
+          >
+            Caixa do Turno
+          </TabsTrigger>
+          <TabsTrigger
+            value="historico"
+            className="rounded-lg font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+          >
+            Relatórios Fechados
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="atual" className="space-y-6 mt-6 focus-visible:outline-none">
-          
-          {/* CARDS DE RESUMO */}
+        <TabsContent
+          value="atual"
+          className="space-y-6 mt-6 focus-visible:outline-none"
+        >
           <div className="grid gap-4 md:grid-cols-4">
             <Card className="border-green-200 bg-green-50/30">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-bold text-stone-600">Vendas Recebidas</CardTitle>
-                <div className="bg-green-100 p-2 rounded-full"><DollarSign className="h-4 w-4 text-green-700" /></div>
+                <CardTitle className="text-sm font-bold text-stone-600">
+                  Vendas Recebidas
+                </CardTitle>
+                <div className="bg-green-100 p-2 rounded-full">
+                  <DollarSign className="h-4 w-4 text-green-700" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-black text-green-700">{formatCurrency(totalSales)}</div>
-                <p className="text-sm font-medium text-green-600/70 mt-1">{currentOrders.length} pedidos pagos</p>
+                <div className="text-3xl font-black text-green-700">
+                  {formatCurrency(totalSales)}
+                </div>
+                <p className="text-sm font-medium text-green-600/70 mt-1">
+                  {currentOrders.length} pedidos pagos
+                </p>
               </CardContent>
             </Card>
-
             <Card className="border-blue-200 bg-blue-50/30">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-bold text-stone-600">Gorjetas / Extras</CardTitle>
-                <div className="bg-blue-100 p-2 rounded-full"><HeartHandshake className="h-4 w-4 text-blue-700" /></div>
+                <CardTitle className="text-sm font-bold text-stone-600">
+                  Gorjetas / Extras
+                </CardTitle>
+                <div className="bg-blue-100 p-2 rounded-full">
+                  <HeartHandshake className="h-4 w-4 text-blue-700" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-black text-blue-700">{formatCurrency(totalTips)}</div>
-                <p className="text-sm font-medium text-blue-600/70 mt-1">{currentTips.length} entradas</p>
+                <div className="text-3xl font-black text-blue-700">
+                  {formatCurrency(totalTips)}
+                </div>
+                <p className="text-sm font-medium text-blue-600/70 mt-1">
+                  {currentTips.length} entradas
+                </p>
               </CardContent>
             </Card>
-
             <Card className="border-red-200 bg-red-50/30">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-bold text-stone-600">Despesas / Saídas</CardTitle>
-                <div className="bg-red-100 p-2 rounded-full"><TrendingDown className="h-4 w-4 text-red-700" /></div>
+                <CardTitle className="text-sm font-bold text-stone-600">
+                  Despesas / Saídas
+                </CardTitle>
+                <div className="bg-red-100 p-2 rounded-full">
+                  <TrendingDown className="h-4 w-4 text-red-700" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-black text-red-700">-{formatCurrency(totalExpenses)}</div>
-                <p className="text-sm font-medium text-red-600/70 mt-1">{currentExpenses.length} lançamentos</p>
+                <div className="text-3xl font-black text-red-700">
+                  -{formatCurrency(totalExpenses)}
+                </div>
+                <p className="text-sm font-medium text-red-600/70 mt-1">
+                  {currentExpenses.length} lançamentos
+                </p>
               </CardContent>
             </Card>
-
-            <Card className={`border-2 ${netTotal >= 0 ? 'border-stone-800 bg-stone-900 text-white' : 'border-red-800 bg-red-900 text-white'}`}>
+            <Card
+              className={`border-2 ${netTotal >= 0 ? "border-stone-800 bg-stone-900 text-white" : "border-red-800 bg-red-900 text-white"}`}
+            >
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-bold text-stone-300">Saldo Líquido</CardTitle>
-                <div className="bg-white/20 p-2 rounded-full"><Wallet className="h-4 w-4 text-white" /></div>
+                <CardTitle className="text-sm font-bold text-stone-300">
+                  Saldo Líquido
+                </CardTitle>
+                <div className="bg-white/20 p-2 rounded-full">
+                  <Wallet className="h-4 w-4 text-white" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-4xl font-black">{formatCurrency(netTotal)}</div>
+                <div className="text-4xl font-black">
+                  {formatCurrency(netTotal)}
+                </div>
                 <p className="text-xs font-medium text-stone-400 mt-2">
-                  Aberto em: {registerOpenedAt ? new Date(registerOpenedAt).toLocaleString('pt-BR') : 'N/A'}
+                  Aberto em: {ajustarFusoHorario(registerOpenedAt)}
                 </p>
               </CardContent>
             </Card>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            
-            {/* PAINEL DE DESPESAS */}
             <Card className="shadow-sm border-stone-200">
               <CardHeader className="bg-stone-50 border-b">
-                <CardTitle className="text-lg flex items-center gap-2"><TrendingDown className="w-5 h-5 text-red-600"/> Lançamentos de Despesa</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingDown className="w-5 h-5 text-red-600" /> Lançamentos
+                  de Despesa
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="p-4 bg-stone-50 border-b flex gap-2">
-                  <Input placeholder="Descrição da Saída" value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} className="bg-white" />
-                  <Input type="number" placeholder="R$ 0,00" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} className="w-32 bg-white" />
-                  <Button variant="destructive" onClick={() => handleAddEntry('expense')} className="font-bold">Lançar</Button>
+                  <Input
+                    placeholder="Descrição da Saída"
+                    value={expenseDesc}
+                    onChange={(e) => setExpenseDesc(e.target.value)}
+                    className="bg-white"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="R$ 0,00"
+                    value={expenseAmount}
+                    onChange={(e) => setExpenseAmount(e.target.value)}
+                    className="w-32 bg-white"
+                  />
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleAddEntry("expense")}
+                    className="font-bold"
+                  >
+                    Lançar
+                  </Button>
                 </div>
-                <div className="max-h-[400px] overflow-y-auto p-4 space-y-2">
-                  {currentExpenses.map(exp => (
-                    <div key={exp.id} className="flex justify-between items-center p-3 rounded-xl bg-white border shadow-sm group hover:border-red-200 transition-colors">
+                <div className="max-h-[300px] overflow-y-auto p-4 space-y-2">
+                  {currentExpenses.map((exp) => (
+                    <div
+                      key={exp.id}
+                      className="flex justify-between items-center p-3 rounded-xl bg-white border shadow-sm group hover:border-red-200 transition-colors"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-50 text-red-600 rounded-lg"><TrendingDown className="w-4 h-4"/></div>
-                        <span className="font-medium text-stone-700">{exp.description}</span>
+                        <div className="p-2 bg-red-50 text-red-600 rounded-lg">
+                          <TrendingDown className="w-4 h-4" />
+                        </div>
+                        <span className="font-medium text-stone-700">
+                          {exp.description}
+                        </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-black text-red-600 text-lg">-{formatCurrency(exp.amount)}</span>
-                        <Button variant="ghost" size="icon" onClick={() => deleteExpense(exp.id)} className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-red-600 hover:bg-red-50 transition-all"><Trash2 className="h-4 w-4"/></Button>
+                        <span className="font-black text-red-600 text-lg">
+                          -{formatCurrency(exp.amount)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteExpense(exp.id)}
+                          className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
                   {currentExpenses.length === 0 && (
-                    <div className="text-center py-10 flex flex-col items-center justify-center text-stone-400 border-2 border-dashed rounded-xl">
-                      <ShieldCheck className="w-10 h-10 mb-2 opacity-20" />
-                      <p className="font-medium">Nenhuma despesa registrada.</p>
+                    <div className="text-center py-8 flex flex-col items-center justify-center text-stone-400 border-2 border-dashed rounded-xl">
+                      <ShieldCheck className="w-8 h-8 mb-2 opacity-20" />
+                      <p className="font-medium text-sm">
+                        Nenhuma despesa registrada.
+                      </p>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* PAINEL DE GORJETAS */}
             <Card className="shadow-sm border-stone-200">
               <CardHeader className="bg-stone-50 border-b">
-                <CardTitle className="text-lg flex items-center gap-2"><HeartHandshake className="w-5 h-5 text-blue-600"/> Lançamentos de Gorjeta</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <HeartHandshake className="w-5 h-5 text-blue-600" />{" "}
+                  Lançamentos de Gorjeta
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="p-4 bg-stone-50 border-b flex gap-2">
-                  <Input placeholder="Origem da Gorjeta" value={tipDesc} onChange={(e) => setTipDesc(e.target.value)} className="bg-white" />
-                  <Input type="number" placeholder="R$ 0,00" value={tipAmount} onChange={(e) => setTipAmount(e.target.value)} className="w-32 bg-white" />
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={() => handleAddEntry('tip')}>Lançar</Button>
+                  <Input
+                    placeholder="Origem da Gorjeta"
+                    value={tipDesc}
+                    onChange={(e) => setTipDesc(e.target.value)}
+                    className="bg-white"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="R$ 0,00"
+                    value={tipAmount}
+                    onChange={(e) => setTipAmount(e.target.value)}
+                    className="w-32 bg-white"
+                  />
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                    onClick={() => handleAddEntry("tip")}
+                  >
+                    Lançar
+                  </Button>
                 </div>
-                <div className="max-h-[400px] overflow-y-auto p-4 space-y-2">
-                  {currentTips.map(tip => (
-                    <div key={tip.id} className="flex justify-between items-center p-3 rounded-xl bg-white border shadow-sm group hover:border-blue-200 transition-colors">
+                <div className="max-h-[300px] overflow-y-auto p-4 space-y-2">
+                  {currentTips.map((tip) => (
+                    <div
+                      key={tip.id}
+                      className="flex justify-between items-center p-3 rounded-xl bg-white border shadow-sm group hover:border-blue-200 transition-colors"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><HeartHandshake className="w-4 h-4"/></div>
-                        <span className="font-medium text-stone-700">{tip.description}</span>
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                          <HeartHandshake className="w-4 h-4" />
+                        </div>
+                        <span className="font-medium text-stone-700">
+                          {tip.description}
+                        </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-black text-blue-600 text-lg">+{formatCurrency(tip.amount)}</span>
-                        <Button variant="ghost" size="icon" onClick={() => deleteTip(tip.id)} className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-red-600 hover:bg-red-50 transition-all"><Trash2 className="h-4 w-4"/></Button>
+                        <span className="font-black text-blue-600 text-lg">
+                          +{formatCurrency(tip.amount)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteTip(tip.id)}
+                          className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
                   {currentTips.length === 0 && (
-                    <div className="text-center py-10 flex flex-col items-center justify-center text-stone-400 border-2 border-dashed rounded-xl">
-                      <AlertCircle className="w-10 h-10 mb-2 opacity-20" />
-                      <p className="font-medium">Nenhuma gorjeta recebida.</p>
+                    <div className="text-center py-8 flex flex-col items-center justify-center text-stone-400 border-2 border-dashed rounded-xl">
+                      <AlertCircle className="w-8 h-8 mb-2 opacity-20" />
+                      <p className="font-medium text-sm">
+                        Nenhuma gorjeta recebida.
+                      </p>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
-
           </div>
 
+          <Card className="col-span-full border-stone-200 shadow-sm mt-6">
+            <CardHeader className="bg-stone-50 border-b">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-stone-600" /> Detalhamento
+                de Vendas do Turno
+              </CardTitle>
+              <CardDescription>
+                Histórico completo de todos os pedidos finalizados e pagos que
+                compõem o valor de entrada deste caixa.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {renderOrdersTable(currentOrders)}
+            </CardContent>
+          </Card>
+
           <div className="flex justify-end pt-4">
-            <Button onClick={handleCloseRegister} className="bg-stone-800 hover:bg-stone-900 text-white font-bold h-14 px-8 text-lg rounded-xl shadow-lg hover:scale-105 transition-transform">
-              <LockKeyhole className="mr-2 h-5 w-5" /> Fechar e Arquivar Caixa do Turno
+            <Button
+              onClick={handleCloseRegister}
+              className="bg-stone-800 hover:bg-stone-900 text-white font-bold h-14 px-8 text-lg rounded-xl shadow-lg hover:scale-105 transition-transform"
+            >
+              <LockKeyhole className="mr-2 h-5 w-5" /> Fechar e Arquivar Caixa
+              do Turno
             </Button>
           </div>
         </TabsContent>
 
-        <TabsContent value="historico" className="mt-6 focus-visible:outline-none">
+        {/* ABA HISTÓRICO COM EXPANSÃO PARA EXIBIR RELATÓRIOS ANTIGOS */}
+        <TabsContent
+          value="historico"
+          className="mt-6 focus-visible:outline-none"
+        >
           <Card className="border-none shadow-none bg-transparent">
             <CardContent className="p-0 space-y-4">
               {cashRegisters.length === 0 ? (
@@ -285,46 +577,113 @@ export default function FinanceiroPage() {
                   <p>Nenhum caixa foi fechado até o momento.</p>
                 </div>
               ) : (
-                cashRegisters.map(reg => (
-                  <Card key={reg.id} className="overflow-hidden border-stone-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex flex-col lg:flex-row">
-                      <div className="bg-stone-50 p-4 lg:w-64 border-b lg:border-b-0 lg:border-r border-stone-200 flex flex-col justify-center">
-                        <div className="mb-3">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Abertura</p>
-                          <p className="font-bold text-stone-700">{new Date(reg.openedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                cashRegisters.map((reg) => {
+                  // Filtra os pedidos específicos que aconteceram durante a duração deste caixa
+                  const regOrders = orders.filter(
+                    (o) =>
+                      o.isPaid &&
+                      o.status !== "cancelado" &&
+                      new Date(o.createdAt).getTime() >=
+                        new Date(reg.openedAt).getTime() &&
+                      new Date(o.createdAt).getTime() <=
+                        new Date(reg.closedAt).getTime(),
+                  );
+
+                  return (
+                    <Card
+                      key={reg.id}
+                      className="overflow-hidden border-stone-200 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div
+                        className="flex flex-col lg:flex-row cursor-pointer hover:bg-stone-50 transition-colors"
+                        onClick={() =>
+                          setExpandedReg(expandedReg === reg.id ? null : reg.id)
+                        }
+                      >
+                        <div className="bg-stone-100 p-4 lg:w-64 border-b lg:border-b-0 lg:border-r border-stone-200 flex flex-col justify-center">
+                          <div className="mb-3">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">
+                              Abertura
+                            </p>
+                            <p className="font-bold text-stone-700">
+                              {ajustarFusoHorario(reg.openedAt)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">
+                              Fechamento
+                            </p>
+                            <p className="font-bold text-stone-700">
+                              {ajustarFusoHorario(reg.closedAt)}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Fechamento</p>
-                          <p className="font-bold text-stone-700">{new Date(reg.closedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                        <div className="p-4 flex-1 grid grid-cols-2 md:grid-cols-5 gap-4 items-center relative">
+                          <div>
+                            <p className="text-xs font-bold text-stone-500 mb-1 flex items-center gap-1">
+                              <Wallet className="w-3 h-3" /> Vendas Brutas
+                            </p>
+                            <p className="text-xl font-black text-stone-800">
+                              {formatCurrency(reg.totalSales)}
+                            </p>
+                            <p className="text-xs font-medium text-stone-400">
+                              {reg.orderCount} pedidos
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-blue-600 mb-1 flex items-center gap-1">
+                              <HeartHandshake className="w-3 h-3" /> Gorjetas
+                            </p>
+                            <p className="text-xl font-black text-blue-700">
+                              +{formatCurrency(reg.totalTips)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-red-600 mb-1 flex items-center gap-1">
+                              <TrendingDown className="w-3 h-3" /> Despesas
+                            </p>
+                            <p className="text-xl font-black text-red-700">
+                              -{formatCurrency(reg.totalExpenses)}
+                            </p>
+                          </div>
+                          <div className="bg-stone-800 p-3 rounded-xl text-center shadow-inner text-white col-span-2 md:col-span-1">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-stone-400 mb-0.5">
+                              Líquido Retido
+                            </p>
+                            <p className="text-2xl font-black">
+                              {formatCurrency(reg.netTotal)}
+                            </p>
+                          </div>
+                          <div className="absolute right-4 text-stone-400 flex items-center justify-center h-full">
+                            {expandedReg === reg.id ? (
+                              <ChevronUp className="w-6 h-6" />
+                            ) : (
+                              <ChevronDown className="w-6 h-6" />
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="p-4 flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
-                        <div>
-                          <p className="text-xs font-bold text-stone-500 mb-1 flex items-center gap-1"><Wallet className="w-3 h-3"/> Vendas Brutas</p>
-                          <p className="text-xl font-black text-stone-800">{formatCurrency(reg.totalSales)}</p>
-                          <p className="text-xs font-medium text-stone-400">{reg.orderCount} pedidos</p>
+
+                      {/* AREA EXPANSÍVEL: MOSTRA OS PEDIDOS DAQUELE CAIXA */}
+                      {expandedReg === reg.id && (
+                        <div className="border-t border-stone-200 bg-stone-100/50 p-4 animate-in slide-in-from-top-2">
+                          <h4 className="font-bold text-stone-700 mb-4 flex items-center gap-2">
+                            <ShoppingBag className="w-4 h-4" /> Pedidos
+                            Registrados Neste Fechamento
+                          </h4>
+                          <div className="rounded-lg border shadow-sm overflow-hidden bg-white">
+                            {renderOrdersTable(regOrders)}
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-blue-600 mb-1 flex items-center gap-1"><HeartHandshake className="w-3 h-3"/> Gorjetas</p>
-                          <p className="text-xl font-black text-blue-700">+{formatCurrency(reg.totalTips)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-red-600 mb-1 flex items-center gap-1"><TrendingDown className="w-3 h-3"/> Despesas</p>
-                          <p className="text-xl font-black text-red-700">-{formatCurrency(reg.totalExpenses)}</p>
-                        </div>
-                        <div className="bg-stone-800 p-3 rounded-xl text-center shadow-inner text-white">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-stone-400 mb-0.5">Líquido Retido</p>
-                          <p className="text-2xl font-black">{formatCurrency(reg.netTotal)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))
+                      )}
+                    </Card>
+                  );
+                })
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
