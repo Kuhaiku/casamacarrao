@@ -38,6 +38,9 @@ export async function verifyAdminPassword(password: string) {
 export async function verifyMotoboyPassword(password: string) {
   return password === process.env.MOTOBOY_PASSWORD;
 }
+export async function verifyFinanceiroPassword(password: string) {
+  return password === process.env.FINANCEIRO_PASSWORD;
+}
 
 export async function getStoreData() {
   try {
