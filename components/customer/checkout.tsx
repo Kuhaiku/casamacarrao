@@ -39,7 +39,7 @@ function SuccessScreen() {
 
 export function Checkout() {
   const { toast } = useToast()
-  const { addOrder, calculateOrderTotal, sizes, products, productCategories, settings } = useStore()
+  const { addOrder, calculateOrderTotal, sizes, products, settings } = useStore()
   const { items, customerName, setCustomerName, paymentMethod, setPaymentMethod, setStep } = useOrder()
 
   const [tipoPedido, setTipoPedido] = useState<"delivery" | "mesa">("delivery")
@@ -74,7 +74,6 @@ export function Checkout() {
     return () => clearTimeout(timer)
   }, [addressData.bairro, addressData.cidade, tipoPedido, toast])
 
-// Cálculo da Taxa de Embalagem Dinâmica (Corrigido para nova regra e tipos numéricos)
   const taxaEmbalagem = useMemo(() => {
     if (tipoPedido === "mesa") return 0;
     const taxaGlobal = Number(settings.taxaEmbalagemGlobal) || 2.00;
@@ -97,7 +96,6 @@ export function Checkout() {
 
     const macarraoFee = items.reduce((acc, item) => {
       const size = sizes.find(s => s.id === item.sizeId);
-      // Força a conversão para número
       const fee = size?.taxaEmbalagem ? Number(size.taxaEmbalagem) : taxaGlobal;
       return acc + fee;
     }, 0);
@@ -118,28 +116,31 @@ export function Checkout() {
 
   const total = subtotal + taxaEmbalagem + taxaEntrega + taxaCartao
 
-  const handleUpdateProduct = (productId: string, delta: number) => {
-    setSelectedProducts(prev => {
-      const existing = prev.find(p => p.productId === productId)
-      if (existing) {
-        const newQty = existing.quantity + delta
-        return newQty <= 0 ? prev.filter(p => p.productId !== productId) : prev.map(p => p.productId === productId ? { ...p, quantity: newQty } : p)
-      }
-      return delta > 0 ? [...prev, { productId, quantity: 1 }] : prev
-    })
-  }
+  // NOVO: Calcula exatamente quais campos estão faltando
+  const missingFields = useMemo(() => {
+    const missing = [];
+    if (!customerName?.trim()) missing.push("Nome");
+    if (!phone?.trim()) missing.push("WhatsApp");
+    if (tipoPedido === "delivery") {
+      if (!addressData.logradouro?.trim()) missing.push("Rua");
+      if (!addressData.numero?.trim()) missing.push("Nº (ou SN)");
+      if (!bairroStatus?.valido) missing.push("Bairro Atendido");
+    }
+    return missing;
+  }, [customerName, phone, tipoPedido, addressData, bairroStatus]);
 
-  const isAddressInvalid = tipoPedido === "delivery" && (!bairroStatus?.valido)
-  const isBlockSubmit = settings.isOpen === false || isAddressInvalid || isProcessing || isValidatingArea
+  // NOVO: Bloqueia o botão e mostra visualmente se faltar algo
+  const isBlockSubmit = settings.isOpen === false || items.length === 0 || missingFields.length > 0 || isProcessing || (tipoPedido === "delivery" && isValidatingArea);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isBlockSubmit) return
+
     setIsProcessing(true)
     
     const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`
     
-    const orderData = {
+    const orderData: any = {
       id: crypto.randomUUID(),
       customerName: customerName.trim(),
       phone: phone.trim(),
@@ -155,31 +156,17 @@ export function Checkout() {
       taxaEntrega,
       taxaCartao,
       total,
+      createdAt: new Date().toISOString()
     }
 
-    await addOrder(orderData as any)
+    await addOrder(orderData)
 
     if (paymentMethod === "cartao") {
-      const orderData = {
-      id: crypto.randomUUID(),
-      customerName: customerName.trim(),
-      phone: phone.trim(),
-      address: tipoPedido === "delivery" ? finalAddress : "Retirada/Mesa", 
-      paymentMethod,
-      items,
-      products: selectedProducts,
-      status: (paymentMethod === "cartao" ? "aguardando_pagamento" : "novo") as OrderStatus,
-      isPaid: false,
-      tipoPedido,
-      subtotal,
-      taxaEmbalagem,
-      taxaEntrega,
-      taxaCartao,
-      total,
-      createdAt: new Date().toISOString() // <--- Adicionado aqui
-    }
-
-    await addOrder(orderData as any)
+      const res = await createPaymentPreference(orderData, total)
+      if (res.success && res.init_point) {
+        window.location.href = res.init_point
+        return
+      }
     }
 
     setIsProcessing(false)
@@ -213,11 +200,11 @@ export function Checkout() {
               <div className="space-y-4 border-t pt-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome</Label>
-                  <Input id="name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={!settings.isOpen} required />
+                  <Input id="name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={!settings.isOpen} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Telefone (WhatsApp)</Label>
-                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(22) 99999-9999" disabled={!settings.isOpen} required />
+                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(22) 99999-9999" disabled={!settings.isOpen} />
                 </div>
 
                 {tipoPedido === "delivery" && (
@@ -229,17 +216,17 @@ export function Checkout() {
                     <div className="grid grid-cols-3 gap-2">
                       <div className="col-span-2 space-y-2">
                         <Label>Logradouro</Label>
-                        <Input value={addressData.logradouro} onChange={(e) => setAddressData({...addressData, logradouro: e.target.value})} disabled required />
+                        <Input value={addressData.logradouro} onChange={(e) => setAddressData({...addressData, logradouro: e.target.value})} disabled />
                       </div>
                       <div className="space-y-2">
                         <Label>Nº</Label>
-                        <Input value={addressData.numero} onChange={(e) => setAddressData({...addressData, numero: e.target.value})} disabled={!settings.isOpen} required />
+                        <Input value={addressData.numero} onChange={(e) => setAddressData({...addressData, numero: e.target.value})} disabled={!settings.isOpen} />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-2">
                         <Label>Bairro {isValidatingArea && <Loader2 className="inline h-3 w-3 animate-spin ml-2" />}</Label>
-                        <Input value={addressData.bairro} onChange={(e) => setAddressData({...addressData, bairro: e.target.value})} disabled required />
+                        <Input value={addressData.bairro} onChange={(e) => setAddressData({...addressData, bairro: e.target.value})} disabled />
                       </div>
                       <div className="space-y-2">
                         <Label>Cidade</Label>
@@ -329,6 +316,16 @@ export function Checkout() {
               <span>Total</span>
               <span className="text-primary">{formatCurrency(total)}</span>
             </div>
+
+            {/* NOVO: Exibe a lista de campos obrigatórios faltantes antes do botão */}
+            {missingFields.length > 0 && settings.isOpen && items.length > 0 && (
+              <div className="w-full text-center animate-in fade-in zoom-in mt-2 mb-1">
+                <p className="text-xs font-black text-red-600 uppercase tracking-wider bg-red-50 py-2 px-3 rounded-lg border border-red-100 inline-block w-full">
+                  ⚠️ Falta preencher: {missingFields.join(", ")}
+                </p>
+              </div>
+            )}
+
             <Button type="submit" form="checkout-form" className="w-full" size="lg" disabled={isBlockSubmit}>
               {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Confirmar Pedido"}
             </Button>

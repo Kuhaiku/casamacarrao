@@ -82,13 +82,11 @@ export function CartSidebar(props: any) {
     return () => clearTimeout(timer);
   }, [addressData.bairro, addressData.cidade]);
 
-  // Cálculos de Taxas (Corrigido para evitar concatenação de string)
   const taxaEmbalagem = useMemo(() => {
     const taxaGlobal = Number(settings.taxaEmbalagemGlobal) || 2.00;
     
     const taxaSelfService = cartSelfService.reduce((acc: number, item: any) => {
       const size = sizes.find((s: any) => s.id === item.sizeId);
-      // Força a conversão para número
       const fee = size?.taxaEmbalagem ? Number(size.taxaEmbalagem) : taxaGlobal;
       return acc + fee;
     }, 0);
@@ -125,11 +123,23 @@ export function CartSidebar(props: any) {
 
   const totalFinal = cartSubtotal + taxaEmbalagem + taxaEntrega + taxaCartao;
 
-  const isAddressInvalid = !bairroStatus || !bairroStatus.valido;
+  // NOVO: Calcula exatamente quais campos estão faltando
+  const missingFields = useMemo(() => {
+    const missing = [];
+    if (!customerName?.trim()) missing.push("Nome");
+    if (!phone?.trim()) missing.push("WhatsApp");
+    if (!addressData.logradouro?.trim()) missing.push("Rua");
+    if (!addressData.numero?.trim()) missing.push("Nº (ou SN)");
+    if (!bairroStatus?.valido) missing.push("Bairro Atendido");
+    return missing;
+  }, [customerName, phone, addressData, bairroStatus]);
+
+  // NOVO: Bloqueia o botão e mostra visualmente se faltar algo
   const isBlockSubmit =
     settings.isOpen === false ||
     isCartEmpty ||
-    isAddressInvalid ||
+    missingFields.length > 0 ||
+    isProcessing ||
     isValidatingArea;
 
   const handleGetLocation = () => {
@@ -188,20 +198,11 @@ export function CartSidebar(props: any) {
 
   const handleFinalize = async () => {
     if (isBlockSubmit) return;
-    if (!addressData.logradouro || !addressData.numero || !addressData.bairro) {
-      toast({
-        title: "Atenção",
-        description: "Preencha Rua, Bairro e Número.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setIsProcessing(true);
     const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`;
     const trackingId = crypto.randomUUID();
 
-    // Declarando como any para ignorar completamente erros de inferência restrita do TypeScript
     const orderData: any = {
       id: trackingId,
       customerName,
@@ -442,10 +443,19 @@ export function CartSidebar(props: any) {
           )}
         </div>
 
+        {/* NOVO: Exibe a lista de campos obrigatórios faltantes antes do botão */}
+        {missingFields.length > 0 && !isCartEmpty && settings.isOpen && (
+          <div className="text-center animate-in fade-in zoom-in -mb-2 mt-1">
+            <p className="text-[10px] font-black text-red-600 uppercase tracking-wider bg-red-50 py-1.5 px-2 rounded-lg border border-red-100 inline-block">
+              Falta preencher: {missingFields.join(", ")}
+            </p>
+          </div>
+        )}
+
         <button
           onClick={handleFinalize}
-          disabled={isBlockSubmit || isProcessing}
-          className="w-full py-4 rounded-2xl text-white font-black text-sm bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-500 transition-all flex justify-center items-center gap-2 shadow-lg active:scale-95"
+          disabled={isBlockSubmit}
+          className="w-full mt-2 py-4 rounded-2xl text-white font-black text-sm bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-500 transition-all flex justify-center items-center gap-2 shadow-lg active:scale-95"
         >
           {isProcessing ? (
             <Loader2 className="w-5 h-5 animate-spin" />
