@@ -4,27 +4,14 @@ https://github.com/Kuhaiku/casamacarrao/tree/feature/pagamento-mercadopago
 
 Criar o filtro dos entregadores
 
-Delivery:mensagem para caso o cliente não tenha preenchido o numero do endereço
-
-
-
-
 Modificar a logica de aprovação dos pedidos da mesa, no painel admin precisamos ter a possibilidade de "travar" aprocação automática das mesas como padrão ou seja se o pedido tiver vindo de uma mesa o aprovado automaticamente é suspendido
-
 Cozinha Painel: preciso que as mesas sigam pela ordem de aprovação que o ADM venha a fazer, quando o autoaprove delas estiver desligado
-
-Cozinha: Modulo de impressão, preciso desenvolver que para cada pedido aprovado seja impresso na minha Elgin I9 se possivel automaticamente
-
 Painel: Adicionar a Tag para o painel do nosso adm "aprovado automaticamente" e "aprovado pelo operador"
-
 Painel Pedido Mesa: Fechar a conta na parte da mesa eu preciso poder registrar metodo de pagamento como cartão tambem, no caso para salvar o método de pagamento da mesa
-
 Painel: Adicionar botão de ligar e desligar pagamento em cartão
 Painel Gestão de Cardápio: Adicionar no gestão de cardápio na aba operação o "em funcionamento" vs "fora de atendimento" que vai ser para ligar e desligar o delivery, preciso que a mensagem que apareça seja personalizavel, isso tambem preciso que possa ser programado tipo de segunda a domingo horario de funcionamento, personalizavel para cada dia, outra coisa ligar e desligar o delivery não interfere no pedido da mesa
 
-
 Mesa: Preciso URGENTEMENTE componentizar a mesa com componentes com regras diferentes do delivery, preciso remover esse monolito
-
 Mesa: Fixar a sacola da página da mesa na parte superior enquanto scrola a tela.
 Mesa Painel: Preciso que Haja uma descrição completa do pedido na hora de "fechar a conta" 
 Mesa Painel: Quando efetuado o pagamento do pedido mesa tem que ter opção de "imprimir" para gerar o comprovante ao cliente (preciso de dois "imprimir pérvia" e "Imprimir comprovante")
@@ -33,8 +20,5 @@ Mesa Painel: Quando efetuado o pagamento do pedido mesa tem que ter opção de "
 
 
 
-Precisamos mudar a formatação do texto, na hora da impressão, precisamos ajustar isso, lembrando que usamos uma impressora térmica ELGIN I9 e que o papel comum nela é o 48mm de largura ou o 70mm Largura, sempre um ou outro
-
-por algum motivo quando concluimos o pedido não estamos sendo enviados para a página do comprovante do pedido
 
 Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado

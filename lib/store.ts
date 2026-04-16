@@ -70,6 +70,19 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
     extraIngredientPrice: 3.0,
     whatsappMessage: "",
     autoApprove: false,
+    autoApproveMesa: false,
+    acceptCard: true,
+    isOpen: true,
+    deliveryMessage: "Estamos fechados para delivery no momento.",
+    deliverySchedule: {
+      "0": { active: true, start: "18:00", end: "23:59" }, // Domingo
+      "1": { active: true, start: "18:00", end: "23:59" }, // Segunda
+      "2": { active: true, start: "18:00", end: "23:59" }, // Terça
+      "3": { active: true, start: "18:00", end: "23:59" }, // Quarta
+      "4": { active: true, start: "18:00", end: "23:59" }, // Quinta
+      "5": { active: true, start: "18:00", end: "23:59" }, // Sexta
+      "6": { active: true, start: "18:00", end: "23:59" }, // Sábado
+    }
   },
   orders: [],
   expenses: [],
@@ -160,6 +173,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
 
   updateOrderStatus: async (id, status) => {
     const deliveredAt = status === "entregue" ? new Date().toISOString() : undefined;
+    const isApprovedNow = status === "aprovado";
 
     set((state) => ({
       orders: state.orders.map((o) => {
@@ -168,13 +182,25 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
             ...o,
             status,
             deliveredAt: status === "entregue" ? (o.deliveredAt || deliveredAt) : o.deliveredAt,
+            // Registra a data exata da aprovação caso seja aprovado pelo painel
+            approvedAt: isApprovedNow && !o.approvedAt ? new Date().toISOString() : o.approvedAt,
+            // Tag automática se for aprovação do operador e não tinha tag antes
+            approvalMethod: isApprovedNow && !o.approvalMethod ? "operator" : o.approvalMethod,
           };
         }
         return o;
       }),
     }));
     
-    await dbDispatch("UPDATE_ORDER_STATUS", { id, status, deliveredAt });
+    // Passa os novos campos para o DB caso precise salvar
+    await dbDispatch("UPDATE_ORDER_STATUS", { 
+      id, 
+      status, 
+      deliveredAt,
+      // No futuro da sua API, ela pode ler esses extras se necessário
+      approvedAt: isApprovedNow ? new Date().toISOString() : undefined,
+      approvalMethod: isApprovedNow ? "operator" : undefined
+    });
     get().sync();
   },
 
