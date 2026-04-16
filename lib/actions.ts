@@ -21,7 +21,9 @@ const mapBooleans = (obj: any) => {
           "isAccounted",
           "isOpen",             
           "mercadoPagoAtivo",   
-          "tem_embalagem"       
+          "tem_embalagem",
+          "autoApprove",
+          "autoApproveMesa"
         ].includes(key)
       ) {
         newObj[key] = newObj[key] === 1;
@@ -89,6 +91,7 @@ export async function getStoreData() {
           total: Number(o.total),
           createdAt: new Date(o.createdAt).toISOString(),
           deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined,
+          approvedAt: o.approvedAt ? new Date(o.approvedAt).toISOString() : undefined,
           items: parsedItems,
           products: parsedProducts,
         };
@@ -140,30 +143,20 @@ export async function dbDispatch(action: string, payload: any) {
     case "DELETE_MENU_ITEM":
       await pool.query("DELETE FROM menu_items WHERE id = ?", [payload.id]);
       break;
-    case "UPDATE_SETTINGS": {
-      // Cria uma cópia do payload para limpar os dados antes de salvar no banco
-      const validPayload = { ...payload };
-
-      // Removemos campos que existem no Zustand (frontend) mas não existem como colunas na tabela store_settings
-      delete validPayload.deliverySchedule;
-      delete validPayload.bairros;
-      delete validPayload.autoApproveMesa;
-      delete validPayload.acceptCard;
-      delete validPayload.deliveryMessage;
-
-      // Garantimos que os booleanos sejam convertidos para 1 ou 0
-      for (const key in validPayload) {
-        if (typeof validPayload[key] === "boolean") {
-          validPayload[key] = validPayload[key] ? 1 : 0;
+    case "UPDATE_SETTINGS":
+      try {
+        await pool.query("UPDATE store_settings SET ? WHERE id = 1", [payload]);
+      } catch (err: any) {
+        // Fallback: se a coluna autoApproveMesa não existir no DB ainda, guarda sem ela
+        if (err.code === 'ER_BAD_FIELD_ERROR' && payload.autoApproveMesa !== undefined) {
+           const safePayload = { ...payload };
+           delete safePayload.autoApproveMesa;
+           await pool.query("UPDATE store_settings SET ? WHERE id = 1", [safePayload]);
+        } else {
+           throw err;
         }
       }
-
-      // Executa a query se restou algum campo válido
-      if (Object.keys(validPayload).length > 0) {
-        await pool.query("UPDATE store_settings SET ? WHERE id = 1", [validPayload]);
-      }
       break;
-    }
     case "ADD_PRODUCT_CATEGORY":
       await pool.query("INSERT INTO product_categories (id, name, isActive) VALUES (?, ?, ?)", [payload.id || randomUUID(), payload.name, payload.isActive ?? true]);
       break;
@@ -186,7 +179,6 @@ export async function dbDispatch(action: string, payload: any) {
       await pool.query("DELETE FROM products WHERE id = ?", [payload.id]);
       break;
     case "ADD_ORDER": {
-      // Alterado para SELECT * para evitar crash caso a coluna autoApproveMesa não exista ainda
       const [settingRows]: any = await pool.query("SELECT * FROM store_settings WHERE id = 1");
       const isAutoApprove = settingRows[0]?.autoApprove === 1 || settingRows[0]?.autoApprove === true;
       const isAutoApproveMesa = settingRows[0]?.autoApproveMesa === 1 || settingRows[0]?.autoApproveMesa === true;
@@ -196,38 +188,83 @@ export async function dbDispatch(action: string, payload: any) {
       const finalStatus = isMesa 
         ? (isAutoApproveMesa ? "aprovado" : (payload.status || "novo"))
         : (isAutoApprove ? "aprovado" : (payload.status || "novo"));
+
+      const approvedAt = finalStatus === "aprovado" ? new Date() : null;
       
-      // Tratamento de falhas para dados ausentes nos pedidos da mesa
       const phone = payload.phone || "00000000000";
       const paymentMethod = payload.paymentMethod || "PAGAR_NA_MESA";
       const isPaid = payload.isPaid ? 1 : 0;
       const observation = payload.observation || "";
       const address = payload.address || "Balcão";
 
-      await pool.query(
-        "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-          payload.id || randomUUID(), 
-          payload.customerName, 
-          phone, 
-          address, 
-          paymentMethod, 
-          finalStatus, 
-          isPaid, 
-          payload.total || 0, 
-          JSON.stringify(payload.items || []), 
-          JSON.stringify(payload.products || []), 
-          observation
-        ]
-      );
+      try {
+        await pool.query(
+          "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation, approvedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [
+            payload.id || randomUUID(), 
+            payload.customerName, 
+            phone, 
+            address, 
+            paymentMethod, 
+            finalStatus, 
+            isPaid, 
+            payload.total || 0, 
+            JSON.stringify(payload.items || []), 
+            JSON.stringify(payload.products || []), 
+            observation,
+            approvedAt
+          ]
+        );
+      } catch (err: any) {
+         // Fallback: Se a coluna approvedAt não existir, insere sem ela
+         if (err.code === 'ER_BAD_FIELD_ERROR') {
+             await pool.query(
+              "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              [
+                payload.id || randomUUID(), 
+                payload.customerName, 
+                phone, 
+                address, 
+                paymentMethod, 
+                finalStatus, 
+                isPaid, 
+                payload.total || 0, 
+                JSON.stringify(payload.items || []), 
+                JSON.stringify(payload.products || []), 
+                observation
+              ]
+            );
+         } else {
+             throw err;
+         }
+      }
       break;
     }
     case "UPDATE_ORDER_STATUS":
-      if (payload.deliveredAt) {
-        await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [payload.status, new Date(payload.deliveredAt), payload.id]);
-      } else {
-        await pool.query("UPDATE orders SET status = ? WHERE id = ?", [payload.status, payload.id]);
+      try {
+        if (payload.status === "aprovado") {
+          await pool.query(
+            "UPDATE orders SET status = ?, approvedAt = CURRENT_TIMESTAMP WHERE id = ?", 
+            [payload.status, payload.id]
+          );
+        } else if (payload.deliveredAt) {
+          await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [payload.status, new Date(payload.deliveredAt), payload.id]);
+        } else {
+          await pool.query("UPDATE orders SET status = ? WHERE id = ?", [payload.status, payload.id]);
+        }
+      } catch (err: any) {
+         // Fallback se a coluna approvedAt não existir
+         if (err.code === 'ER_BAD_FIELD_ERROR') {
+            if (payload.deliveredAt) {
+              await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [payload.status, new Date(payload.deliveredAt), payload.id]);
+            } else {
+              await pool.query("UPDATE orders SET status = ? WHERE id = ?", [payload.status, payload.id]);
+            }
+         } else {
+            throw err;
+         }
       }
+
       if (payload.status === "cancelado") {
         await pool.query("UPDATE orders SET isPaid = 0 WHERE id = ?", [payload.id]);
       }
