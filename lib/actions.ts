@@ -51,7 +51,7 @@ export async function getStoreData() {
     const [products] = await pool.query("SELECT * FROM products");
     const [settingsResult]: any = await pool.query("SELECT * FROM store_settings WHERE id = 1");
     
-    // ALTERAÇÃO: Trazendo o histórico para o frontend poder listar os fechados
+    // Trazendo o histórico para o frontend poder listar os fechados
     const [orders] = await pool.query("SELECT * FROM orders ORDER BY createdAt DESC LIMIT 1500");
     const [expenses] = await pool.query("SELECT * FROM financial_entries WHERE type = 'expense' ORDER BY id DESC LIMIT 500");
     const [tips] = await pool.query("SELECT * FROM financial_entries WHERE type = 'tip' ORDER BY id DESC LIMIT 500");
@@ -167,9 +167,29 @@ export async function dbDispatch(action: string, payload: any) {
       const [settingRows]: any = await pool.query("SELECT autoApprove FROM store_settings WHERE id = 1");
       const isAutoApprove = settingRows[0]?.autoApprove === 1 || settingRows[0]?.autoApprove === true;
       const finalStatus = isAutoApprove ? "aprovado" : payload.status || "novo";
+      
+      // Tratamento de falhas para dados ausentes nos pedidos da mesa
+      const phone = payload.phone || "00000000000";
+      const paymentMethod = payload.paymentMethod || "PAGAR_NA_MESA";
+      const isPaid = payload.isPaid ? 1 : 0;
+      const observation = payload.observation || "";
+      const address = payload.address || "Balcão";
+
       await pool.query(
         "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [payload.id || randomUUID(), payload.customerName, payload.phone, payload.address, payload.paymentMethod, finalStatus, payload.isPaid, payload.total, JSON.stringify(payload.items), JSON.stringify(payload.products || []), payload.observation || ""]
+        [
+          payload.id || randomUUID(), 
+          payload.customerName, 
+          phone, 
+          address, 
+          paymentMethod, 
+          finalStatus, 
+          isPaid, 
+          payload.total || 0, 
+          JSON.stringify(payload.items || []), 
+          JSON.stringify(payload.products || []), 
+          observation
+        ]
       );
       break;
     }
