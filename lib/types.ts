@@ -30,17 +30,25 @@ export interface DaySchedule {
   end: string;
 }
 
+export interface Bairro {
+  id: string;
+  nome: string;
+  taxaEntrega: number;
+  ativo: boolean;
+}
+
 export interface StoreSettings {
   extraPastaPrice?: number; 
   extraSaucePrice?: number; 
   extraIngredientPrice: number;
   whatsappMessage?: string;
-  autoApprove?: boolean; // Mantido para o delivery
-  autoApproveMesa?: boolean; // NOVO: Controle de aprovação automática exclusivo para mesas
-  acceptCard?: boolean; // NOVO: Toggle para aceitar cartão na mesa
-  isOpen?: boolean; // Funciona como "Em funcionamento" vs "Fora de atendimento"
-  deliveryMessage?: string; // NOVO: Mensagem personalizável de loja fechada
-  deliverySchedule?: Record<string, DaySchedule>; // NOVO: Horários programados de segunda a domingo
+  autoApprove?: boolean; // Aprovação automática do Delivery
+  autoApproveMesa?: boolean; // Trava de aprovação da mesa
+  acceptCard?: boolean; // Trava de cartão
+  isOpen?: boolean; // Ligar/Desligar Delivery
+  deliveryMessage?: string; // Mensagem de loja fechada
+  deliverySchedule?: Record<string, DaySchedule>; // Horários programados de funcionamento
+  bairros?: Bairro[]; // Lista de bairros e taxas de entrega
   taxaEmbalagemGlobal?: number;
   mercadoPagoAtivo?: boolean;
   taxaCartaoPercentual?: number;
@@ -65,14 +73,14 @@ export interface BairroValidation {
 
 export type OrderStatus =
   | "novo"
-  | "pendente" // Adicionado caso precise do estado intermediário antes do operador aprovar
+  | "pendente" // Estado para quando a mesa pede, mas precisa passar pelo caixa
   | "aprovado"
   | "pronto"
   | "despachado"
   | "entregue"
   | "cancelado";
 
-export type PaymentMethod = "cartao" | "dinheiro" | "pix" | "pendente"; // Pendente ajuda quando a mesa abre e ainda não pagou
+export type PaymentMethod = "cartao" | "dinheiro" | "pix" | "pendente"; // "pendente" é crucial para a mesa aberta
 
 export interface ProductCategory {
   id: string;
@@ -112,8 +120,8 @@ export interface Order {
   deliveredAt?: string;
   observation?: string;
   tipoPedido?: TipoPedido;
-  approvalMethod?: "auto" | "operator"; // NOVO: Tag para o painel adm
-  approvedAt?: string; // NOVO: Para ordenar a fila da cozinha corretamente
+  approvalMethod?: "auto" | "operator"; // Tag para o painel adm
+  approvedAt?: string; // Para ordenar a fila da cozinha corretamente
   taxaEntrega?: number;
   taxaEmbalagem?: number;
   taxaCartao?: number;
