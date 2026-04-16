@@ -64,12 +64,14 @@ export async function getStoreData() {
       menuItems: (menuItems as any[]).map(mapBooleans).map((m) => ({ ...m, price: Number(m.price || 0) })),
       productCategories: (productCategories as any[]).map(mapBooleans),
       products: (products as any[]).map(mapBooleans).map((p) => ({ ...p, price: Number(p.price) })),
+     // Dentro de getStoreData(), na secção de retorno (return):
       settings: {
         extraPastaPrice: Number(settings.extraPastaPrice || 0),
         extraSaucePrice: Number(settings.extraSaucePrice || 0),
         extraIngredientPrice: Number(settings.extraIngredientPrice || 0),
         whatsappMessage: settings.whatsappMessage || '',
         autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
+        autoApproveMesa: settings.autoApproveMesa === 1 || settings.autoApproveMesa === true, // Adicionar esta linha
         isOpen: settings.isOpen === 1 || settings.isOpen === true || settings.isOpen === undefined,
         taxaEmbalagemGlobal: Number(settings.taxaEmbalagemGlobal || 2),
         mercadoPagoAtivo: settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
@@ -163,10 +165,19 @@ export async function dbDispatch(action: string, payload: any) {
     case "DELETE_PRODUCT":
       await pool.query("DELETE FROM products WHERE id = ?", [payload.id]);
       break;
-    case "ADD_ORDER": {
-      const [settingRows]: any = await pool.query("SELECT autoApprove FROM store_settings WHERE id = 1");
+  case "ADD_ORDER": {
+      // Obter as duas configurações de aprovação automática
+      const [settingRows]: any = await pool.query("SELECT autoApprove, autoApproveMesa FROM store_settings WHERE id = 1");
       const isAutoApprove = settingRows[0]?.autoApprove === 1 || settingRows[0]?.autoApprove === true;
-      const finalStatus = isAutoApprove ? "aprovado" : payload.status || "novo";
+      const isAutoApproveMesa = settingRows[0]?.autoApproveMesa === 1 || settingRows[0]?.autoApproveMesa === true;
+      
+      // Identificar se o pedido é de mesa (pelo tipo enviado ou pela string de endereço)
+      const isMesa = payload.tipoPedido === "mesa" || (payload.address && payload.address.toLowerCase().includes("mesa"));
+      
+      // Aplicar a regra de aprovação com base na origem
+      const finalStatus = isMesa 
+        ? (isAutoApproveMesa ? "aprovado" : (payload.status || "novo"))
+        : (isAutoApprove ? "aprovado" : (payload.status || "novo"));
       
       // Tratamento de falhas para dados ausentes nos pedidos da mesa
       const phone = payload.phone || "00000000000";
