@@ -31,4 +31,10 @@ Mesa Painel: Quando efetuado o pagamento do pedido mesa tem que ter opção de "
 
 
 
+
+
+Precisamos mudar a formatação do texto, na hora da impressão, precisamos ajustar isso, lembrando que usamos uma impressora térmica ELGIN I9 e que o papel comum nela é o 48mm de largura ou o 70mm Largura, sempre um ou outro
+
+por algum motivo quando concluimos o pedido não estamos sendo enviados para a página do comprovante do pedido
+
 Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado

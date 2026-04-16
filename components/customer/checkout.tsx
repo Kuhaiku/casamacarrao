@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useStore } from "@/lib/store"
 import { useOrder } from "@/lib/order-context"
 import { validateBairro } from "@/lib/actions"
+import { useRouter } from "next/navigation"
 import { createPaymentPreference } from "@/lib/mercadopago-actions"
 import { useGoogleAddress } from "@/hooks/use-google-address"
 
@@ -38,6 +39,7 @@ function SuccessScreen() {
 }
 
 export function Checkout() {
+  const router = useRouter()
   const { toast } = useToast()
   const { addOrder, calculateOrderTotal, sizes, products, settings } = useStore()
   const { items, customerName, setCustomerName, paymentMethod, setPaymentMethod, setStep } = useOrder()
@@ -159,7 +161,7 @@ export function Checkout() {
       createdAt: new Date().toISOString()
     }
 
-    await addOrder(orderData)
+  await addOrder(orderData)
 
     if (paymentMethod === "cartao") {
       const res = await createPaymentPreference(orderData, total)
@@ -168,9 +170,12 @@ export function Checkout() {
         return
       }
     }
+    // Remova ou comente estas duas linhas:
+    // setIsProcessing(false)
+    // setIsSubmitted(true)
 
-    setIsProcessing(false)
-    setIsSubmitted(true)
+    // Adicione o redirecionamento:
+    router.push(`/pedido/${orderData.id}`)
   }
 
   if (isSubmitted) return <SuccessScreen />
