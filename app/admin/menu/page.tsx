@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { 
   Plus, Trash2, Save, X, Pencil, Lock, Unlock, 
-  UtensilsCrossed, PackageOpen, Settings2, Box
+  UtensilsCrossed, PackageOpen, Settings2, Box, MapPin
 } from "lucide-react"
 import type { CategoryType, MenuItem, Size, Product, ProductCategory } from "@/lib/types"
 
@@ -679,78 +679,266 @@ function RulesTabContent() {
 function OperationsTabContent() {
   const { settings, updateSettings } = useStore()
   const [localWhatsappMsg, setLocalWhatsappMsg] = useState(settings.whatsappMessage || "")
+  const [localDeliveryMsg, setLocalDeliveryMsg] = useState(settings.deliveryMessage || "Estamos fechados para delivery no momento.")
   const [globalTax, setGlobalTax] = useState(settings.taxaEmbalagemGlobal?.toString() || "0")
+  
+  // Estados para Bairros
+  const [bairroNome, setBairroNome] = useState("")
+  const [bairroTaxa, setBairroTaxa] = useState("")
 
   useEffect(() => {
     setLocalWhatsappMsg(settings.whatsappMessage || "")
+    setLocalDeliveryMsg(settings.deliveryMessage || "")
     setGlobalTax(settings.taxaEmbalagemGlobal?.toString() || "0")
   }, [settings])
 
   const handleMsgBlur = () => {
-    if (localWhatsappMsg !== settings.whatsappMessage) {
-      updateSettings({ whatsappMessage: localWhatsappMsg })
-    }
+    if (localWhatsappMsg !== settings.whatsappMessage) updateSettings({ whatsappMessage: localWhatsappMsg })
   }
 
   const handleSaveGlobalTax = () => {
     updateSettings({ taxaEmbalagemGlobal: parseFloat(globalTax.replace(',', '.')) || 0 })
   }
 
+  // --- LÓGICA DE BAIRROS ---
+  const handleAddBairro = () => {
+    if (!bairroNome || !bairroTaxa) return;
+    const newBairro = {
+      id: `bairro-${Date.now()}`,
+      nome: bairroNome,
+      taxaEntrega: parseFloat(bairroTaxa.replace(',', '.')) || 0,
+      ativo: true
+    }
+    updateSettings({ bairros: [...(settings.bairros || []), newBairro] })
+    setBairroNome("")
+    setBairroTaxa("")
+  }
+
+  const removeBairro = (id: string) => {
+    updateSettings({ bairros: (settings.bairros || []).filter(b => b.id !== id) })
+  }
+  
+  const toggleBairro = (id: string, ativo: boolean) => {
+    updateSettings({ bairros: (settings.bairros || []).map(b => b.id === id ? { ...b, ativo } : b) })
+  }
+
+  // --- LÓGICA DE HORÁRIOS ---
+  const toggleDay = (dayKey: string, active: boolean) => {
+    const schedule = settings.deliverySchedule || {}
+    updateSettings({ 
+      deliverySchedule: { 
+        ...schedule, 
+        [dayKey]: { ...(schedule[dayKey] || { start: "18:00", end: "23:59" }), active } 
+      } 
+    })
+  }
+  
+  const updateDayTime = (dayKey: string, field: 'start' | 'end', value: string) => {
+    const schedule = settings.deliverySchedule || {}
+    updateSettings({ 
+      deliverySchedule: { 
+        ...schedule, 
+        [dayKey]: { ...(schedule[dayKey] || { active: true, start: "18:00", end: "23:59" }), [field]: value } 
+      } 
+    })
+  }
+
+  const diasSemana = [
+    { key: "1", label: "Segunda" },
+    { key: "2", label: "Terça" },
+    { key: "3", label: "Quarta" },
+    { key: "4", label: "Quinta" },
+    { key: "5", label: "Sexta" },
+    { key: "6", label: "Sábado" },
+    { key: "0", label: "Domingo" },
+  ]
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in fade-in duration-300">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Configurações de Operação</h2>
-        <p className="text-muted-foreground mt-1">Gerencie regras gerais, aprovação automática e valores padrões.</p>
+        <p className="text-muted-foreground mt-1">Gerencie funcionamento, taxas de entrega, cartões e automações.</p>
       </div>
 
+      {/* 1. Status do Delivery */}
+      <Card className="border-orange-200 dark:border-orange-900 shadow-sm">
+        <CardHeader className="bg-orange-50/50 dark:bg-orange-950/20 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg">Status do Delivery</CardTitle>
+              <CardDescription>Ligue ou desligue o recebimento de pedidos via Delivery. Não afeta a Mesa.</CardDescription>
+            </div>
+            <div className="flex items-center gap-3 bg-white dark:bg-stone-900 px-4 py-2 rounded-xl border shadow-sm shrink-0">
+              <Switch 
+                checked={settings.isOpen ?? true} 
+                onCheckedChange={(val) => updateSettings({ isOpen: val })} 
+                className="data-[state=checked]:bg-green-600"
+              />
+              <Label className={`font-bold ${settings.isOpen !== false ? 'text-green-600' : 'text-red-600'}`}>
+                {settings.isOpen !== false ? "EM FUNCIONAMENTO" : "FORA DE ATENDIMENTO"}
+              </Label>
+            </div>
+          </div>
+        </CardHeader>
+        {settings.isOpen === false && (
+          <CardContent className="pt-4 border-t border-orange-100 bg-orange-50/20">
+            <Label className="text-orange-900 font-bold">Mensagem de Loja Fechada (Exibida para o cliente)</Label>
+            <div className="flex gap-2 mt-2">
+              <Input 
+                value={localDeliveryMsg} 
+                onChange={(e) => setLocalDeliveryMsg(e.target.value)}
+                placeholder="Ex: Voltamos amanhã às 18h!" 
+                className="border-orange-200 bg-white"
+              />
+              <Button onClick={() => updateSettings({ deliveryMessage: localDeliveryMsg })} className="bg-orange-600 hover:bg-orange-700">Salvar Mensagem</Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* 2. Horários Programados */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Horários de Funcionamento Automático</CardTitle>
+          <CardDescription>Programe os horários em que o delivery abrirá e fechará automaticamente todos os dias.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {diasSemana.map((dia) => {
+              const dayConfig = settings.deliverySchedule?.[dia.key] || { active: true, start: "18:00", end: "23:59" }
+              return (
+                <div key={dia.key} className={`p-3 rounded-xl border transition-colors ${dayConfig.active ? 'bg-stone-50 border-stone-300' : 'bg-muted/30 border-dashed opacity-70'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="font-bold cursor-pointer">{dia.label}</Label>
+                    <Switch checked={dayConfig.active} onCheckedChange={(val) => toggleDay(dia.key, val)} />
+                  </div>
+                  {dayConfig.active && (
+                    <div className="flex items-center gap-2">
+                      <Input type="time" value={dayConfig.start} onChange={(e) => updateDayTime(dia.key, 'start', e.target.value)} className="h-8 text-xs font-mono" />
+                      <span className="text-xs text-stone-400 font-medium">até</span>
+                      <Input type="time" value={dayConfig.end} onChange={(e) => updateDayTime(dia.key, 'end', e.target.value)} className="h-8 text-xs font-mono" />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 3. Regras e Travas */}
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Taxa Padrão de Embalagem</CardTitle>
-            <CardDescription>Valor cobrado ao utilizar a opção "Valor Padrão" em produtos avulsos.</CardDescription>
+            <CardTitle className="text-lg">Aprovação de Mesas</CardTitle>
+            <CardDescription>Pedidos de mesas vão direto para cozinha ou exigem aprovação manual no caixa?</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-3">
-              <Input type="number" step="0.01" value={globalTax} onChange={(e) => setGlobalTax(e.target.value)} className="w-full" placeholder="Ex: 2.00" />
-              <Button onClick={handleSaveGlobalTax}><Save className="w-4 h-4 mr-2" /> Salvar</Button>
+          <CardContent>
+            <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
+              <Label className="font-bold cursor-pointer text-sm sm:text-base">
+                {settings.autoApproveMesa ? "AUTOMÁTICA (Direto Cozinha)" : "MANUAL (Passa pelo Caixa)"}
+              </Label>
+              <Switch checked={!!settings.autoApproveMesa} onCheckedChange={(val) => updateSettings({ autoApproveMesa: val })} className="data-[state=checked]:bg-orange-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Aprovação Automática</CardTitle>
-            <CardDescription>Pular a aba "Aguardando" e enviar pedidos direto para preparo.</CardDescription>
+            <CardTitle className="text-lg">Pagamento em Cartão (Mesas)</CardTitle>
+            <CardDescription>Habilitar ou desabilitar a opção de fechar conta no Cartão de Crédito/Débito.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-3 bg-muted/50 p-4 rounded-lg border">
-              <Switch checked={settings.autoApprove} onCheckedChange={(val) => updateSettings({ autoApprove: val })} className="data-[state=checked]:bg-orange-600" />
-              <Label className="font-bold cursor-pointer text-base">
-                {settings.autoApprove ? "LIGADA (Envio direto)" : "DESLIGADA (Aprovação manual)"}
+            <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
+              <Label className="font-bold cursor-pointer text-sm sm:text-base">
+                {settings.acceptCard !== false ? "CARTÃO LIBERADO" : "CARTÃO BLOQUEADO"}
               </Label>
+              <Switch checked={settings.acceptCard !== false} onCheckedChange={(val) => updateSettings({ acceptCard: val })} className="data-[state=checked]:bg-green-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* 4. Gestão de Bairros */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Template do WhatsApp</CardTitle>
-          <CardDescription>
-            Use as tags: <code>{"{{nome}}"}</code>, <code>{"{{pedido}}"}</code>, <code>{"{{total}}"}</code>, <code>{"{{status}}"}</code>, e <code>{"{{link}}"}</code>
-          </CardDescription>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-orange-600" /> Bairros e Taxas de Entrega
+          </CardTitle>
+          <CardDescription>Gerencie os locais onde você entrega e o valor do frete para cada um.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Textarea 
-            className="resize-y min-h-[120px] shadow-sm" 
-            value={localWhatsappMsg} 
-            onChange={(e) => setLocalWhatsappMsg(e.target.value)} 
-            onBlur={handleMsgBlur} 
-            placeholder="Ex: Olá {{nome}}, seu pedido:\n{{pedido}}\nNo valor de {{total}} está {{status}}!\nAcompanhe: {{link}}" 
-          />
-          <p className="text-xs text-muted-foreground text-right mt-2">Salvo automaticamente ao clicar fora da caixa.</p>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col sm:flex-row gap-3 bg-stone-50 p-4 rounded-xl border border-stone-200">
+            <div className="flex-1">
+              <Label className="text-xs mb-1 block font-bold text-stone-600">Nome do Bairro</Label>
+              <Input placeholder="Ex: Centro" value={bairroNome} onChange={(e) => setBairroNome(e.target.value)} className="bg-white" />
+            </div>
+            <div className="w-full sm:w-32">
+              <Label className="text-xs mb-1 block font-bold text-stone-600">Taxa (R$)</Label>
+              <Input type="number" step="0.01" placeholder="Ex: 5.00" value={bairroTaxa} onChange={(e) => setBairroTaxa(e.target.value)} className="bg-white" />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={handleAddBairro} className="w-full sm:w-auto bg-stone-800 hover:bg-stone-900 text-white"><Plus className="w-4 h-4 mr-2"/> Adicionar Bairro</Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {(settings.bairros || []).map((bairro) => (
+              <div key={bairro.id} className={`flex items-center justify-between p-3 rounded-xl border shadow-sm transition-opacity ${bairro.ativo ? 'bg-white border-stone-200' : 'bg-stone-50 border-dashed opacity-60'}`}>
+                <div className="flex items-center gap-3">
+                  <Switch checked={bairro.ativo} onCheckedChange={(val) => toggleBairro(bairro.id, val)} />
+                  <div>
+                    <p className="font-bold text-sm text-stone-800">{bairro.nome}</p>
+                    <p className="text-xs text-green-700 font-black">{formatCurrency(bairro.taxaEntrega)}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => removeBairro(bairro.id)} className="text-red-500 hover:bg-red-50 hover:text-red-700 h-8 w-8 rounded-full">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+            {(settings.bairros || []).length === 0 && (
+              <div className="col-span-full py-8 text-center bg-stone-50 rounded-xl border border-dashed border-stone-300">
+                <MapPin className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                <p className="text-sm font-bold text-stone-500">Nenhum bairro cadastrado.</p>
+                <p className="text-xs text-stone-400 mt-1">Adicione bairros para ativar a cobrança de taxa de entrega.</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
+
+      {/* 5. Configurações Legadas */}
+      <div className="grid gap-6 md:grid-cols-2 opacity-80 hover:opacity-100 transition-opacity">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Taxa Padrão de Embalagem</CardTitle>
+            <CardDescription>Valor cobrado ao utilizar a opção "Valor Padrão" nos produtos avulsos.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-3">
+              <Input type="number" step="0.01" value={globalTax} onChange={(e) => setGlobalTax(e.target.value)} className="w-full" />
+              <Button onClick={handleSaveGlobalTax} variant="secondary"><Save className="w-4 h-4 mr-2" /> Salvar</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Aprovação Automática Delivery</CardTitle>
+            <CardDescription>Pula a tela de espera e envia pedidos do site direto para preparo.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
+              <Label className="font-bold cursor-pointer text-sm">
+                {settings.autoApprove ? "LIGADA (Envio direto)" : "DESLIGADA (Manual)"}
+              </Label>
+              <Switch checked={settings.autoApprove} onCheckedChange={(val) => updateSettings({ autoApprove: val })} className="data-[state=checked]:bg-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
     </div>
   )
 }

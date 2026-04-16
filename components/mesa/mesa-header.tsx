@@ -1,20 +1,32 @@
-// components/mesa/mesa-header.tsx
-"use client";
+"use client"
 
-import { ChefHat } from "lucide-react";
+import Link from "next/link"
+import { Package, Settings } from "lucide-react"
 
-export function MesaHeader() {
+export function CustomerHeader() {
   return (
-    <header className="bg-white border-b border-stone-200 sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-orange-700">
-          <ChefHat className="w-6 h-6" />
-          <span className="font-black text-xl tracking-tight">Casa do Macarrão</span>
-        </div>
-        <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full font-bold text-sm">
-          Atendimento Mesa
-        </div>
+    <header className="border-b bg-card">
+      <div className="container flex h-16 items-center justify-between px-4">
+        <Link href="/" className="flex items-center gap-2">
+          <Package className="h-6 w-6 text-primary" />
+          <span className="font-bold text-xl text-foreground">Casa do Macarrão</span>
+        </Link>
+        <nav className="flex items-center gap-4">
+          <Link
+            href="/cozinha"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cozinha
+          </Link>
+          <Link
+            href="/admin"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Settings className="h-4 w-4" />
+            Admin
+          </Link>
+        </nav>
       </div>
     </header>
-  );
+  )
 }

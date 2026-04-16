@@ -31,10 +31,11 @@ export interface DaySchedule {
 }
 
 export interface Bairro {
-  id: string;
+  id: string; // ou number, dependendo de como você trata o AI PK no frontend
   nome: string;
-  taxaEntrega: number;
-  ativo: boolean;
+  cidade: string; // Adicionado conforme seu banco
+  taxa_entrega: number; // Ajustado de taxaEntrega para taxa_entrega
+  ativo: number | boolean; // O tinyint(1) do MySQL costuma vir como 0 ou 1
 }
 
 export interface StoreSettings {
