@@ -780,20 +780,7 @@ function OperationsTabContent() {
             </div>
           </div>
         </CardHeader>
-        {settings.isOpen === false && (
-          <CardContent className="pt-4 border-t border-orange-100 bg-orange-50/20">
-            <Label className="text-orange-900 font-bold">Mensagem de Loja Fechada (Exibida para o cliente)</Label>
-            <div className="flex gap-2 mt-2">
-              <Input 
-                value={localDeliveryMsg} 
-                onChange={(e) => setLocalDeliveryMsg(e.target.value)}
-                placeholder="Ex: Voltamos amanhã às 18h!" 
-                className="border-orange-200 bg-white"
-              />
-              <Button onClick={() => updateSettings({ deliveryMessage: localDeliveryMsg })} className="bg-orange-600 hover:bg-orange-700">Salvar Mensagem</Button>
-            </div>
-          </CardContent>
-        )}
+       
       </Card>
 
       {/* 2. Horários Programados */}

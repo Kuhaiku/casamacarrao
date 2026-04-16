@@ -313,10 +313,15 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-  const approvedOrders = orders
+const approvedOrders = orders
     .filter((o) => o.status === "aprovado")
-    .sort((a, b) => normalizeDate(a.createdAt).getTime() - normalizeDate(b.createdAt).getTime());
-
+    .sort((a, b) => {
+      // Prioridade absoluta: data de aprovação (approvedAt)
+      // Se não tiver (pedidos antigos), usa a data de criação (createdAt)
+      const timeA = a.approvedAt ? normalizeDate(a.approvedAt).getTime() : normalizeDate(a.createdAt).getTime();
+      const timeB = b.approvedAt ? normalizeDate(b.approvedAt).getTime() : normalizeDate(b.createdAt).getTime();
+      return timeA - timeB;
+    });
   // LÓGICA DE ALERTA SONORO (Agora com som de campainha)
   useEffect(() => {
     const currentIds = approvedOrders.map(o => o.id);

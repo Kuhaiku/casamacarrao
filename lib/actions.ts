@@ -64,14 +64,13 @@ export async function getStoreData() {
       menuItems: (menuItems as any[]).map(mapBooleans).map((m) => ({ ...m, price: Number(m.price || 0) })),
       productCategories: (productCategories as any[]).map(mapBooleans),
       products: (products as any[]).map(mapBooleans).map((p) => ({ ...p, price: Number(p.price) })),
-     // Dentro de getStoreData(), na secção de retorno (return):
       settings: {
         extraPastaPrice: Number(settings.extraPastaPrice || 0),
         extraSaucePrice: Number(settings.extraSaucePrice || 0),
         extraIngredientPrice: Number(settings.extraIngredientPrice || 0),
         whatsappMessage: settings.whatsappMessage || '',
         autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
-        autoApproveMesa: settings.autoApproveMesa === 1 || settings.autoApproveMesa === true, // Adicionar esta linha
+        autoApproveMesa: settings.autoApproveMesa === 1 || settings.autoApproveMesa === true,
         isOpen: settings.isOpen === 1 || settings.isOpen === true || settings.isOpen === undefined,
         taxaEmbalagemGlobal: Number(settings.taxaEmbalagemGlobal || 2),
         mercadoPagoAtivo: settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
@@ -141,9 +140,30 @@ export async function dbDispatch(action: string, payload: any) {
     case "DELETE_MENU_ITEM":
       await pool.query("DELETE FROM menu_items WHERE id = ?", [payload.id]);
       break;
-    case "UPDATE_SETTINGS":
-      await pool.query("UPDATE store_settings SET ? WHERE id = 1", [payload]);
+    case "UPDATE_SETTINGS": {
+      // Cria uma cópia do payload para limpar os dados antes de salvar no banco
+      const validPayload = { ...payload };
+
+      // Removemos campos que existem no Zustand (frontend) mas não existem como colunas na tabela store_settings
+      delete validPayload.deliverySchedule;
+      delete validPayload.bairros;
+      delete validPayload.autoApproveMesa;
+      delete validPayload.acceptCard;
+      delete validPayload.deliveryMessage;
+
+      // Garantimos que os booleanos sejam convertidos para 1 ou 0
+      for (const key in validPayload) {
+        if (typeof validPayload[key] === "boolean") {
+          validPayload[key] = validPayload[key] ? 1 : 0;
+        }
+      }
+
+      // Executa a query se restou algum campo válido
+      if (Object.keys(validPayload).length > 0) {
+        await pool.query("UPDATE store_settings SET ? WHERE id = 1", [validPayload]);
+      }
       break;
+    }
     case "ADD_PRODUCT_CATEGORY":
       await pool.query("INSERT INTO product_categories (id, name, isActive) VALUES (?, ?, ?)", [payload.id || randomUUID(), payload.name, payload.isActive ?? true]);
       break;
@@ -165,16 +185,14 @@ export async function dbDispatch(action: string, payload: any) {
     case "DELETE_PRODUCT":
       await pool.query("DELETE FROM products WHERE id = ?", [payload.id]);
       break;
-  case "ADD_ORDER": {
-      // Obter as duas configurações de aprovação automática
-      const [settingRows]: any = await pool.query("SELECT autoApprove, autoApproveMesa FROM store_settings WHERE id = 1");
+    case "ADD_ORDER": {
+      // Alterado para SELECT * para evitar crash caso a coluna autoApproveMesa não exista ainda
+      const [settingRows]: any = await pool.query("SELECT * FROM store_settings WHERE id = 1");
       const isAutoApprove = settingRows[0]?.autoApprove === 1 || settingRows[0]?.autoApprove === true;
       const isAutoApproveMesa = settingRows[0]?.autoApproveMesa === 1 || settingRows[0]?.autoApproveMesa === true;
       
-      // Identificar se o pedido é de mesa (pelo tipo enviado ou pela string de endereço)
       const isMesa = payload.tipoPedido === "mesa" || (payload.address && payload.address.toLowerCase().includes("mesa"));
       
-      // Aplicar a regra de aprovação com base na origem
       const finalStatus = isMesa 
         ? (isAutoApproveMesa ? "aprovado" : (payload.status || "novo"))
         : (isAutoApprove ? "aprovado" : (payload.status || "novo"));

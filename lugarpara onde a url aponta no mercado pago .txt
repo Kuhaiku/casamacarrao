@@ -24,4 +24,4 @@ Depois fazer com que seja possivel "imprimir o relatório das vendas" que vai se
 Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado
 
 ERROS:
-primeiro o painel de mesa está TODOOO errado, a "alimentação" meio que nada dele ta certo, até porque ele é para ser identico ao painel do delivery, só que com suas proprias regras, inclusive vou colar tudo que é da componentização do delivery e corrigimos depois
+primeiro 
