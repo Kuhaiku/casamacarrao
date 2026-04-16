@@ -51,6 +51,7 @@ export async function GET() {
         printItens.push({
           quantidade: 1,
           nome: descricao,
+          preco: Number(item.preco || 0)
         });
       });
 
@@ -60,6 +61,7 @@ export async function GET() {
         printItens.push({
           quantidade: prod.quantity || 1,
           nome: pName,
+          preco: Number(prod.price || 0)
         });
       });
 
