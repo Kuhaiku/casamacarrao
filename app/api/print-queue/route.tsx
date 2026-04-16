@@ -63,9 +63,9 @@ export async function GET() {
         });
       });
 
-      return {
+    return {
         id: order.id,
-        idCurto: String(order.id).split('-')[0].toUpperCase(), // Pega só o comecinho do UUID pra ficar fácil de ler
+        idCurto: String(order.id).split('-')[0].toUpperCase(),
         tipoPedido: order.tipoPedido || "delivery",
         cliente: order.customerName || "Cliente Padrão",
         telefone: order.phone || "Sem Telefone",
@@ -73,6 +73,8 @@ export async function GET() {
         observacao: order.observation || "",
         total: Number(order.total || 0),
         itens: printItens,
+        metodoPagamento: order.paymentMethod || "Não informado", // NOVO
+        isPaid: order.isPaid === 1 || order.isPaid === true,     // NOVO
       };
     });
 
