@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { MesaHeader } from "@/components/mesa/mesa-header";
 import { MesaMenuView } from "@/components/mesa/mesa-menu-view";
 import { MesaCartSidebar } from "@/components/mesa/mesa-cart-sidebar";
-import { MesaOrderBuilder } from "@/components/mesa/mesa-order-builder";Restart TS Server
+import { MesaOrderBuilder } from "@/components/mesa/mesa-order-builder";
 import { Loader2 } from "lucide-react";
 
 export default function MesaPage() {
