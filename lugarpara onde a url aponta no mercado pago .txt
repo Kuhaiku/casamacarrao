@@ -8,14 +8,12 @@ Prioridades:
 Leve:
 -Criar o filtro com o nome dos bairros na página dos entregadores
 -Painel: Adicionar uma Tag para o painel do nosso adm "aprovado automaticamente" e "aprovado pelo operador" (importante para controle e para "culpabilidade")
--Painel Pedido Mesa: Fechar a conta na parte da mesa eu preciso poder registrar metodo de pagamento como cartão tambem, no caso para salvar o método de pagamento da mesa (para fins de controle depois)
-Mesa Painel: Quando efetuado o pagamento do pedido mesa tem que ter opção de "imprimir" para gerar o comprovante ao cliente (preciso de dois "imprimir pérvia" e "Imprimir comprovante")
-
 
 Médio:
--Mesa Painel: Preciso que Haja uma descrição completa do pedido na hora de "fechar a conta" 
+-Mesa Painel: Preciso que Haja uma descrição completa do pedido na hora de "fechar a conta"  Preciso da opção de (imprimi, abre o modulo de impressão para imprimir na elgin I9)
+
 -A descrição das despesas e das gorjetas precisam aparecer no relatorio tambem
--Depois fazer com que seja possivel "imprimir o relatório das vendas" de cada fechamento, com todas as descrições das vendas
+
 
 -Quando encerrar o turno as despesas e as vendas do painel page admin tem que reconhecer e limpar para o proximo turno
 !!! Preciso deixar "enraizado" que não funciona na segunda-feira
@@ -29,6 +27,7 @@ Urgentes:
 
 Sem prioridade(apenas ideias):
 
+-Depois fazer com que seja possivel "imprimir o relatório das vendas" de cada fechamento, com todas as descrições das vendas
 -Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado
 
 
