@@ -8,22 +8,24 @@ Painel: Adicionar uma Tag para o painel do nosso adm "aprovado automaticamente" 
 
 Painel Pedido Mesa: Fechar a conta na parte da mesa eu preciso poder registrar metodo de pagamento como cartão tambem, no caso para salvar o método de pagamento da mesa (para fins de controle depois)
 
-Painel: Adicionar botão de ligar e desligar pagamento em cartão (atualmente em bug)(## Error Type
-Runtime Error## Error MessageUnknown column 'acceptCard' in 'field list'    at dbDispatch (lib\actions.ts:78:18)## Code Frame  76 |       if (validPayload.deliverySchedule) validPayload.deliverySchedule = JSON.stringify(validPayload.deliverySchedule);  77 |       delete validPayload.bairros;> 78 |       await pool.query("UPDATE store_settings SET ? WHERE id = 1", [validPayload]);     |                  ^  79 |       break;  80 |     }  81 |     case "ADD_BAIRRO":Next.js version: 16.2.0 (Webpack)
-)
-
-
-
 
 
 Mesa Painel: Preciso que Haja uma descrição completa do pedido na hora de "fechar a conta" 
 Mesa Painel: Quando efetuado o pagamento do pedido mesa tem que ter opção de "imprimir" para gerar o comprovante ao cliente (preciso de dois "imprimir pérvia" e "Imprimir comprovante")
 
-Quando encerrar o turno as despesas do painel page admin  tem que reconhecer e para o proximo turno
-A descrição das despesas e das gorjetas precisam aparecer no relatorio tambem
-Depois fazer com que seja possivel "imprimir o relatório das vendas" de cada fechamento, com todas as descrições das vendas
-
 
 Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado
 
 
+ERROS:
+
+Quando encerrar o turno as despesas do painel page admin  tem que reconhecer e para o proximo turno
+A descrição das despesas e das gorjetas precisam aparecer no relatorio tambem
+Depois fazer com que seja possivel "imprimir o relatório das vendas" de cada fechamento, com todas as descrições das vendas
+Painel: botão de ligar e desligar pagamento em cartão (atualmente em bug)(## Error Type
+Runtime Error## Error MessageUnknown column 'acceptCard' in 'field list'    at dbDispatch (lib\actions.ts:78:18)## Code Frame  76 |       if (validPayload.deliverySchedule) validPayload.deliverySchedule = JSON.stringify(validPayload.deliverySchedule);  77 |       delete validPayload.bairros;> 78 |       await pool.query("UPDATE store_settings SET ? WHERE id = 1", [validPayload]);     |                  ^  79 |       break;  80 |     }  81 |     case "ADD_BAIRRO":Next.js version: 16.2.0 (Webpack)
+)
+
+!!! o registro do cardápio parou de fuincionar e dos produtos avulsos tambem os tamanhos do tamanhos e regras parou de funcionar tambem
+!!! Preciso deixar "enraizado" que não funciona na segunda-feira
+!!! Precisamos poder Editar os valores das entregas
