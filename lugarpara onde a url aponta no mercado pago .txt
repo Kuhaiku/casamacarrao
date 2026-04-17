@@ -35,3 +35,9 @@ Runtime Error## Error MessageUnknown column 'acceptCard' in 'field list'    at d
 Sem prioridade(apenas ideias):
 
 -Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado
+
+
+
+
+ultimo prmpt de hoje:
+esquece essa porra de aceptCard, a coluna unica e exclusiva é "mercadoPagoAtivo" e cabou porra, simles assim, Aproveita e REVISA ESSA PORRA TODA, para ver onde ta esse problema de que qquando seleciona o cartão o valor fica "000.00" inclusive vou querer remover a coluna aceptCard, tudo onde tiver isso deve ser subistituido por "mercadoPagoAtivo"
