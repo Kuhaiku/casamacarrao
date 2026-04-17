@@ -1,4 +1,3 @@
-// lib/actions.ts
 "use server";
 
 import { pool } from "./db";
@@ -7,39 +6,18 @@ import { randomUUID } from "crypto";
 const mapBooleans = (obj: any) => {
   const newObj = { ...obj };
   for (const key in newObj) {
-    if (
-      typeof newObj[key] === "number" &&
-      (newObj[key] === 1 || newObj[key] === 0)
-    ) {
-      if (
-        [
-          "strictMaxPastas",
-          "strictMaxIngredients",
-          "strictMaxSauces",
-          "isActive",
-          "isPaid",
-          "isAccounted",
-          "isOpen",             
-          "mercadoPagoAtivo",   
-          "tem_embalagem",
-          "autoApprove",
-          "autoApproveMesa"
-        ].includes(key)
-      ) {
+    if (typeof newObj[key] === "number" && (newObj[key] === 1 || newObj[key] === 0)) {
+      if ([
+        "strictMaxPastas", "strictMaxIngredients", "strictMaxSauces", "isActive", 
+        "isPaid", "isAccounted", "isOpen", "mercadoPagoAtivo", "tem_embalagem",
+        "autoApprove", "autoApproveMesa", "ativo"
+      ].includes(key)) {
         newObj[key] = newObj[key] === 1;
       }
     }
   }
   return newObj;
 };
-
-export async function verifyAdminPassword(password: string) {
-  return password === process.env.ADMIN_PASSWORD;
-}
-
-export async function verifyMotoboyPassword(password: string) {
-  return password === process.env.MOTOBOY_PASSWORD;
-}
 
 export async function verifyFinanceiroPassword(password: string) {
   return password === process.env.FINANCEIRO_PASSWORD;
@@ -51,9 +29,9 @@ export async function getStoreData() {
     const [menuItems] = await pool.query("SELECT * FROM menu_items");
     const [productCategories] = await pool.query("SELECT * FROM product_categories");
     const [products] = await pool.query("SELECT * FROM products");
+    const [bairros] = await pool.query("SELECT * FROM bairros_atendidos ORDER BY nome ASC");
     const [settingsResult]: any = await pool.query("SELECT * FROM store_settings WHERE id = 1");
     
-    // Trazendo o histórico para o frontend poder listar os fechados
     const [orders] = await pool.query("SELECT * FROM orders ORDER BY createdAt DESC LIMIT 1500");
     const [expenses] = await pool.query("SELECT * FROM financial_entries WHERE type = 'expense' ORDER BY id DESC LIMIT 500");
     const [tips] = await pool.query("SELECT * FROM financial_entries WHERE type = 'tip' ORDER BY id DESC LIMIT 500");
@@ -66,208 +44,93 @@ export async function getStoreData() {
       menuItems: (menuItems as any[]).map(mapBooleans).map((m) => ({ ...m, price: Number(m.price || 0) })),
       productCategories: (productCategories as any[]).map(mapBooleans),
       products: (products as any[]).map(mapBooleans).map((p) => ({ ...p, price: Number(p.price) })),
+      bairros: (bairros as any[]).map(mapBooleans).map(b => ({ ...b, taxa_entrega: Number(b.taxa_entrega) })),
       settings: {
-        extraPastaPrice: Number(settings.extraPastaPrice || 0),
-        extraSaucePrice: Number(settings.extraSaucePrice || 0),
-        extraIngredientPrice: Number(settings.extraIngredientPrice || 0),
-        whatsappMessage: settings.whatsappMessage || '',
+        ...settings,
         autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
         autoApproveMesa: settings.autoApproveMesa === 1 || settings.autoApproveMesa === true,
-        isOpen: settings.isOpen === 1 || settings.isOpen === true || settings.isOpen === undefined,
-        taxaEmbalagemGlobal: Number(settings.taxaEmbalagemGlobal || 2),
+        isOpen: settings.isOpen === 1 || settings.isOpen === true,
         mercadoPagoAtivo: settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
-        taxaCartaoPercentual: Number(settings.taxaCartaoPercentual || 3.5),
-        taxaCartaoFixa: Number(settings.taxaCartaoFixa || 0)
+        deliverySchedule: settings.deliverySchedule ? JSON.parse(settings.deliverySchedule) : null
       },
-      registerOpenedAt: new Date(settings.registerOpenedAt || Date.now()).toISOString(),
-      orders: (orders as any[]).map(mapBooleans).map((o) => {
-        let parsedItems = [];
-        let parsedProducts = [];
-        try { parsedItems = typeof o.items === "string" ? JSON.parse(o.items) : o.items; } catch (e) {}
-        try { parsedProducts = o.products ? (typeof o.products === "string" ? JSON.parse(o.products) : o.products) : []; } catch (e) {}
-
-        return {
-          ...o,
-          total: Number(o.total),
-          createdAt: new Date(o.createdAt).toISOString(),
-          deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined,
-          approvedAt: o.approvedAt ? new Date(o.approvedAt).toISOString() : undefined,
-          items: parsedItems,
-          products: parsedProducts,
-        };
-      }),
-      expenses: (expenses as any[]).map(mapBooleans).map((e) => ({ ...e, amount: Number(e.amount), date: new Date(e.date || Date.now()).toISOString() })),
-      tips: (tips as any[]).map(mapBooleans).map((t) => ({ ...t, amount: Number(t.amount), date: new Date(t.date || Date.now()).toISOString() })),
-      cashRegisters: (registers as any[]).map((r) => ({
-        ...r,
-        totalSales: Number(r.totalSales),
-        totalExpenses: Number(r.totalExpenses),
-        totalTips: Number(r.totalTips),
-        netTotal: Number(r.netTotal),
-        openedAt: new Date(r.openedAt).toISOString(),
-        closedAt: new Date(r.closedAt).toISOString(),
+      orders: (orders as any[]).map(mapBooleans).map((o) => ({
+        ...o,
+        total: Number(o.total),
+        createdAt: new Date(o.createdAt).toISOString(),
+        deliveredAt: o.deliveredAt ? new Date(o.deliveredAt).toISOString() : undefined,
+        approvedAt: o.approvedAt ? new Date(o.approvedAt).toISOString() : undefined,
+        items: typeof o.items === "string" ? JSON.parse(o.items) : o.items,
+        products: o.products ? (typeof o.products === "string" ? JSON.parse(o.products) : o.products) : [],
       })),
+      expenses: (expenses as any[]).map(mapBooleans).map((e) => ({ ...e, amount: Number(e.amount) })),
+      tips: (tips as any[]).map(mapBooleans).map((t) => ({ ...t, amount: Number(t.amount) })),
+      cashRegisters: (registers as any[]).map((r) => ({ ...r, netTotal: Number(r.netTotal) })),
     };
   } catch (error) {
-    console.error("❌ ERRO FATAL AO BUSCAR DADOS DO BANCO:", error);
+    console.error("Erro ao buscar dados:", error);
     throw error; 
   }
 }
 
 export async function dbDispatch(action: string, payload: any) {
   switch (action) {
-    case "ADD_SIZE":
-      await pool.query(
-        "INSERT INTO sizes (id, name, price, maxPastas, strictMaxPastas, maxIngredients, strictMaxIngredients, maxSauces, strictMaxSauces) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [payload.id || randomUUID(), payload.name, payload.price, payload.maxPastas, payload.strictMaxPastas, payload.maxIngredients, payload.strictMaxIngredients, payload.maxSauces, payload.strictMaxSauces]
-      );
-      break;
-    case "UPDATE_SIZE":
-      await pool.query("UPDATE sizes SET ? WHERE id = ?", [payload.updates, payload.id]);
-      break;
-    case "DELETE_SIZE":
-      await pool.query("DELETE FROM sizes WHERE id = ?", [payload.id]);
-      break;
-    case "ADD_MENU_ITEM":
-      await pool.query(
-        "INSERT INTO menu_items (id, name, category, isActive, price) VALUES (?, ?, ?, ?, ?)",
-        [payload.id || randomUUID(), payload.name, payload.category, payload.isActive, payload.price || 0]
-      );
-      break;
-    case "UPDATE_MENU_ITEM":
-      await pool.query("UPDATE menu_items SET ? WHERE id = ?", [payload.updates, payload.id]);
-      break;
-    case "TOGGLE_MENU_ITEM":
-      await pool.query("UPDATE menu_items SET isActive = NOT isActive WHERE id = ?", [payload.id]);
-      break;
-    case "DELETE_MENU_ITEM":
-      await pool.query("DELETE FROM menu_items WHERE id = ?", [payload.id]);
-      break;
-    case "UPDATE_SETTINGS":
-      try {
-        await pool.query("UPDATE store_settings SET ? WHERE id = 1", [payload]);
-      } catch (err: any) {
-        // Fallback: se a coluna autoApproveMesa não existir no DB ainda, guarda sem ela
-        if (err.code === 'ER_BAD_FIELD_ERROR' && payload.autoApproveMesa !== undefined) {
-           const safePayload = { ...payload };
-           delete safePayload.autoApproveMesa;
-           await pool.query("UPDATE store_settings SET ? WHERE id = 1", [safePayload]);
-        } else {
-           throw err;
+    case "UPDATE_SETTINGS": {
+      const validPayload = { ...payload };
+      
+      // Converte horários para string JSON
+      if (validPayload.deliverySchedule) {
+        validPayload.deliverySchedule = JSON.stringify(validPayload.deliverySchedule);
+      }
+      
+      // FORÇA A CONVERSÃO DE BOOLEANOS PARA 1 OU 0 PARA O MYSQL ACEITAR
+      for (const key in validPayload) {
+        if (typeof validPayload[key] === "boolean") {
+          validPayload[key] = validPayload[key] ? 1 : 0;
         }
       }
+
+      delete validPayload.bairros;
+      delete validPayload.acceptCard;
+      await pool.query("UPDATE store_settings SET ? WHERE id = 1", [validPayload]);
       break;
-    case "ADD_PRODUCT_CATEGORY":
-      await pool.query("INSERT INTO product_categories (id, name, isActive) VALUES (?, ?, ?)", [payload.id || randomUUID(), payload.name, payload.isActive ?? true]);
+    }
+    case "ADD_BAIRRO":
+      await pool.query("INSERT INTO bairros_atendidos (nome, cidade, taxa_entrega, ativo) VALUES (?, ?, ?, ?)", 
+        [payload.nome, payload.cidade, payload.taxa_entrega, payload.ativo ? 1 : 0]);
       break;
-    case "UPDATE_PRODUCT_CATEGORY":
-      await pool.query("UPDATE product_categories SET ? WHERE id = ?", [payload.updates, payload.id]);
+    case "UPDATE_BAIRRO":
+      await pool.query("UPDATE bairros_atendidos SET ? WHERE id = ?", [payload.updates, payload.id]);
       break;
-    case "DELETE_PRODUCT_CATEGORY":
-      await pool.query("DELETE FROM product_categories WHERE id = ?", [payload.id]);
+    case "DELETE_BAIRRO":
+      await pool.query("DELETE FROM bairros_atendidos WHERE id = ?", [payload.id]);
       break;
-    case "ADD_PRODUCT":
-      await pool.query("INSERT INTO products (id, categoryId, name, price, isActive) VALUES (?, ?, ?, ?, ?)", [payload.id || randomUUID(), payload.categoryId, payload.name, payload.price, payload.isActive ?? true]);
-      break;
-    case "UPDATE_PRODUCT":
-      await pool.query("UPDATE products SET ? WHERE id = ?", [payload.updates, payload.id]);
-      break;
-    case "TOGGLE_PRODUCT":
-      await pool.query("UPDATE products SET isActive = NOT isActive WHERE id = ?", [payload.id]);
-      break;
-    case "DELETE_PRODUCT":
-      await pool.query("DELETE FROM products WHERE id = ?", [payload.id]);
+    case "TOGGLE_BAIRRO":
+      await pool.query("UPDATE bairros_atendidos SET ativo = NOT ativo WHERE id = ?", [payload.id]);
       break;
     case "ADD_ORDER": {
       const [settingRows]: any = await pool.query("SELECT * FROM store_settings WHERE id = 1");
-      const isAutoApprove = settingRows[0]?.autoApprove === 1 || settingRows[0]?.autoApprove === true;
-      const isAutoApproveMesa = settingRows[0]?.autoApproveMesa === 1 || settingRows[0]?.autoApproveMesa === true;
-      
       const isMesa = payload.tipoPedido === "mesa" || (payload.address && payload.address.toLowerCase().includes("mesa"));
       
-      const finalStatus = isMesa 
-        ? (isAutoApproveMesa ? "aprovado" : (payload.status || "novo"))
-        : (isAutoApprove ? "aprovado" : (payload.status || "novo"));
-
-      const approvedAt = finalStatus === "aprovado" ? new Date() : null;
+      // Validação reforçada para aceitar tanto 1 quanto true vindo do banco
+      const isAutoMesa = settingRows[0].autoApproveMesa === 1 || settingRows[0].autoApproveMesa === true;
+      const isAutoDelivery = settingRows[0].autoApprove === 1 || settingRows[0].autoApprove === true;
       
-      const phone = payload.phone || "00000000000";
-      const paymentMethod = payload.paymentMethod || "PAGAR_NA_MESA";
-      const isPaid = payload.isPaid ? 1 : 0;
-      const observation = payload.observation || "";
-      const address = payload.address || "Balcão";
+      const isAuto = isMesa ? isAutoMesa : isAutoDelivery;
+      
+      const status = isAuto ? "aprovado" : "novo";
+      const approvedAt = isAuto ? new Date() : null;
 
-      try {
-        await pool.query(
-          "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation, approvedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [
-            payload.id || randomUUID(), 
-            payload.customerName, 
-            phone, 
-            address, 
-            paymentMethod, 
-            finalStatus, 
-            isPaid, 
-            payload.total || 0, 
-            JSON.stringify(payload.items || []), 
-            JSON.stringify(payload.products || []), 
-            observation,
-            approvedAt
-          ]
-        );
-      } catch (err: any) {
-         // Fallback: Se a coluna approvedAt não existir, insere sem ela
-         if (err.code === 'ER_BAD_FIELD_ERROR') {
-             await pool.query(
-              "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              [
-                payload.id || randomUUID(), 
-                payload.customerName, 
-                phone, 
-                address, 
-                paymentMethod, 
-                finalStatus, 
-                isPaid, 
-                payload.total || 0, 
-                JSON.stringify(payload.items || []), 
-                JSON.stringify(payload.products || []), 
-                observation
-              ]
-            );
-         } else {
-             throw err;
-         }
-      }
+      await pool.query(
+        "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation, approvedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [payload.id || randomUUID(), payload.customerName, payload.phone || "0", payload.address || "Balcão", payload.paymentMethod || "PIX", status, payload.isPaid ? 1 : 0, payload.total, JSON.stringify(payload.items), JSON.stringify(payload.products || []), payload.observation || "", approvedAt]
+      );
       break;
     }
     case "UPDATE_ORDER_STATUS":
-      try {
-        if (payload.status === "aprovado") {
-          await pool.query(
-            "UPDATE orders SET status = ?, approvedAt = CURRENT_TIMESTAMP WHERE id = ?", 
-            [payload.status, payload.id]
-          );
-        } else if (payload.deliveredAt) {
-          await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [payload.status, new Date(payload.deliveredAt), payload.id]);
-        } else {
-          await pool.query("UPDATE orders SET status = ? WHERE id = ?", [payload.status, payload.id]);
-        }
-      } catch (err: any) {
-         // Fallback se a coluna approvedAt não existir
-         if (err.code === 'ER_BAD_FIELD_ERROR') {
-            if (payload.deliveredAt) {
-              await pool.query("UPDATE orders SET status = ?, deliveredAt = ? WHERE id = ?", [payload.status, new Date(payload.deliveredAt), payload.id]);
-            } else {
-              await pool.query("UPDATE orders SET status = ? WHERE id = ?", [payload.status, payload.id]);
-            }
-         } else {
-            throw err;
-         }
-      }
-
-      if (payload.status === "cancelado") {
-        await pool.query("UPDATE orders SET isPaid = 0 WHERE id = ?", [payload.id]);
-      }
+      const updateData: any = { status: payload.status };
+      if (payload.status === "aprovado") updateData.approvedAt = new Date();
+      if (payload.deliveredAt) updateData.deliveredAt = new Date(payload.deliveredAt);
+      await pool.query("UPDATE orders SET ? WHERE id = ?", [updateData, payload.id]);
       break;
     case "TOGGLE_ORDER_PAID":
       await pool.query("UPDATE orders SET isPaid = NOT isPaid WHERE id = ?", [payload.id]);
@@ -322,15 +185,9 @@ export async function validateBairro(bairro: string, cidade: string) {
       [`%${bairro.trim()}%`, `%${cidade.trim()}%`]
     );
     if (rows.length === 0) return { valido: false, taxa_entrega: 0, mensagem: `Ainda não atendemos o bairro ${bairro.trim() || 'informado'}.` };
-    
-    const ativoRaw = rows[0].ativo;
-    let isAtivo = false;
-    if (ativoRaw === 1 || ativoRaw === true || ativoRaw === '1') isAtivo = true;
-    if (Buffer.isBuffer(ativoRaw) && ativoRaw.length > 0 && ativoRaw[0] === 1) isAtivo = true;
-    
-    if (!isAtivo) return { valido: false, taxa_entrega: 0, mensagem: `As entregas para ${bairro.trim()} estão suspensas.` };
+    if (rows[0].ativo === 0) return { valido: false, taxa_entrega: 0, mensagem: `As entregas para ${bairro.trim()} estão suspensas no momento.` };
     return { valido: true, taxa_entrega: Number(rows[0].taxa_entrega) };
   } catch (error) {
-    return { valido: false, taxa_entrega: 0, mensagem: "Erro ao consultar a área." };
+    return { valido: false, taxa_entrega: 0, mensagem: "Erro ao validar endereço." };
   }
 }

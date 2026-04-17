@@ -57,6 +57,12 @@ interface StoreActions {
   addTip: (tip: Omit<FinancialEntry, "id" | "date" | "isAccounted">) => void;
   deleteTip: (id: string) => void;
   closeRegister: () => void;
+
+  // Ações para Gestão de Bairros
+  addBairro: (bairro: any) => void;
+  updateBairro: (id: number, updates: any) => void;
+  deleteBairro: (id: number) => void;
+  toggleBairro: (id: number) => void;
 }
 
 export const useStore = create<StoreState & StoreActions>((set, get) => ({
@@ -64,6 +70,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
   menuItems: [],
   productCategories: [],
   products: [],
+  bairros: [], // Novo estado de bairros
   settings: {
     extraPastaPrice: 0.0,
     extraSaucePrice: 3.0,
@@ -82,7 +89,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
       "4": { active: true, start: "18:00", end: "23:59" }, // Quinta
       "5": { active: true, start: "18:00", end: "23:59" }, // Sexta
       "6": { active: true, start: "18:00", end: "23:59" }, // Sábado
-    }
+    },
   },
   orders: [],
   expenses: [],
@@ -156,6 +163,24 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
     get().sync();
   },
 
+  // Lógica dos Bairros
+  addBairro: async (bairro) => {
+    await dbDispatch("ADD_BAIRRO", bairro);
+    get().sync();
+  },
+  updateBairro: async (id, updates) => {
+    await dbDispatch("UPDATE_BAIRRO", { id, updates });
+    get().sync();
+  },
+  deleteBairro: async (id) => {
+    await dbDispatch("DELETE_BAIRRO", { id });
+    get().sync();
+  },
+  toggleBairro: async (id) => {
+    await dbDispatch("TOGGLE_BAIRRO", { id });
+    get().sync();
+  },
+
   addOrder: async (order) => {
     set((state) => ({
       orders: [
@@ -172,7 +197,8 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
   },
 
   updateOrderStatus: async (id, status) => {
-    const deliveredAt = status === "entregue" ? new Date().toISOString() : undefined;
+    const deliveredAt =
+      status === "entregue" ? new Date().toISOString() : undefined;
     const isApprovedNow = status === "aprovado";
 
     set((state) => ({
@@ -181,25 +207,31 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
           return {
             ...o,
             status,
-            deliveredAt: status === "entregue" ? (o.deliveredAt || deliveredAt) : o.deliveredAt,
-            // Registra a data exata da aprovação caso seja aprovado pelo painel
-            approvedAt: isApprovedNow && !o.approvedAt ? new Date().toISOString() : o.approvedAt,
-            // Tag automática se for aprovação do operador e não tinha tag antes
-            approvalMethod: isApprovedNow && !o.approvalMethod ? "operator" : o.approvalMethod,
+            deliveredAt:
+              status === "entregue"
+                ? o.deliveredAt || deliveredAt
+                : o.deliveredAt,
+            // Regista a data exata da aprovação para prioridade na cozinha
+            approvedAt:
+              isApprovedNow && !o.approvedAt
+                ? new Date().toISOString()
+                : o.approvedAt,
+            approvalMethod:
+              isApprovedNow && !o.approvalMethod
+                ? "operator"
+                : o.approvalMethod,
           };
         }
         return o;
       }),
     }));
-    
-    // Passa os novos campos para o DB caso precise salvar
-    await dbDispatch("UPDATE_ORDER_STATUS", { 
-      id, 
-      status, 
+
+    await dbDispatch("UPDATE_ORDER_STATUS", {
+      id,
+      status,
       deliveredAt,
-      // No futuro da sua API, ela pode ler esses extras se necessário
       approvedAt: isApprovedNow ? new Date().toISOString() : undefined,
-      approvalMethod: isApprovedNow ? "operator" : undefined
+      approvalMethod: isApprovedNow ? "operator" : undefined,
     });
     get().sync();
   },
@@ -261,7 +293,7 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
 
       if (item.extras?.length) {
         for (const extraId of item.extras) {
-          const extraItem = menuItems.find(m => m.id === extraId);
+          const extraItem = menuItems.find((m) => m.id === extraId);
           if (extraItem && extraItem.price) {
             total += extraItem.price;
           }

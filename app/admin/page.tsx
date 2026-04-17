@@ -65,6 +65,8 @@ export default function AdminDashboardPage() {
     addExpense,
     addTip,
     closeRegister,
+    settings, // <-- Adicionado
+    updateSettings // <-- Adicionado
   } = useStore();
 
   useEffect(() => {
@@ -72,6 +74,47 @@ export default function AdminDashboardPage() {
     const interval = setInterval(() => sync(), 5000);
     return () => clearInterval(interval);
   }, [sync]);
+
+  // === NOVO: VERIFICADOR AUTOMÁTICO DE HORÁRIO ===
+  useEffect(() => {
+    const checkSchedule = () => {
+      if (!settings.deliverySchedule) return;
+
+      const now = new Date();
+      now.setHours(now.getHours() - 3); // Ajuste Fuso Horário BRT
+      const day = now.getDay().toString();
+      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      const schedule: any = settings.deliverySchedule;
+      const today = schedule[day];
+
+      let shouldBeOpen = false;
+
+      // Se o dia estiver ativo na escala, valida se o relógio atual bate com o horário
+      if (today && today.active) {
+        if (timeStr >= today.start && timeStr <= today.end) {
+          shouldBeOpen = true;
+        }
+      }
+
+      // Se o estado calculado for diferente do estado atual na base de dados, atualiza!
+      if (settings.isOpen !== shouldBeOpen) {
+        updateSettings({ isOpen: shouldBeOpen });
+        toast.info(`Piloto Automático: A loja foi ${shouldBeOpen ? 'ABERTA' : 'FECHADA'} pelo horário programado.`);
+      }
+    };
+
+    // Corre a verificação a cada 1 minuto (60000ms)
+    const interval = setInterval(checkSchedule, 60000);
+    // Dispara a primeira verificação 3 segundos após abrir o painel para dar tempo ao sync
+    const timeout = setTimeout(checkSchedule, 3000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [settings.deliverySchedule, settings.isOpen, updateSettings]);
+  // ===============================================
 
   // Estados de Segurança e Visibilidade
   const [isFinancialDataVisible, setIsFinancialDataVisible] = useState(false);
@@ -170,7 +213,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="container max-w-[1600px] mx-auto p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black text-stone-800 dark:text-stone-100 tracking-tight">
             Centro de Comando
@@ -179,22 +222,39 @@ export default function AdminDashboardPage() {
             Acompanhe e gerencie a operação em tempo real.
           </p>
         </div>
-        <Button
-          variant={isFinancialDataVisible ? "destructive" : "outline"}
-          onClick={handleToggleVisibility}
-          className="font-bold shadow-sm"
-        >
-          {isFinancialDataVisible ? (
-            <>
-              <EyeOff className="w-4 h-4 mr-2" /> Ocultar Valores
-            </>
-          ) : (
-            <>
-              <Eye className="w-4 h-4 mr-2" /> Revelar Valores
-            </>
-          )}
-        </Button>
+        
+        {/* NOVO: SECÇÃO DO BOTÃO DA LOJA E REVELAR VALORES */}
+        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+          <div className="flex items-center gap-3 bg-white dark:bg-stone-900 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm flex-1 md:flex-none justify-center">
+            <Switch
+              checked={settings.isOpen}
+              onCheckedChange={(checked) => updateSettings({ isOpen: checked })}
+              className="data-[state=checked]:bg-green-600"
+            />
+            <span className={`text-sm font-black tracking-wider ${settings.isOpen ? "text-green-600" : "text-red-500"}`}>
+              {settings.isOpen ? "🟢 LOJA ABERTA" : "🔴 LOJA FECHADA"}
+            </span>
+          </div>
+
+          <Button
+            variant={isFinancialDataVisible ? "destructive" : "outline"}
+            onClick={handleToggleVisibility}
+            className="font-bold shadow-sm flex-1 md:flex-none"
+          >
+            {isFinancialDataVisible ? (
+              <>
+                <EyeOff className="w-4 h-4 mr-2" /> Ocultar Valores
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4 mr-2" /> Revelar Valores
+              </>
+            )}
+          </Button>
+        </div>
       </div>
+
+      
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-gradient-to-br from-green-600 to-green-800 text-white shadow-lg border-none">

@@ -26,15 +26,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+// app/cozinha/page.tsx
+
 function normalizeDate(dateString: string) {
   if (!dateString) return new Date();
   let isoString = dateString.replace(" ", "T");
   if (!isoString.includes("Z") && !isoString.match(/[+-]\d{2}:?\d{2}$/)) {
     isoString += "Z";
   }
-  return new Date(isoString);
+  
+  const date = new Date(isoString);
+  
+  // Corrige o fuso horário subtraindo 3 horas
+  date.setHours(date.getHours() - 3);
+  
+  return date;
 }
-
 function formatTime(dateString: string) {
   const date = normalizeDate(dateString);
   return date.toLocaleTimeString("pt-BR", {
