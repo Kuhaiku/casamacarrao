@@ -1588,22 +1588,21 @@ function OperationsTabContent() {
         </CardHeader>
       </Card>
 
-      {/* <Card>
-        Depois ver esse treco para fazer a abertura e o fechamento automatico do delivery em horários pré-definidos. Por enquanto, só o on/off manual mesmo.
-        {/* <CardHeader>
-        <CardTitle className="text-lg">Horários de Funcionamento Automático</CardTitle>
-        <CardDescription>
-        Programe os horários em que o delivery abrirá e fechará automaticamente todos os dias.
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Horários de Funcionamento</CardTitle>
+          <CardDescription>
+            Defina os horários de abertura e fechamento para cada dia da semana.
           </CardDescription>
-        </CardHeader> */}
-      {/* <CardContent>
+        </CardHeader>
+        <CardContent>
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {diasSemana.map((dia) => {
               const dayConfig = settings.deliverySchedule?.[dia.key] || {
                 active: true,
                 start: "18:00",
                 end: "23:59",
-              }
+              };
 
               return (
                 <div
@@ -1619,6 +1618,7 @@ function OperationsTabContent() {
                     <Switch
                       checked={dayConfig.active}
                       onCheckedChange={(val) => toggleDay(dia.key, val)}
+                      disabled={dia.key === "1"} // Segunda-feira é forçada como fechada no servidor
                     />
                   </div>
 
@@ -1639,12 +1639,17 @@ function OperationsTabContent() {
                       />
                     </div>
                   )}
+                  {dia.key === "1" && (
+                    <p className="text-[10px] text-red-500 font-medium mt-1 italic">
+                      Fechamento obrigatório na segunda.
+                    </p>
+                  )}
                 </div>
-              )
+              );
             })}
           </div>
-        </CardContent> */}
-      {/* </Card> */}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>

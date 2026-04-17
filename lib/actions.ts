@@ -23,10 +23,15 @@ const mapBooleans = (obj: any) => {
 export async function verifyFinanceiroPassword(password: string) {
   return password === process.env.FINANCEIRO_PASSWORD;
 }
-// ADICIONE ESTA FUNÇÃO AQUI:
+
 export async function verifyAdminPassword(password: string) {
   return password === process.env.ADMIN_PASSWORD;
 }
+
+export async function verifyMotoboyPassword(password: string) {
+  return password === process.env.MOTOBOY_PASSWORD;
+}
+
 
 export async function getStoreData() {
   try {
