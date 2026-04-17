@@ -329,7 +329,7 @@ export function PrintableOrderDetails({
           <div
             key={index}
             style={{
-              marginBottom: "12px",
+              marginBottom: "178px",
               display: "block",
               width: "100%",
             }}

@@ -37,7 +37,8 @@ export async function GET() {
       parsedItems.forEach((item: any) => {
         const sId = String(item.sizeId || item?.size?.id || "");
         const sizeData: any = sizesMap.get(sId); // Tipagem forçada
-        const sizeName = sizeData ? sizeData.name : "Tamanho Custom";
+        
+        const sizeName = sizeData ? sizeData.name : "Tamanho Custom"; 
         
         let itemTotal = sizeData ? Number(sizeData.price || 0) : 0;
 
