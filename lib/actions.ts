@@ -10,7 +10,8 @@ const mapBooleans = (obj: any) => {
       if ([
         "strictMaxPastas", "strictMaxIngredients", "strictMaxSauces", "isActive", 
         "isPaid", "isAccounted", "isOpen", "mercadoPagoAtivo", "tem_embalagem",
-        "autoApprove", "autoApproveMesa", "ativo"
+        "autoApprove", "autoApproveMesa", "ativo", 
+        "acceptCard" // ADICIONADO AQUI
       ].includes(key)) {
         newObj[key] = newObj[key] === 1;
       }
@@ -38,6 +39,12 @@ export async function getStoreData() {
     const [registers] = await pool.query("SELECT * FROM cash_registers ORDER BY closedAt DESC LIMIT 30");
 
     const settings = settingsResult[0] || {};
+    
+    // ENRAIZANDO A SEGUNDA-FEIRA (Dia 1 = Segunda)
+    let parsedSchedule = settings.deliverySchedule ? JSON.parse(settings.deliverySchedule) : null;
+    if (parsedSchedule && parsedSchedule["1"]) {
+       parsedSchedule["1"].active = false; // Força sempre a ser falso
+    }
 
     return {
       sizes: (sizes as any[]).map(mapBooleans).map((s) => ({ ...s, price: Number(s.price) })),
@@ -50,8 +57,9 @@ export async function getStoreData() {
         autoApprove: settings.autoApprove === 1 || settings.autoApprove === true,
         autoApproveMesa: settings.autoApproveMesa === 1 || settings.autoApproveMesa === true,
         isOpen: settings.isOpen === 1 || settings.isOpen === true,
+        acceptCard: settings.acceptCard === 1 || settings.acceptCard === true,
         mercadoPagoAtivo: settings.mercadoPagoAtivo === 1 || settings.mercadoPagoAtivo === true,
-        deliverySchedule: settings.deliverySchedule ? JSON.parse(settings.deliverySchedule) : null
+        deliverySchedule: parsedSchedule
       },
       orders: (orders as any[]).map(mapBooleans).map((o) => ({
         ...o,
@@ -72,17 +80,21 @@ export async function getStoreData() {
   }
 }
 
+
 export async function dbDispatch(action: string, payload: any) {
   switch (action) {
-    case "UPDATE_SETTINGS": {
+case "UPDATE_SETTINGS": {
       const validPayload = { ...payload };
       
-      // Converte horários para string JSON
+      // Converte horários para string JSON e enraiza a segunda-feira
       if (validPayload.deliverySchedule) {
+        if (validPayload.deliverySchedule["1"]) {
+           validPayload.deliverySchedule["1"].active = false; 
+        }
         validPayload.deliverySchedule = JSON.stringify(validPayload.deliverySchedule);
       }
       
-      // FORÇA A CONVERSÃO DE BOOLEANOS PARA 1 OU 0 PARA O MYSQL ACEITAR
+      // Converte booleanos para 1 ou 0
       for (const key in validPayload) {
         if (typeof validPayload[key] === "boolean") {
           validPayload[key] = validPayload[key] ? 1 : 0;
@@ -90,7 +102,11 @@ export async function dbDispatch(action: string, payload: any) {
       }
 
       delete validPayload.bairros;
-      delete validPayload.acceptCard;
+      // Removido o 'delete validPayload.acceptCard' para que ele possa ser salvo no banco.
+
+      // Proteção: Se não sobrar nada para atualizar, apenas sai sem dar erro
+      if (Object.keys(validPayload).length === 0) break;
+
       await pool.query("UPDATE store_settings SET ? WHERE id = 1", [validPayload]);
       break;
     }

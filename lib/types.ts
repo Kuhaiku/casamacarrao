@@ -45,7 +45,7 @@ export interface StoreSettings {
   whatsappMessage?: string;
   autoApprove?: boolean; // Aprovação automática do Delivery
   autoApproveMesa?: boolean; // Trava de aprovação da mesa
-  acceptCard?: boolean; // Trava de cartão
+  
   isOpen?: boolean; // Ligar/Desligar Delivery
   deliveryMessage?: string; // Mensagem de loja fechada
   deliverySchedule?: Record<string, DaySchedule>; // Horários programados de funcionamento
@@ -154,6 +154,7 @@ export interface StoreState {
   productCategories: ProductCategory[];
   products: Product[];
   settings: StoreSettings;
+  bairros: Bairro[]; // <-- ADICIONE ESTA LINHA
   orders: Order[];
   expenses: FinancialEntry[];
   tips: FinancialEntry[];

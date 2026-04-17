@@ -1,14 +1,26 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useStore } from "@/lib/store"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState } from "react";
+import { useStore } from "@/lib/store";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
   Trash2,
@@ -22,14 +34,14 @@ import {
   Settings2,
   Box,
   MapPin,
-} from "lucide-react"
-import type { MenuItem, Size, Product, ProductCategory } from "@/lib/types"
+} from "lucide-react";
+import type { MenuItem, Size, Product, ProductCategory } from "@/lib/types";
 
 function formatCurrency(value: number) {
   return (value || 0).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
-  })
+  });
 }
 
 const categoryLabels: Record<string, string> = {
@@ -38,7 +50,7 @@ const categoryLabels: Record<string, string> = {
   seasoning: "Temperos",
   ingredient: "Ingredientes",
   extra: "Adicionais Extras (Pagos)",
-}
+};
 
 const categoryDescriptions: Record<string, string> = {
   pasta: "Tipos de massa disponíveis",
@@ -46,7 +58,7 @@ const categoryDescriptions: Record<string, string> = {
   seasoning: "Temperos (sempre livres)",
   ingredient: "Ingredientes adicionais",
   extra: "Itens com preço individual (Ex: Queijo Extra, Bacon Extra)",
-}
+};
 
 function MenuItemRow({
   item,
@@ -54,14 +66,14 @@ function MenuItemRow({
   onDelete,
   onEdit,
 }: {
-  item: MenuItem
-  onToggle: () => void
-  onDelete: () => void
-  onEdit: (name: string, price?: number) => void
+  item: MenuItem;
+  onToggle: () => void;
+  onDelete: () => void;
+  onEdit: (name: string, price?: number) => void;
 }) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editName, setEditName] = useState(item.name)
-  const [editPrice, setEditPrice] = useState(item.price?.toString() || "")
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(item.name);
+  const [editPrice, setEditPrice] = useState(item.price?.toString() || "");
 
   const handleSave = () => {
     if (editName.trim()) {
@@ -69,11 +81,11 @@ function MenuItemRow({
         editName.trim(),
         item.category === "extra"
           ? parseFloat(editPrice.replace(",", ".")) || 0
-          : undefined
-      )
-      setIsEditing(false)
+          : undefined,
+      );
+      setIsEditing(false);
     }
-  }
+  };
 
   if (isEditing) {
     return (
@@ -107,7 +119,7 @@ function MenuItemRow({
           <X className="h-4 w-4" />
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -115,11 +127,19 @@ function MenuItemRow({
       <div className="flex items-center gap-3">
         <Switch checked={item.isActive} onCheckedChange={onToggle} />
         <div className="flex flex-col">
-          <span className={item.isActive ? "text-foreground font-medium" : "text-muted-foreground line-through"}>
+          <span
+            className={
+              item.isActive
+                ? "text-foreground font-medium"
+                : "text-muted-foreground line-through"
+            }
+          >
             {item.name}
           </span>
           {item.category === "extra" && item.price !== undefined && (
-            <span className="text-xs text-primary font-bold">{formatCurrency(item.price)}</span>
+            <span className="text-xs text-primary font-bold">
+              {formatCurrency(item.price)}
+            </span>
           )}
         </div>
       </div>
@@ -142,7 +162,7 @@ function MenuItemRow({
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 function AddItemForm({
@@ -150,24 +170,26 @@ function AddItemForm({
   onAdd,
   onCancel,
 }: {
-  category: string
-  onAdd: (name: string, price?: number) => void
-  onCancel: () => void
+  category: string;
+  onAdd: (name: string, price?: number) => void;
+  onCancel: () => void;
 }) {
-  const [name, setName] = useState("")
-  const [price, setPrice] = useState("")
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (name.trim()) {
       onAdd(
         name.trim(),
-        category === "extra" ? parseFloat(price.replace(",", ".")) || 0 : undefined
-      )
-      setName("")
-      setPrice("")
+        category === "extra"
+          ? parseFloat(price.replace(",", ".")) || 0
+          : undefined,
+      );
+      setName("");
+      setPrice("");
     }
-  }
+  };
 
   return (
     <form
@@ -198,19 +220,31 @@ function AddItemForm({
         <Save className="h-4 w-4 sm:mr-1" />
         <span className="hidden sm:inline">Salvar</span>
       </Button>
-      <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="shrink-0">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onCancel}
+        className="shrink-0"
+      >
         <X className="h-4 w-4" />
       </Button>
     </form>
-  )
+  );
 }
 
 function CategorySection({ category }: { category: string }) {
-  const { menuItems, addMenuItem, updateMenuItem, toggleMenuItemActive, deleteMenuItem } = useStore()
-  const [showAddForm, setShowAddForm] = useState(false)
+  const {
+    menuItems,
+    addMenuItem,
+    updateMenuItem,
+    toggleMenuItemActive,
+    deleteMenuItem,
+  } = useStore();
+  const [showAddForm, setShowAddForm] = useState(false);
 
-  const items = menuItems.filter((item) => item.category === category)
-  const activeCount = items.filter((item) => item.isActive).length
+  const items = menuItems.filter((item) => item.category === category);
+  const activeCount = items.filter((item) => item.isActive).length;
 
   const handleAdd = (name: string, price?: number) => {
     addMenuItem({
@@ -219,12 +253,18 @@ function CategorySection({ category }: { category: string }) {
       category: category as any,
       isActive: true,
       price,
-    })
-    setShowAddForm(false)
-  }
+    });
+    setShowAddForm(false);
+  };
 
   return (
-    <Card className={category === "extra" ? "border-amber-200 dark:border-amber-900 bg-amber-50/30 dark:bg-amber-950/10" : ""}>
+    <Card
+      className={
+        category === "extra"
+          ? "border-amber-200 dark:border-amber-900 bg-amber-50/30 dark:bg-amber-950/10"
+          : ""
+      }
+    >
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -267,57 +307,62 @@ function CategorySection({ category }: { category: string }) {
         ))}
 
         {items.length === 0 && !showAddForm && (
-          <p className="text-center text-muted-foreground py-4">Nenhum item cadastrado.</p>
+          <p className="text-center text-muted-foreground py-4">
+            Nenhum item cadastrado.
+          </p>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function BulkAddForm() {
-  const { addMenuItem } = useStore()
-  const [category, setCategory] = useState<string>("ingredient")
-  const [items, setItems] = useState("")
-  const [showForm, setShowForm] = useState(false)
+  const { addMenuItem } = useStore();
+  const [category, setCategory] = useState<string>("ingredient");
+  const [items, setItems] = useState("");
+  const [showForm, setShowForm] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     const lines = items
       .split("\n")
       .map((s) => s.trim())
-      .filter(Boolean)
+      .filter(Boolean);
 
     lines.forEach((line) => {
       if (category === "extra") {
-        const parts = line.split(",")
+        const parts = line.split(",");
         addMenuItem({
           id: `${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: parts[0].trim(),
           category: category as any,
           isActive: true,
-          price: parts.length > 1 ? parseFloat(parts[1].trim().replace(",", ".")) || 0 : 0,
-        })
+          price:
+            parts.length > 1
+              ? parseFloat(parts[1].trim().replace(",", ".")) || 0
+              : 0,
+        });
       } else {
         addMenuItem({
           id: `${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: line,
           category: category as any,
           isActive: true,
-        })
+        });
       }
-    })
+    });
 
-    setItems("")
-    setShowForm(false)
-  }
+    setItems("");
+    setShowForm(false);
+  };
 
   if (!showForm) {
     return (
       <Button variant="outline" onClick={() => setShowForm(true)}>
         <Plus className="h-4 w-4 mr-2" /> Adicionar Vários
       </Button>
-    )
+    );
   }
 
   return (
@@ -356,24 +401,30 @@ function BulkAddForm() {
             <Button type="submit">
               <Save className="h-4 w-4 mr-2" /> Adicionar Todos
             </Button>
-            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowForm(false)}
+            >
               <X className="h-4 w-4 mr-2" /> Cancelar
             </Button>
           </div>
         </CardContent>
       </form>
     </Card>
-  )
+  );
 }
 
 function MenuTabContent() {
-  const categories = ["pasta", "sauce", "ingredient", "seasoning", "extra"]
+  const categories = ["pasta", "sauce", "ingredient", "seasoning", "extra"];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Itens do Macarrão</h2>
+          <h2 className="text-2xl font-bold text-foreground">
+            Itens do Macarrão
+          </h2>
           <p className="text-muted-foreground mt-1">
             Gerencie os ingredientes e os adicionais pagos da montagem.
           </p>
@@ -387,30 +438,39 @@ function MenuTabContent() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
-function ProductCard({ prod, categories }: { prod: Product; categories: ProductCategory[] }) {
-  const { updateProduct, toggleProductActive, deleteProduct, settings } = useStore()
-  const [isEditing, setIsEditing] = useState(false)
+function ProductCard({
+  prod,
+  categories,
+}: {
+  prod: Product;
+  categories: ProductCategory[];
+}) {
+  const { updateProduct, toggleProductActive, deleteProduct, settings } =
+    useStore();
+  const [isEditing, setIsEditing] = useState(false);
 
-  const [name, setName] = useState(prod.name)
-  const [price, setPrice] = useState(prod.price.toString())
-  const [categoryId, setCategoryId] = useState(prod.categoryId)
+  const [name, setName] = useState(prod.name);
+  const [price, setPrice] = useState(prod.price.toString());
+  const [categoryId, setCategoryId] = useState(prod.categoryId);
   const [cobrarEmbalagem, setCobrarEmbalagem] = useState(
-    prod.tipoEmbalagem && prod.tipoEmbalagem !== "nenhuma"
-  )
-  const [tipoEmbalagem, setTipoEmbalagem] = useState<"padrao" | "personalizada">(
-    prod.tipoEmbalagem === "personalizada" ? "personalizada" : "padrao"
-  )
-  const [taxaEmbalagem, setTaxaEmbalagem] = useState(prod.taxaEmbalagem?.toString() || "0")
+    prod.tipoEmbalagem && prod.tipoEmbalagem !== "nenhuma",
+  );
+  const [tipoEmbalagem, setTipoEmbalagem] = useState<
+    "padrao" | "personalizada"
+  >(prod.tipoEmbalagem === "personalizada" ? "personalizada" : "padrao");
+  const [taxaEmbalagem, setTaxaEmbalagem] = useState(
+    prod.taxaEmbalagem?.toString() || "0",
+  );
 
   const handleSave = () => {
-    const finalTipo = cobrarEmbalagem ? tipoEmbalagem : "nenhuma"
+    const finalTipo = cobrarEmbalagem ? tipoEmbalagem : "nenhuma";
     const finalTaxa =
       finalTipo === "personalizada"
         ? parseFloat(taxaEmbalagem.replace(",", ".")) || 0
-        : 0
+        : 0;
 
     updateProduct(prod.id, {
       name,
@@ -418,18 +478,24 @@ function ProductCard({ prod, categories }: { prod: Product; categories: ProductC
       categoryId,
       tipoEmbalagem: finalTipo,
       taxaEmbalagem: finalTaxa,
-    })
+    });
 
-    setIsEditing(false)
-  }
+    setIsEditing(false);
+  };
 
   if (isEditing) {
     return (
       <Card className="col-span-full md:col-span-2 lg:col-span-3 border-blue-200 dark:border-blue-900 shadow-md">
         <CardContent className="p-4 space-y-4">
           <div className="flex justify-between items-center mb-2 pb-2 border-b">
-            <h4 className="font-bold text-blue-700 dark:text-blue-400">Editar Produto</h4>
-            <Button variant="ghost" size="icon" onClick={() => setIsEditing(false)}>
+            <h4 className="font-bold text-blue-700 dark:text-blue-400">
+              Editar Produto
+            </h4>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsEditing(false)}
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -467,19 +533,28 @@ function ProductCard({ prod, categories }: { prod: Product; categories: ProductC
 
           <div className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded border border-stone-200 dark:border-stone-700">
             <div className="flex items-center space-x-2 mb-3">
-              <Switch checked={!!cobrarEmbalagem} onCheckedChange={setCobrarEmbalagem} />
-              <Label className="font-bold cursor-pointer text-sm">Cobrar embalagem?</Label>
+              <Switch
+                checked={!!cobrarEmbalagem}
+                onCheckedChange={setCobrarEmbalagem}
+              />
+              <Label className="font-bold cursor-pointer text-sm">
+                Cobrar embalagem?
+              </Label>
             </div>
 
             {cobrarEmbalagem && (
               <div className="flex flex-col sm:flex-row gap-3">
-                <Select value={tipoEmbalagem} onValueChange={(v: any) => setTipoEmbalagem(v)}>
+                <Select
+                  value={tipoEmbalagem}
+                  onValueChange={(v: any) => setTipoEmbalagem(v)}
+                >
                   <SelectTrigger className="w-full sm:w-[220px]">
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="padrao">
-                      Padrão ({formatCurrency(settings.taxaEmbalagemGlobal || 0)})
+                      Padrão (
+                      {formatCurrency(settings.taxaEmbalagemGlobal || 0)})
                     </SelectItem>
                     <SelectItem value="personalizada">Personalizado</SelectItem>
                   </SelectContent>
@@ -503,26 +578,37 @@ function ProductCard({ prod, categories }: { prod: Product; categories: ProductC
             <Button variant="outline" onClick={() => setIsEditing(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              onClick={handleSave}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <Save className="h-4 w-4 mr-2" /> Salvar Alterações
             </Button>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
-    <Card className={`hover:shadow-md transition-all ${prod.isActive ? "" : "opacity-50"}`}>
+    <Card
+      className={`hover:shadow-md transition-all ${prod.isActive ? "" : "opacity-50"}`}
+    >
       <CardContent className="p-4 flex flex-col gap-2">
         <div className="flex items-start justify-between">
           <div>
             <p className="font-bold text-lg leading-tight">{prod.name}</p>
-            <p className="text-sm text-primary font-black mt-1">{formatCurrency(prod.price)}</p>
+            <p className="text-sm text-primary font-black mt-1">
+              {formatCurrency(prod.price)}
+            </p>
           </div>
 
           <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 rounded-lg p-1">
-            <Switch checked={prod.isActive} onCheckedChange={() => toggleProductActive(prod.id)} className="mx-1" />
+            <Switch
+              checked={prod.isActive}
+              onCheckedChange={() => toggleProductActive(prod.id)}
+              className="mx-1"
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -553,34 +639,43 @@ function ProductCard({ prod, categories }: { prod: Product; categories: ProductC
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function ProductsTabContent() {
-  const { productCategories, products, addProductCategory, deleteProductCategory, addProduct, settings } = useStore()
+  const {
+    productCategories,
+    products,
+    addProductCategory,
+    deleteProductCategory,
+    addProduct,
+    settings,
+  } = useStore();
 
-  const [catName, setCatName] = useState("")
-  const [prodName, setProdName] = useState("")
-  const [prodPrice, setProdPrice] = useState("")
-  const [prodCat, setProdCat] = useState("")
-  const [cobrarEmbalagem, setCobrarEmbalagem] = useState(false)
-  const [tipoEmbalagem, setTipoEmbalagem] = useState<"padrao" | "personalizada">("padrao")
-  const [taxaEmbalagemProd, setTaxaEmbalagemProd] = useState("")
+  const [catName, setCatName] = useState("");
+  const [prodName, setProdName] = useState("");
+  const [prodPrice, setProdPrice] = useState("");
+  const [prodCat, setProdCat] = useState("");
+  const [cobrarEmbalagem, setCobrarEmbalagem] = useState(false);
+  const [tipoEmbalagem, setTipoEmbalagem] = useState<
+    "padrao" | "personalizada"
+  >("padrao");
+  const [taxaEmbalagemProd, setTaxaEmbalagemProd] = useState("");
 
   const handleAddCategory = () => {
-    if (!catName) return
-    addProductCategory({ name: catName, isActive: true })
-    setCatName("")
-  }
+    if (!catName) return;
+    addProductCategory({ name: catName, isActive: true });
+    setCatName("");
+  };
 
   const handleAddProduct = () => {
-    if (!prodName || !prodPrice || !prodCat) return
+    if (!prodName || !prodPrice || !prodCat) return;
 
-    const finalTipo = cobrarEmbalagem ? tipoEmbalagem : "nenhuma"
+    const finalTipo = cobrarEmbalagem ? tipoEmbalagem : "nenhuma";
     const finalTaxa =
       finalTipo === "personalizada"
         ? parseFloat(taxaEmbalagemProd.replace(",", ".")) || 0
-        : 0
+        : 0;
 
     addProduct({
       name: prodName,
@@ -589,15 +684,15 @@ function ProductsTabContent() {
       isActive: true,
       tipoEmbalagem: finalTipo,
       taxaEmbalagem: finalTaxa,
-    })
+    });
 
-    setProdName("")
-    setProdPrice("")
-    setProdCat("")
-    setCobrarEmbalagem(false)
-    setTipoEmbalagem("padrao")
-    setTaxaEmbalagemProd("")
-  }
+    setProdName("");
+    setProdPrice("");
+    setProdCat("");
+    setCobrarEmbalagem(false);
+    setTipoEmbalagem("padrao");
+    setTaxaEmbalagemProd("");
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -636,7 +731,11 @@ function ProductsTabContent() {
               <Card key={cat.id}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <span className="font-semibold">{cat.name}</span>
-                  <Button variant="ghost" size="icon" onClick={() => deleteProductCategory(cat.id)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteProductCategory(cat.id)}
+                  >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </CardContent>
@@ -684,23 +783,36 @@ function ProductsTabContent() {
 
               <div className="p-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg border border-stone-200 dark:border-stone-700">
                 <div className="flex items-center space-x-2 mb-3">
-                  <Switch id="cobrar-emb" checked={cobrarEmbalagem} onCheckedChange={setCobrarEmbalagem} />
-                  <Label htmlFor="cobrar-emb" className="font-bold cursor-pointer">
+                  <Switch
+                    id="cobrar-emb"
+                    checked={cobrarEmbalagem}
+                    onCheckedChange={setCobrarEmbalagem}
+                  />
+                  <Label
+                    htmlFor="cobrar-emb"
+                    className="font-bold cursor-pointer"
+                  >
                     Cobrar embalagem para este produto?
                   </Label>
                 </div>
 
                 {cobrarEmbalagem && (
                   <div className="flex flex-col sm:flex-row gap-3 animate-in fade-in zoom-in duration-200">
-                    <Select value={tipoEmbalagem} onValueChange={(v: any) => setTipoEmbalagem(v)}>
+                    <Select
+                      value={tipoEmbalagem}
+                      onValueChange={(v: any) => setTipoEmbalagem(v)}
+                    >
                       <SelectTrigger className="w-full sm:w-[220px]">
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="padrao">
-                          Valor Padrão ({formatCurrency(settings.taxaEmbalagemGlobal || 0)})
+                          Valor Padrão (
+                          {formatCurrency(settings.taxaEmbalagemGlobal || 0)})
                         </SelectItem>
-                        <SelectItem value="personalizada">Valor Personalizado</SelectItem>
+                        <SelectItem value="personalizada">
+                          Valor Personalizado
+                        </SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -726,28 +838,44 @@ function ProductsTabContent() {
 
           <div className="grid gap-6">
             {productCategories.map((cat) => {
-              const catProducts = products.filter((p) => p.categoryId === cat.id)
-              if (catProducts.length === 0) return null
+              const catProducts = products.filter(
+                (p) => p.categoryId === cat.id,
+              );
+              if (catProducts.length === 0) return null;
 
               return (
                 <div key={cat.id}>
-                  <h3 className="text-xl font-bold mb-3 border-b pb-2">{cat.name}</h3>
+                  <h3 className="text-xl font-bold mb-3 border-b pb-2">
+                    {cat.name}
+                  </h3>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {catProducts.map((prod) => (
-                      <ProductCard key={prod.id} prod={prod} categories={productCategories} />
+                      <ProductCard
+                        key={prod.id}
+                        prod={prod}
+                        categories={productCategories}
+                      />
                     ))}
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
 
-function SizeCard({ size, onEdit, onDelete }: { size: Size; onEdit: () => void; onDelete: () => void }) {
+function SizeCard({
+  size,
+  onEdit,
+  onDelete,
+}: {
+  size: Size;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
     <Card className="relative hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
@@ -826,7 +954,7 @@ function SizeCard({ size, onEdit, onDelete }: { size: Size; onEdit: () => void; 
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function SizeForm({
@@ -834,9 +962,9 @@ function SizeForm({
   onSave,
   onCancel,
 }: {
-  size?: Size
-  onSave: (data: Omit<Size, "id"> & { id?: string }) => void
-  onCancel: () => void
+  size?: Size;
+  onSave: (data: Omit<Size, "id"> & { id?: string }) => void;
+  onCancel: () => void;
 }) {
   const [formData, setFormData] = useState({
     name: size?.name || "",
@@ -848,10 +976,10 @@ function SizeForm({
     maxSauces: size?.maxSauces?.toString() || "1",
     strictMaxSauces: size?.strictMaxSauces ?? false,
     taxaEmbalagem: size?.taxaEmbalagem?.toString() || "0",
-  })
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     onSave({
       id: size?.id,
@@ -864,15 +992,17 @@ function SizeForm({
       maxSauces: parseInt(formData.maxSauces) || 1,
       strictMaxSauces: formData.strictMaxSauces,
       taxaEmbalagem: parseFloat(formData.taxaEmbalagem.replace(",", ".")) || 0,
-    })
-  }
+    });
+  };
 
   return (
     <Card className="mb-6">
       <form onSubmit={handleSubmit}>
         <CardHeader className="pb-4">
           <CardTitle>{size ? "Editar Tamanho" : "Novo Tamanho"}</CardTitle>
-          <CardDescription>Defina os limites e taxas específicas para este tamanho.</CardDescription>
+          <CardDescription>
+            Defina os limites e taxas específicas para este tamanho.
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
@@ -882,7 +1012,9 @@ function SizeForm({
               <Input
                 placeholder='Ex: "G (400g)"'
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 required
               />
             </div>
@@ -894,7 +1026,9 @@ function SizeForm({
                 step="0.01"
                 min="0"
                 value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, price: e.target.value })
+                }
                 required
               />
             </div>
@@ -906,7 +1040,9 @@ function SizeForm({
                 step="0.01"
                 min="0"
                 value={formData.taxaEmbalagem}
-                onChange={(e) => setFormData({ ...formData, taxaEmbalagem: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, taxaEmbalagem: e.target.value })
+                }
                 required
               />
             </div>
@@ -918,10 +1054,10 @@ function SizeForm({
                 Pastas: "Massas",
                 Ingredients: "Ingredientes",
                 Sauces: "Molhos",
-              }
+              };
 
-              const fieldMax = `max${type}` as keyof typeof formData
-              const fieldStrict = `strictMax${type}` as keyof typeof formData
+              const fieldMax = `max${type}` as keyof typeof formData;
+              const fieldStrict = `strictMax${type}` as keyof typeof formData;
 
               return (
                 <div key={type} className="space-y-4">
@@ -941,7 +1077,9 @@ function SizeForm({
                   <div className="flex flex-row items-center justify-between rounded-lg border p-3 bg-background">
                     <div className="space-y-0.5">
                       <Label className="text-xs">Travar limite?</Label>
-                      <p className="text-[10px] text-muted-foreground">Não permite extra</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Não permite extra
+                      </p>
                     </div>
                     <Switch
                       checked={formData[fieldStrict] as boolean}
@@ -951,7 +1089,7 @@ function SizeForm({
                     />
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
 
@@ -966,42 +1104,48 @@ function SizeForm({
         </CardContent>
       </form>
     </Card>
-  )
+  );
 }
 
 function RulesTabContent() {
-  const { sizes, addSize, updateSize, deleteSize, settings, updateSettings } = useStore()
-  const [showForm, setShowForm] = useState(false)
-  const [editingSize, setEditingSize] = useState<Size | null>(null)
-  const [editingLimits, setEditingLimits] = useState(false)
+  const { sizes, addSize, updateSize, deleteSize, settings, updateSettings } =
+    useStore();
+  const [showForm, setShowForm] = useState(false);
+  const [editingSize, setEditingSize] = useState<Size | null>(null);
+  const [editingLimits, setEditingLimits] = useState(false);
   const [limitData, setLimitData] = useState({
     extraPastaPrice: (settings.extraPastaPrice || 0).toString(),
     extraSaucePrice: (settings.extraSaucePrice || 0).toString(),
     extraIngredientPrice: (settings.extraIngredientPrice || 0).toString(),
-  })
+  });
 
   const handleSaveSize = (data: Omit<Size, "id"> & { id?: string }) => {
-    if (data.id) updateSize(data.id, data)
-    else addSize({ ...data, id: `size-${Date.now()}` })
+    if (data.id) updateSize(data.id, data);
+    else addSize({ ...data, id: `size-${Date.now()}` });
 
-    setShowForm(false)
-    setEditingSize(null)
-  }
+    setShowForm(false);
+    setEditingSize(null);
+  };
 
   const handleSaveLimits = () => {
     updateSettings({
-      extraPastaPrice: parseFloat(limitData.extraPastaPrice.replace(",", ".")) || 0,
-      extraSaucePrice: parseFloat(limitData.extraSaucePrice.replace(",", ".")) || 0,
-      extraIngredientPrice: parseFloat(limitData.extraIngredientPrice.replace(",", ".")) || 0,
-    })
-    setEditingLimits(false)
-  }
+      extraPastaPrice:
+        parseFloat(limitData.extraPastaPrice.replace(",", ".")) || 0,
+      extraSaucePrice:
+        parseFloat(limitData.extraSaucePrice.replace(",", ".")) || 0,
+      extraIngredientPrice:
+        parseFloat(limitData.extraIngredientPrice.replace(",", ".")) || 0,
+    });
+    setEditingLimits(false);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Tamanhos e Regras</h2>
+          <h2 className="text-2xl font-bold text-foreground">
+            Tamanhos e Regras
+          </h2>
           <p className="text-muted-foreground mt-1">
             Configure os tamanhos de macarrão e os valores cobrados por excesso.
           </p>
@@ -1023,7 +1167,11 @@ function RulesTabContent() {
               </CardDescription>
             </div>
             {!editingLimits && (
-              <Button variant="outline" size="sm" onClick={() => setEditingLimits(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingLimits(true)}
+              >
                 <Pencil className="h-4 w-4 mr-2" /> Editar
               </Button>
             )}
@@ -1041,7 +1189,10 @@ function RulesTabContent() {
                     step="0.01"
                     value={limitData.extraPastaPrice}
                     onChange={(e) =>
-                      setLimitData({ ...limitData, extraPastaPrice: e.target.value })
+                      setLimitData({
+                        ...limitData,
+                        extraPastaPrice: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -1052,7 +1203,10 @@ function RulesTabContent() {
                     step="0.01"
                     value={limitData.extraSaucePrice}
                     onChange={(e) =>
-                      setLimitData({ ...limitData, extraSaucePrice: e.target.value })
+                      setLimitData({
+                        ...limitData,
+                        extraSaucePrice: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -1063,7 +1217,10 @@ function RulesTabContent() {
                     step="0.01"
                     value={limitData.extraIngredientPrice}
                     onChange={(e) =>
-                      setLimitData({ ...limitData, extraIngredientPrice: e.target.value })
+                      setLimitData({
+                        ...limitData,
+                        extraIngredientPrice: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -1073,7 +1230,10 @@ function RulesTabContent() {
                 <Button onClick={handleSaveLimits}>
                   <Save className="h-4 w-4 mr-2" /> Salvar
                 </Button>
-                <Button variant="outline" onClick={() => setEditingLimits(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setEditingLimits(false)}
+                >
                   <X className="h-4 w-4 mr-2" /> Cancelar
                 </Button>
               </div>
@@ -1093,7 +1253,9 @@ function RulesTabContent() {
                 </div>
               </div>
               <div className="p-4 bg-orange-50/50 dark:bg-orange-950/20 rounded-lg border border-orange-100 dark:border-orange-900/50">
-                <div className="text-sm text-muted-foreground">Ingrediente Extra</div>
+                <div className="text-sm text-muted-foreground">
+                  Ingrediente Extra
+                </div>
                 <div className="text-xl font-bold text-primary">
                   {formatCurrency(settings.extraIngredientPrice || 0)}
                 </div>
@@ -1108,8 +1270,8 @@ function RulesTabContent() {
           size={editingSize || undefined}
           onSave={handleSaveSize}
           onCancel={() => {
-            setShowForm(false)
-            setEditingSize(null)
+            setShowForm(false);
+            setEditingSize(null);
           }}
         />
       )}
@@ -1122,8 +1284,8 @@ function RulesTabContent() {
               key={size.id}
               size={size}
               onEdit={() => {
-                setEditingSize(size)
-                setShowForm(true)
+                setEditingSize(size);
+                setShowForm(true);
               }}
               onDelete={() => deleteSize(size.id)}
             />
@@ -1131,33 +1293,48 @@ function RulesTabContent() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function DeliveryTabContent() {
-  const { bairros, addBairro, deleteBairro, toggleBairro } = useStore()
+  const { bairros, addBairro, updateBairro, deleteBairro, toggleBairro } =
+    useStore();
 
   const [newBairro, setNewBairro] = useState({
     nome: "",
     cidade: "Araruama",
     taxa_entrega: 0,
-  })
+  });
+
+  // Estados para edição
+  const [editingId, setEditingId] = useState<string | number | null>(null);
+  const [editData, setEditData] = useState({ nome: "", taxa_entrega: 0 });
 
   const handleAddBairro = () => {
-    if (!newBairro.nome.trim()) return
-    addBairro(newBairro)
-    setNewBairro({ nome: "", cidade: "Araruama", taxa_entrega: 0 })
-  }
+    if (!newBairro.nome.trim()) return;
+    addBairro(newBairro);
+    setNewBairro({ nome: "", cidade: "Araruama", taxa_entrega: 0 });
+  };
+
+  const handleSaveEdit = (id: string | number) => {
+    updateBairro(id as number, {
+      nome: editData.nome,
+      taxa_entrega: editData.taxa_entrega,
+    });
+    setEditingId(null);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <Card className="border-stone-200 shadow-sm">
         <CardHeader className="bg-stone-50/50 pb-4 border-b">
           <CardTitle className="flex items-center gap-2 text-xl text-stone-800">
-            <MapPin className="w-5 h-5 text-purple-600" /> Gestão de Bairros e Taxas
+            <MapPin className="w-5 h-5 text-purple-600" /> Gestão de Bairros e
+            Taxas
           </CardTitle>
           <CardDescription>
-            Defina os locais de entrega permitidos e as respetivas taxas de envio.
+            Defina os locais de entrega permitidos e as respectivas taxas de
+            envio.
           </CardDescription>
         </CardHeader>
 
@@ -1168,7 +1345,9 @@ function DeliveryTabContent() {
               <Input
                 placeholder="Ex: Centro"
                 value={newBairro.nome}
-                onChange={(e) => setNewBairro({ ...newBairro, nome: e.target.value })}
+                onChange={(e) =>
+                  setNewBairro({ ...newBairro, nome: e.target.value })
+                }
                 className="bg-white"
               />
             </div>
@@ -1191,7 +1370,10 @@ function DeliveryTabContent() {
             </div>
 
             <div className="flex items-end">
-              <Button className="w-full bg-purple-600 hover:bg-purple-700 font-bold" onClick={handleAddBairro}>
+              <Button
+                className="w-full bg-purple-600 hover:bg-purple-700 font-bold"
+                onClick={handleAddBairro}
+              >
                 <Plus className="w-4 h-4 mr-2" /> Adicionar
               </Button>
             </div>
@@ -1207,39 +1389,97 @@ function DeliveryTabContent() {
                 Nenhum bairro configurado.
               </div>
             ) : (
-              bairros.map((b) => (
+              bairros.map((b: any) => (
                 <div
                   key={b.id}
-                  className="flex items-center justify-between p-4 border border-stone-200 rounded-lg hover:border-purple-200 transition-colors bg-white"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-stone-200 rounded-lg hover:border-purple-200 transition-colors bg-white gap-4"
                 >
-                  <div>
-                    <p className="font-black text-stone-800 text-lg">{b.nome}</p>
-                    <p className="text-sm font-bold text-purple-600">
-                      Taxa: {formatCurrency(b.taxa_entrega)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium text-stone-500 cursor-pointer">
-                        {b.ativo ? "Ativo" : "Pausado"}
-                      </Label>
-                      <Switch
-                        checked={b.ativo}
-                        onCheckedChange={() => toggleBairro(b.id)}
-                        className="data-[state=checked]:bg-green-500"
+                  {editingId === b.id ? (
+                    <div className="flex-1 flex flex-col sm:flex-row gap-3 w-full">
+                      <Input
+                        value={editData.nome}
+                        onChange={(e) =>
+                          setEditData({ ...editData, nome: e.target.value })
+                        }
+                        className="flex-1"
                       />
+                      <Input
+                        type="number"
+                        step="0.50"
+                        value={editData.taxa_entrega}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            taxa_entrega: Number(e.target.value),
+                          })
+                        }
+                        className="w-full sm:w-32"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleSaveEdit(b.id)}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <Save className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setEditingId(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      <div>
+                        <p className="font-black text-stone-800 text-lg">
+                          {b.nome}
+                        </p>
+                        <p className="text-sm font-bold text-purple-600">
+                          Taxa: {formatCurrency(b.taxa_entrega)}
+                        </p>
+                      </div>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteBairro(b.id)}
-                      className="hover:bg-red-50 hover:text-red-600"
-                    >
-                      <Trash2 className="w-5 h-5 text-stone-400" />
-                    </Button>
-                  </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm font-medium text-stone-500 cursor-pointer">
+                            {b.ativo ? "Ativo" : "Pausado"}
+                          </Label>
+                          <Switch
+                            checked={b.ativo}
+                            onCheckedChange={() => toggleBairro(b.id)}
+                            className="data-[state=checked]:bg-green-500"
+                          />
+                        </div>
+
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingId(b.id);
+                              setEditData({
+                                nome: b.nome,
+                                taxa_entrega: b.taxa_entrega,
+                              });
+                            }}
+                            className="text-stone-500 hover:text-purple-600"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteBairro(b.id)}
+                            className="hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="w-5 h-5 text-stone-400" />
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))
             )}
@@ -1247,15 +1487,17 @@ function DeliveryTabContent() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 function OperationsTabContent() {
-  const { settings, updateSettings } = useStore()
-  const [globalTax, setGlobalTax] = useState(settings.taxaEmbalagemGlobal?.toString() || "0")
+  const { settings, updateSettings } = useStore();
+  const [globalTax, setGlobalTax] = useState(
+    settings.taxaEmbalagemGlobal?.toString() || "0",
+  );
 
   const toggleDay = (dayKey: string, active: boolean) => {
-    const schedule = settings.deliverySchedule || {}
+    const schedule = settings.deliverySchedule || {};
     updateSettings({
       deliverySchedule: {
         ...schedule,
@@ -1264,27 +1506,35 @@ function OperationsTabContent() {
           active,
         },
       },
-    })
-  }
+    });
+  };
 
-  const updateDayTime = (dayKey: string, field: "start" | "end", value: string) => {
-    const schedule = settings.deliverySchedule || {}
+  const updateDayTime = (
+    dayKey: string,
+    field: "start" | "end",
+    value: string,
+  ) => {
+    const schedule = settings.deliverySchedule || {};
     updateSettings({
       deliverySchedule: {
         ...schedule,
         [dayKey]: {
-          ...(schedule[dayKey] || { active: true, start: "18:00", end: "23:59" }),
+          ...(schedule[dayKey] || {
+            active: true,
+            start: "18:00",
+            end: "23:59",
+          }),
           [field]: value,
         },
       },
-    })
-  }
+    });
+  };
 
   const handleSaveGlobalTax = () => {
     updateSettings({
       taxaEmbalagemGlobal: parseFloat(globalTax.replace(",", ".")) || 0,
-    })
-  }
+    });
+  };
 
   const diasSemana = [
     { key: "1", label: "Segunda" },
@@ -1294,12 +1544,14 @@ function OperationsTabContent() {
     { key: "5", label: "Sexta" },
     { key: "6", label: "Sábado" },
     { key: "0", label: "Domingo" },
-  ]
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Configurações de Operação</h2>
+        <h2 className="text-2xl font-bold text-foreground">
+          Configurações de Operação
+        </h2>
         <p className="text-muted-foreground mt-1">
           Gerencie funcionamento, cartões e automações.
         </p>
@@ -1311,7 +1563,8 @@ function OperationsTabContent() {
             <div>
               <CardTitle className="text-lg">Status do Delivery</CardTitle>
               <CardDescription>
-                Ligue ou desligue o recebimento de pedidos via Delivery. Não afeta a Mesa.
+                Ligue ou desligue o recebimento de pedidos via Delivery. Não
+                afeta a Mesa.
               </CardDescription>
             </div>
 
@@ -1326,7 +1579,9 @@ function OperationsTabContent() {
                   settings.isOpen !== false ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {settings.isOpen !== false ? "EM FUNCIONAMENTO" : "FORA DE ATENDIMENTO"}
+                {settings.isOpen !== false
+                  ? "EM FUNCIONAMENTO"
+                  : "FORA DE ATENDIMENTO"}
               </Label>
             </div>
           </div>
@@ -1341,7 +1596,7 @@ function OperationsTabContent() {
         Programe os horários em que o delivery abrirá e fechará automaticamente todos os dias.
           </CardDescription>
         </CardHeader> */}
-        {/* <CardContent>
+      {/* <CardContent>
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {diasSemana.map((dia) => {
               const dayConfig = settings.deliverySchedule?.[dia.key] || {
@@ -1389,14 +1644,15 @@ function OperationsTabContent() {
             })}
           </div>
         </CardContent> */}
-        {/* </Card> */}
+      {/* </Card> */}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Aprovação de Mesas</CardTitle>
             <CardDescription>
-              Pedidos de mesas vão direto para cozinha ou exigem aprovação manual no caixa?
+              Pedidos de mesas vão direto para cozinha ou exigem aprovação
+              manual no caixa?
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1408,7 +1664,9 @@ function OperationsTabContent() {
               </Label>
               <Switch
                 checked={!!settings.autoApproveMesa}
-                onCheckedChange={(val) => updateSettings({ autoApproveMesa: val })}
+                onCheckedChange={(val) =>
+                  updateSettings({ autoApproveMesa: val })
+                }
                 className="data-[state=checked]:bg-orange-600"
               />
             </div>
@@ -1417,19 +1675,24 @@ function OperationsTabContent() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Pagamento em Cartão (Mesas)</CardTitle>
+            <CardTitle className="text-lg">
+              Pagamento em Cartão (Mesas)
+            </CardTitle>
             <CardDescription>
-              Habilitar ou desabilitar a opção de fechar conta no Cartão de Crédito/Débito.
+              Habilitar ou desabilitar a opção de fechar conta no Cartão de
+              Crédito/Débito.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
               <Label className="font-bold cursor-pointer text-sm sm:text-base">
-                {settings.acceptCard !== false ? "CARTÃO LIBERADO" : "CARTÃO BLOQUEADO"}
+                {settings.mercadoPagoAtivo !== false
+                  ? "CARTÃO LIBERADO"
+                  : "CARTÃO BLOQUEADO"}
               </Label>
               <Switch
-                checked={settings.acceptCard !== false}
-                onCheckedChange={(val) => updateSettings({ acceptCard: val })}
+                checked={settings.mercadoPagoAtivo !== false}
+                onCheckedChange={(val) => updateSettings({ mercadoPagoAtivo: val })}
                 className="data-[state=checked]:bg-green-600"
               />
             </div>
@@ -1442,7 +1705,8 @@ function OperationsTabContent() {
           <CardHeader>
             <CardTitle className="text-lg">Taxa Padrão de Embalagem</CardTitle>
             <CardDescription>
-              Valor cobrado ao utilizar a opção "Valor Padrão" nos produtos avulsos.
+              Valor cobrado ao utilizar a opção "Valor Padrão" nos produtos
+              avulsos.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1463,7 +1727,9 @@ function OperationsTabContent() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Aprovação Automática Delivery</CardTitle>
+            <CardTitle className="text-lg">
+              Aprovação Automática Delivery
+            </CardTitle>
             <CardDescription>
               Pula a tela de espera e envia pedidos do site direto para preparo.
             </CardDescription>
@@ -1471,7 +1737,9 @@ function OperationsTabContent() {
           <CardContent>
             <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
               <Label className="font-bold cursor-pointer text-sm">
-                {settings.autoApprove ? "LIGADA (Envio direto)" : "DESLIGADA (Manual)"}
+                {settings.autoApprove
+                  ? "LIGADA (Envio direto)"
+                  : "DESLIGADA (Manual)"}
               </Label>
               <Switch
                 checked={settings.autoApprove}
@@ -1483,7 +1751,7 @@ function OperationsTabContent() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
 
 export default function AdminMenuPage() {
@@ -1494,7 +1762,8 @@ export default function AdminMenuPage() {
           Gestão da Loja
         </h1>
         <p className="text-stone-500 font-medium mt-1">
-          Configure o cardápio, produtos, taxas de entrega e regras de aprovação.
+          Configure o cardápio, produtos, taxas de entrega e regras de
+          aprovação.
         </p>
       </div>
 
@@ -1537,27 +1806,42 @@ export default function AdminMenuPage() {
         </TabsList>
 
         <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-800 p-6 min-h-[60vh]">
-          <TabsContent value="cardapio" className="m-0 focus-visible:outline-none">
+          <TabsContent
+            value="cardapio"
+            className="m-0 focus-visible:outline-none"
+          >
             <MenuTabContent />
           </TabsContent>
 
-          <TabsContent value="produtos" className="m-0 focus-visible:outline-none">
+          <TabsContent
+            value="produtos"
+            className="m-0 focus-visible:outline-none"
+          >
             <ProductsTabContent />
           </TabsContent>
 
-          <TabsContent value="entregas" className="m-0 focus-visible:outline-none">
+          <TabsContent
+            value="entregas"
+            className="m-0 focus-visible:outline-none"
+          >
             <DeliveryTabContent />
           </TabsContent>
 
-          <TabsContent value="regras" className="m-0 focus-visible:outline-none">
+          <TabsContent
+            value="regras"
+            className="m-0 focus-visible:outline-none"
+          >
             <RulesTabContent />
           </TabsContent>
 
-          <TabsContent value="operacao" className="m-0 focus-visible:outline-none">
+          <TabsContent
+            value="operacao"
+            className="m-0 focus-visible:outline-none"
+          >
             <OperationsTabContent />
           </TabsContent>
         </div>
       </Tabs>
     </div>
-  )
+  );
 }

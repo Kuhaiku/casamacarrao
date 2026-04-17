@@ -16,12 +16,13 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { CreditCard, Banknote, QrCode, ChevronLeft, PartyPopper, Plus, Minus, Loader2, AlertCircle } from "lucide-react"
+import { CreditCard, Banknote, QrCode, ChevronLeft, PartyPopper, Loader2, AlertCircle } from "lucide-react"
 
 import type { OrderProduct, OrderStatus, BairroValidation } from "@/lib/types"
 
 function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  const safeValue = (typeof value === "number" && !isNaN(value)) ? value : 0;
+  return safeValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
 function SuccessScreen() {
@@ -48,7 +49,6 @@ export function Checkout() {
   const [phone, setPhone] = useState("")
   const [selectedProducts, setSelectedProducts] = useState<OrderProduct[]>([])
   
-  const [isSubmitted, setIsSubmitted] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isValidatingArea, setIsValidatingArea] = useState(false)
   const [bairroStatus, setBairroStatus] = useState<BairroValidation | null>(null)
@@ -76,6 +76,8 @@ export function Checkout() {
     return () => clearTimeout(timer)
   }, [addressData.bairro, addressData.cidade, tipoPedido, toast])
 
+  const subtotal = useMemo(() => calculateOrderTotal(items, selectedProducts) || 0, [items, selectedProducts, calculateOrderTotal]);
+
   const taxaEmbalagem = useMemo(() => {
     if (tipoPedido === "mesa") return 0;
     const taxaGlobal = Number(settings.taxaEmbalagemGlobal) || 2.00;
@@ -85,13 +87,9 @@ export function Checkout() {
       if (!prod) return acc;
       
       let itemFee = 0;
-      if (prod.tipoEmbalagem === 'padrao') {
-        itemFee = taxaGlobal;
-      } else if (prod.tipoEmbalagem === 'personalizada') {
-        itemFee = Number(prod.taxaEmbalagem) || 0;
-      } else if (prod.tem_embalagem) {
-        itemFee = taxaGlobal;
-      }
+      if (prod.tipoEmbalagem === 'padrao') itemFee = taxaGlobal;
+      else if (prod.tipoEmbalagem === 'personalizada') itemFee = Number(prod.taxaEmbalagem) || 0;
+      else if (prod.tem_embalagem) itemFee = taxaGlobal;
       
       return acc + (itemFee * sp.quantity);
     }, 0);
@@ -105,20 +103,19 @@ export function Checkout() {
     return produtosFee + macarraoFee;
   }, [tipoPedido, items, selectedProducts, products, settings.taxaEmbalagemGlobal, sizes]);
 
-  const subtotal = calculateOrderTotal(items, selectedProducts)
-  const taxaEntrega = tipoPedido === "delivery" && bairroStatus?.valido ? bairroStatus.taxa_entrega : 0
+  const taxaEntrega = tipoPedido === "delivery" && bairroStatus?.valido ? (Number(bairroStatus.taxa_entrega) || 0) : 0;
   
   const taxaCartao = useMemo(() => {
-    if (paymentMethod !== "cartao") return 0
-    const base = subtotal + taxaEmbalagem + taxaEntrega
-    const percentual = settings.taxaCartaoPercentual || 3.5
-    const fixa = settings.taxaCartaoFixa || 0
-    return (base * (percentual / 100)) + fixa
-  }, [paymentMethod, subtotal, taxaEmbalagem, taxaEntrega, settings])
+    if (paymentMethod !== "cartao") return 0;
+    const baseSegura = Number(subtotal) + Number(taxaEmbalagem) + Number(taxaEntrega);
+    const percentual = Number(settings?.taxaCartaoPercentual) || 0;
+    const fixa = Number(settings?.taxaCartaoFixa) || 0;
+    const resultado = (baseSegura * (percentual / 100)) + fixa;
+    return isNaN(resultado) ? 0 : resultado;
+  }, [paymentMethod, subtotal, taxaEmbalagem, taxaEntrega, settings]);
 
-  const total = subtotal + taxaEmbalagem + taxaEntrega + taxaCartao
+  const total = Number(subtotal) + Number(taxaEmbalagem) + Number(taxaEntrega) + Number(taxaCartao);
 
-  // NOVO: Calcula exatamente quais campos estão faltando
   const missingFields = useMemo(() => {
     const missing = [];
     if (!customerName?.trim()) missing.push("Nome");
@@ -131,7 +128,6 @@ export function Checkout() {
     return missing;
   }, [customerName, phone, tipoPedido, addressData, bairroStatus]);
 
-  // NOVO: Bloqueia o botão e mostra visualmente se faltar algo
   const isBlockSubmit = settings.isOpen === false || items.length === 0 || missingFields.length > 0 || isProcessing || (tipoPedido === "delivery" && isValidatingArea);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,14 +135,13 @@ export function Checkout() {
     if (isBlockSubmit) return
 
     setIsProcessing(true)
-    
     const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`
     
     const orderData: any = {
       id: crypto.randomUUID(),
       customerName: customerName.trim(),
       phone: phone.trim(),
-      address: tipoPedido === "delivery" ? finalAddress : "Retirada/Mesa", 
+      address: tipoPedido === "delivery" ? finalAddress : (tipoPedido === "mesa" ? "Mesa" : "Retirada"), 
       paymentMethod,
       items,
       products: selectedProducts,
@@ -161,24 +156,28 @@ export function Checkout() {
       createdAt: new Date().toISOString()
     }
 
-  await addOrder(orderData)
+    try {
+      await addOrder(orderData)
 
-    if (paymentMethod === "cartao") {
-      const res = await createPaymentPreference(orderData, total)
-      if (res.success && res.init_point) {
-        window.location.href = res.init_point
-        return
+      if (paymentMethod === "cartao") {
+        const totalFinal = Number(total.toFixed(2));
+        if (isNaN(totalFinal) || totalFinal <= 0) throw new Error("Valor inválido");
+
+        const res = await createPaymentPreference(orderData, totalFinal)
+        if (res.success && res.init_point) {
+          window.location.href = res.init_point
+          return
+        } else {
+          throw new Error("Falha no link do Mercado Pago");
+        }
       }
+      
+      router.push(`/pedido/${orderData.id}`)
+    } catch (err) {
+      toast({ variant: "destructive", title: "Erro no Pedido", description: "Não foi possível processar o pagamento. Tente novamente." })
+      setIsProcessing(false)
     }
-    // Remova ou comente estas duas linhas:
-    // setIsProcessing(false)
-    // setIsSubmitted(true)
-
-    // Adicione o redirecionamento:
-    router.push(`/pedido/${orderData.id}`)
   }
-
-  if (isSubmitted) return <SuccessScreen />
 
   return (
     <div className="grid gap-8 lg:grid-cols-2 max-w-5xl mx-auto p-4">
@@ -221,7 +220,7 @@ export function Checkout() {
                     <div className="grid grid-cols-3 gap-2">
                       <div className="col-span-2 space-y-2">
                         <Label>Logradouro</Label>
-                        <Input value={addressData.logradouro} onChange={(e) => setAddressData({...addressData, logradouro: e.target.value})} disabled />
+                        <Input value={addressData.logradouro} readOnly disabled />
                       </div>
                       <div className="space-y-2">
                         <Label>Nº</Label>
@@ -231,11 +230,11 @@ export function Checkout() {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-2">
                         <Label>Bairro {isValidatingArea && <Loader2 className="inline h-3 w-3 animate-spin ml-2" />}</Label>
-                        <Input value={addressData.bairro} onChange={(e) => setAddressData({...addressData, bairro: e.target.value})} disabled />
+                        <Input value={addressData.bairro} readOnly disabled />
                       </div>
                       <div className="space-y-2">
                         <Label>Cidade</Label>
-                        <Input value={addressData.cidade} disabled />
+                        <Input value={addressData.cidade} readOnly disabled />
                       </div>
                     </div>
                     {bairroStatus?.valido === false && (
@@ -254,7 +253,9 @@ export function Checkout() {
                   <button type="button" onClick={() => setPaymentMethod("dinheiro")} disabled={!settings.isOpen} className={cn("p-3 rounded-lg border-2 flex flex-col items-center gap-1", paymentMethod === "dinheiro" ? "border-primary bg-primary/5" : "border-border opacity-70")}>
                     <Banknote className="h-5 w-5" /> <span className="text-xs font-medium">Dinheiro</span>
                   </button>
-                  {settings.mercadoPagoAtivo && (
+                  
+                  {/* TRAVA DUPLA: Verifica se o Mercado Pago está ativo E se a loja aceita cartão */}
+                  {settings.mercadoPagoAtivo === true && (
                     <button type="button" onClick={() => setPaymentMethod("cartao")} disabled={!settings.isOpen} className={cn("p-3 rounded-lg border-2 flex flex-col items-center gap-1", paymentMethod === "cartao" ? "border-primary bg-primary/5" : "border-border opacity-70")}>
                       <CreditCard className="h-5 w-5" /> <span className="text-xs font-medium">Cartão</span>
                     </button>
@@ -270,7 +271,6 @@ export function Checkout() {
         <Card className="sticky top-6">
           <CardHeader><CardTitle>Resumo do Pedido</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            
             <div className="space-y-2">
               {items.map((item, i) => (
                   <div key={i} className="text-sm p-2 bg-muted rounded flex justify-between">
@@ -322,7 +322,6 @@ export function Checkout() {
               <span className="text-primary">{formatCurrency(total)}</span>
             </div>
 
-            {/* NOVO: Exibe a lista de campos obrigatórios faltantes antes do botão */}
             {missingFields.length > 0 && settings.isOpen && items.length > 0 && (
               <div className="w-full text-center animate-in fade-in zoom-in mt-2 mb-1">
                 <p className="text-xs font-black text-red-600 uppercase tracking-wider bg-red-50 py-2 px-3 rounded-lg border border-red-100 inline-block w-full">
