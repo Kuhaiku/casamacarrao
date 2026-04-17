@@ -21,7 +21,7 @@ export type PrintConfig = {
 };
 
 export const DEFAULT_PRINT_CONFIG: PrintConfig = {
-  paperWidth: "80mm",
+  paperWidth: "58mm",
   marginTop: 4,
   marginRight: 4,
   marginBottom: 4,

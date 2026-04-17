@@ -12,21 +12,17 @@ Leve:
 Médio:
 -Mesa Painel: Preciso que Haja uma descrição completa do pedido na hora de "fechar a conta"  Preciso da opção de (imprimi, abre o modulo de impressão para imprimir na elgin I9)
 
--A descrição das despesas e das gorjetas precisam aparecer no relatorio tambem
-
 
 -Quando encerrar o turno as despesas e as vendas do painel page admin tem que reconhecer e limpar para o proximo turno
 !!! Preciso deixar "enraizado" que não funciona na segunda-feira
 
 Urgentes:
-
 !!! alguma coisa quebrou para o valor quando selecionamos cartão
-
-
 
 
 Sem prioridade(apenas ideias):
 
+-A descrição das despesas e das gorjetas precisam aparecer no relatorio tambem
 -Depois fazer com que seja possivel "imprimir o relatório das vendas" de cada fechamento, com todas as descrições das vendas
 -Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado
 

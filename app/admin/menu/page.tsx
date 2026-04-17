@@ -1588,7 +1588,7 @@ function OperationsTabContent() {
         </CardHeader>
       </Card>
 
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="text-lg">Horários de Funcionamento</CardTitle>
           <CardDescription>
@@ -1649,7 +1649,7 @@ function OperationsTabContent() {
             })}
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>

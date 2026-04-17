@@ -16,6 +16,8 @@ import type {
   OrderProduct,
 } from "./types";
 
+let timeout: any;
+
 interface OrderWithObs extends Omit<Order, "id" | "createdAt"> {
   id?: string;
   observation?: string;
@@ -158,10 +160,31 @@ export const useStore = create<StoreState & StoreActions>((set, get) => ({
     await dbDispatch("DELETE_PRODUCT", { id });
     get().sync();
   },
-  updateSettings: async (updates) => {
-    await dbDispatch("UPDATE_SETTINGS", updates);
-    get().sync();
-  },
+updateSettings: async (updates) => {
+  set((state) => ({
+    settings: {
+      ...state.settings,
+      ...updates,
+      deliverySchedule: updates.deliverySchedule
+        ? {
+            ...state.settings.deliverySchedule,
+            ...updates.deliverySchedule,
+          }
+        : state.settings.deliverySchedule,
+    },
+  }));
+
+  clearTimeout(timeout);
+
+  timeout = setTimeout(async () => {
+    try {
+      await dbDispatch("UPDATE_SETTINGS", updates);
+    } catch (error) {
+      console.error("Erro ao salvar settings:", error);
+      get().sync();
+    }
+  }, 400);
+},
 
   // Lógica dos Bairros
   addBairro: async (bairro) => {
