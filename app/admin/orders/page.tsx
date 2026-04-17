@@ -21,8 +21,18 @@ function formatCurrency(value: number) {
 
 function formatDate(dateString?: string) {
   if (!dateString) return "--/--/---- --:--";
-  return new Date(dateString).toLocaleString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
+  
+  const date = new Date(dateString);
+  
+  // Corrige o fuso horário subtraindo 3 horas (Ajuste para GMT-3)
+  date.setHours(date.getHours() - 3);
+
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit", 
+    month: "2-digit", 
+    year: "2-digit", 
+    hour: "2-digit", 
+    minute: "2-digit",
   });
 }
 

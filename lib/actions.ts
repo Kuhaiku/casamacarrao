@@ -23,6 +23,10 @@ const mapBooleans = (obj: any) => {
 export async function verifyFinanceiroPassword(password: string) {
   return password === process.env.FINANCEIRO_PASSWORD;
 }
+// ADICIONE ESTA FUNÇÃO AQUI:
+export async function verifyAdminPassword(password: string) {
+  return password === process.env.ADMIN_PASSWORD;
+}
 
 export async function getStoreData() {
   try {
@@ -113,6 +117,70 @@ case "UPDATE_SETTINGS": {
     case "ADD_BAIRRO":
       await pool.query("INSERT INTO bairros_atendidos (nome, cidade, taxa_entrega, ativo) VALUES (?, ?, ?, ?)", 
         [payload.nome, payload.cidade, payload.taxa_entrega, payload.ativo ? 1 : 0]);
+      break;
+    // === CARDÁPIO (MENU ITEMS) ===
+    case "ADD_MENU_ITEM":
+      await pool.query("INSERT INTO menu_items (id, name, category, isActive, price) VALUES (?, ?, ?, ?, ?)", 
+        [payload.id || randomUUID(), payload.name, payload.category, payload.isActive ? 1 : 0, payload.price || 0]);
+      break;
+    case "UPDATE_MENU_ITEM":
+      await pool.query("UPDATE menu_items SET ? WHERE id = ?", [payload.updates, payload.id]);
+      break;
+    case "TOGGLE_MENU_ITEM":
+      await pool.query("UPDATE menu_items SET isActive = NOT isActive WHERE id = ?", [payload.id]);
+      break;
+    case "DELETE_MENU_ITEM":
+      await pool.query("DELETE FROM menu_items WHERE id = ?", [payload.id]);
+      break;
+
+    // === TAMANHOS (SIZES) ===
+    case "ADD_SIZE":
+      await pool.query("INSERT INTO sizes (id, name, price, maxPastas, strictMaxPastas, maxIngredients, strictMaxIngredients, maxSauces, strictMaxSauces, taxaEmbalagem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [
+        payload.id || randomUUID(), payload.name, payload.price, 
+        payload.maxPastas, payload.strictMaxPastas ? 1 : 0, 
+        payload.maxIngredients, payload.strictMaxIngredients ? 1 : 0, 
+        payload.maxSauces, payload.strictMaxSauces ? 1 : 0, 
+        payload.taxaEmbalagem || 0
+      ]);
+      break;
+    case "UPDATE_SIZE": {
+      const validSizeUpdates = { ...payload.updates };
+      // Garantir conversão de booleano para TINYINT(1) do banco
+      if (typeof validSizeUpdates.strictMaxPastas === "boolean") validSizeUpdates.strictMaxPastas = validSizeUpdates.strictMaxPastas ? 1 : 0;
+      if (typeof validSizeUpdates.strictMaxIngredients === "boolean") validSizeUpdates.strictMaxIngredients = validSizeUpdates.strictMaxIngredients ? 1 : 0;
+      if (typeof validSizeUpdates.strictMaxSauces === "boolean") validSizeUpdates.strictMaxSauces = validSizeUpdates.strictMaxSauces ? 1 : 0;
+      await pool.query("UPDATE sizes SET ? WHERE id = ?", [validSizeUpdates, payload.id]);
+      break;
+    }
+    case "DELETE_SIZE":
+      await pool.query("DELETE FROM sizes WHERE id = ?", [payload.id]);
+      break;
+
+    // === CATEGORIAS DE PRODUTOS ===
+    case "ADD_PRODUCT_CATEGORY":
+      await pool.query("INSERT INTO product_categories (id, name, isActive) VALUES (?, ?, ?)", 
+        [payload.id || randomUUID(), payload.name, payload.isActive ? 1 : 0]);
+      break;
+    case "UPDATE_PRODUCT_CATEGORY":
+      await pool.query("UPDATE product_categories SET ? WHERE id = ?", [payload.updates, payload.id]);
+      break;
+    case "DELETE_PRODUCT_CATEGORY":
+      await pool.query("DELETE FROM product_categories WHERE id = ?", [payload.id]);
+      break;
+
+    // === PRODUTOS ===
+    case "ADD_PRODUCT":
+      await pool.query("INSERT INTO products (id, name, price, categoryId, isActive, tipoEmbalagem, taxaEmbalagem) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+        [payload.id || randomUUID(), payload.name, payload.price, payload.categoryId, payload.isActive ? 1 : 0, payload.tipoEmbalagem || 'nenhuma', payload.taxaEmbalagem || 0]);
+      break;
+    case "UPDATE_PRODUCT":
+      await pool.query("UPDATE products SET ? WHERE id = ?", [payload.updates, payload.id]);
+      break;
+    case "TOGGLE_PRODUCT":
+      await pool.query("UPDATE products SET isActive = NOT isActive WHERE id = ?", [payload.id]);
+      break;
+    case "DELETE_PRODUCT":
+      await pool.query("DELETE FROM products WHERE id = ?", [payload.id]);
       break;
     case "UPDATE_BAIRRO":
       await pool.query("UPDATE bairros_atendidos SET ? WHERE id = ?", [payload.updates, payload.id]);

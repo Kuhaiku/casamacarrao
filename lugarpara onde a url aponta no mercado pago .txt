@@ -18,19 +18,14 @@ Médio:
 -Depois fazer com que seja possivel "imprimir o relatório das vendas" de cada fechamento, com todas as descrições das vendas
 
 -Quando encerrar o turno as despesas e as vendas do painel page admin tem que reconhecer e limpar para o proximo turno
+!!! Preciso deixar "enraizado" que não funciona na segunda-feira
 
 Urgentes:
 
-!!! o registro do cardápio parou de fuincionar e dos produtos avulsos tambem os tamanhos do tamanhos e regras parou de funcionar tambem
-!!! Preciso deixar "enraizado" que não funciona na segunda-feira
-!!! Precisamos poder Editar os valores das entregas
-
 !!! alguma coisa quebrou para o valor quando selecionamos cartão
 
-ERROS:
--Painel: botão de ligar e desligar pagamento em cartão (atualmente em bug)(## Error Type
-Runtime Error## Error MessageUnknown column 'acceptCard' in 'field list'    at dbDispatch (lib\actions.ts:78:18)## Code Frame  76 |       if (validPayload.deliverySchedule) validPayload.deliverySchedule = JSON.stringify(validPayload.deliverySchedule);  77 |       delete validPayload.bairros;> 78 |       await pool.query("UPDATE store_settings SET ? WHERE id = 1", [validPayload]);     |                  ^  79 |       break;  80 |     }  81 |     case "ADD_BAIRRO":Next.js version: 16.2.0 (Webpack)
-)
+
+
 
 Sem prioridade(apenas ideias):
 
