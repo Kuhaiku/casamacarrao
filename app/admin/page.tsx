@@ -1039,7 +1039,7 @@ export default function AdminDashboardPage() {
 
                 <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
 
-                <PrintableOrderDetails order={orderToPay} />
+                <PrintableOrderDetails order={orderToPay} config={printConfig} />
 
                 {printConfig.showGeneralObservation && orderToPay.observation ? (
                   <>

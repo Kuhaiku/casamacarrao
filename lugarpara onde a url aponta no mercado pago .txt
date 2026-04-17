@@ -12,6 +12,7 @@ Leve:
 Médio:
 -Mesa Painel: Preciso que Haja uma descrição completa do pedido na hora de "fechar a conta"  Preciso da opção de (imprimi, abre o modulo de impressão para imprimir na elgin I9)
 
+ARRUMAR A IMPRESSÃO DO COMPROVANTE DE MESA
 
 -Quando encerrar o turno as despesas e as vendas do painel page admin tem que reconhecer e limpar para o proximo turno
 !!! Preciso deixar "enraizado" que não funciona na segunda-feira
