@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChefHat, ShoppingBag, ArrowLeft, AlertCircle } from "lucide-react";
+import { ChefHat, ShoppingBag, ArrowLeft, AlertCircle, Check } from "lucide-react";
 import { useStore } from "@/lib/store";
 
 import { MenuView } from "@/components/customer/menu-view";
@@ -17,6 +17,8 @@ export default function CustomerHome() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Estado para controlar a animação de feedback
   const [cartBump, setCartBump] = useState(false);
 
   const [cartAvulsos, setCartAvulsos] = useState<any[]>([]);
@@ -33,12 +35,17 @@ export default function CustomerHome() {
     return () => clearTimeout(timer);
   }, [sync]);
 
+  // Lógica otimizada para o Feedback Visual
   useEffect(() => {
+    let timer: NodeJS.Timeout;
     if (totalItemsCount > prevItemsCount.current) {
-      setCartBump(true);
-      setTimeout(() => setCartBump(false), 400);
+      setCartBump(false); // Reseta para garantir que a animação reinicie se clicar rápido
+      setTimeout(() => setCartBump(true), 10);
+      timer = setTimeout(() => setCartBump(false), 2000); // Fica na tela por 2 segundos
     }
     prevItemsCount.current = totalItemsCount;
+    
+    return () => clearTimeout(timer);
   }, [totalItemsCount]);
 
   const itemsBySection = useMemo(() => {
@@ -81,7 +88,6 @@ export default function CustomerHome() {
     );
   }
 
-  // Enviando Propriedades Limpas
   const cartProps = {
     cartSubtotal: cartTotal,
     totalItemsCount, cartSelfService, cartAvulsos,
@@ -91,7 +97,21 @@ export default function CustomerHome() {
   };
 
   return (
-    <div className="flex h-screen bg-stone-50 font-sans overflow-hidden animate-in fade-in duration-500">
+    <div className="flex h-[100dvh] bg-stone-50 font-sans overflow-hidden animate-in fade-in duration-500 relative">
+      
+      {/* FEEDBACK VISUAL FLUTUANTE GLOBAL (Mobile & Desktop) */}
+      <div 
+        className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 pointer-events-none flex items-center justify-center
+        ${cartBump ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-10 scale-95'}`}
+      >
+        <div className="bg-green-600 text-white pl-2 pr-6 py-2 rounded-full shadow-[0_10px_40px_rgba(22,163,74,0.4)] flex items-center gap-3 font-black tracking-wide border-2 border-green-400">
+          <div className="bg-white text-green-600 p-1.5 rounded-full shadow-sm">
+            <Check className="w-5 h-5 stroke-[3]" />
+          </div>
+          <span className="drop-shadow-sm text-sm">ITEM ADICIONADO!</span>
+        </div>
+      </div>
+
       <div className={`flex-1 flex flex-col h-full transition-all duration-300 ${isMobileCartOpen ? "hidden lg:flex" : "flex w-full"}`}>
         
         {settings.isOpen === false && (
@@ -114,12 +134,26 @@ export default function CustomerHome() {
           </div>
         </div>
 
+        {/* BOTÃO MOBILE DA SACOLA COM FEEDBACK VISUAL */}
         <div className="lg:hidden bg-stone-50 px-4 py-3 border-b border-stone-200 z-10 shadow-sm shrink-0">
-          <button onClick={() => setIsMobileCartOpen(true)} className="w-full rounded-2xl p-3 shadow-md flex items-center justify-between bg-stone-900 text-white">
+          <button 
+            onClick={() => setIsMobileCartOpen(true)} 
+            className={`w-full rounded-2xl p-3 flex items-center justify-between transition-all duration-300 shadow-md border-2
+              ${cartBump 
+                ? 'bg-green-600 border-green-500 text-white scale-[1.02]' 
+                : 'bg-stone-900 border-stone-900 text-white'}`}
+          >
             <div className="flex items-center gap-3">
-              <ShoppingBag className="w-5 h-5 text-stone-200" />
-              <span className="font-bold text-sm tracking-wide">Minha Sacola ({totalItemsCount})</span>
+              <ShoppingBag className={`w-5 h-5 transition-transform duration-300 ${cartBump ? 'scale-125' : 'text-stone-200'}`} />
+              <span className="font-bold text-sm tracking-wide">
+                {cartBump ? "Adicionado com Sucesso!" : `Minha Sacola (${totalItemsCount})`}
+              </span>
             </div>
+            {cartTotal > 0 && !cartBump && (
+              <span className="font-black bg-white/10 px-2 py-1 rounded-lg text-xs tracking-wider">
+                {formatCurrency(cartTotal)}
+              </span>
+            )}
           </button>
         </div>
 
@@ -144,7 +178,7 @@ export default function CustomerHome() {
       {isMobileCartOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex flex-col bg-stone-900/50 backdrop-blur-sm animate-in fade-in">
           <div className="flex-1" onClick={() => setIsMobileCartOpen(false)}></div>
-          <div className="h-[90vh] bg-white rounded-t-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full flex flex-col">
+          <div className="h-[90dvh] bg-white rounded-t-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full flex flex-col">
             <CartSidebar {...cartProps} />
           </div>
         </div>

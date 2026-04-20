@@ -22,7 +22,7 @@ import { useStore } from "@/lib/store";
 
 export function CartSidebar(props: any) {
   const { toast } = useToast();
-  const { menuItems } = useStore(); // Puxa os itens do menu para traduzir os IDs
+  const { menuItems } = useStore();
   const {
     cartSubtotal,
     totalItemsCount,
@@ -41,8 +41,8 @@ export function CartSidebar(props: any) {
 
   const isCartEmpty = totalItemsCount === 0;
 
-  // Estado para controlar a etapa da sacola (1 = Lista de Itens, 2 = Dados/Pagamento)
-  const [step, setStep] = useState<1 | 2>(1);
+  // Estado das 4 Etapas: 1=Sacola | 2=Dados | 3=Observação | 4=Pagamento
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -137,7 +137,7 @@ export function CartSidebar(props: any) {
     Number(taxaEntrega) +
     Number(taxaCartao);
 
-  const missingFields = useMemo(() => {
+  const step2Missing = useMemo(() => {
     const missing = [];
     if (!customerName?.trim()) missing.push("Nome");
     if (!phone?.trim()) missing.push("WhatsApp");
@@ -147,10 +147,10 @@ export function CartSidebar(props: any) {
     return missing;
   }, [customerName, phone, addressData, bairroStatus]);
 
-  const isBlockSubmit =
+  const isBlockFinalize =
     settings.isOpen === false ||
     isCartEmpty ||
-    missingFields.length > 0 ||
+    step2Missing.length > 0 ||
     isProcessing ||
     isValidatingArea;
 
@@ -209,7 +209,7 @@ export function CartSidebar(props: any) {
   };
 
   const handleFinalize = async () => {
-    if (isBlockSubmit) return;
+    if (isBlockFinalize) return;
 
     setIsProcessing(true);
     const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`;
@@ -267,24 +267,33 @@ export function CartSidebar(props: any) {
     return item ? item.name : "Item";
   };
 
+  // Nomes dos Cabeçalhos para cada etapa
+  const stepTitles = {
+    1: "Sua Sacola",
+    2: "Dados e Entrega",
+    3: "Observação",
+    4: "Finalizar Pedido",
+  };
+
   return (
     <div className="flex flex-col h-[100dvh] bg-stone-50">
-      {/* HEADER DA SACOLA */}
+      {/* CABEÇALHO DA SACOLA */}
       <div className="p-4 border-b border-stone-200 bg-white flex items-center justify-between shrink-0 z-10 shadow-sm">
         {step === 1 ? (
           <h2 className="text-lg font-black text-stone-800 flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-orange-600" /> Sua Sacola
+            <ShoppingBag className="w-5 h-5 text-orange-600" />{" "}
+            {stepTitles[step]}
           </h2>
         ) : (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setStep(1)}
+              onClick={() => setStep((prev) => (prev - 1) as any)}
               className="p-1.5 bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition-colors"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <h2 className="text-lg font-black text-stone-800">
-              Finalizar Pedido
+              {stepTitles[step]}
             </h2>
           </div>
         )}
@@ -297,7 +306,7 @@ export function CartSidebar(props: any) {
       </div>
 
       {/* ÁREA ROLÁVEL PRINCIPAL */}
-      <div className="flex-1 overflow-y-auto pb-4">
+      <div className="flex-1 overflow-y-auto">
         {settings.isOpen === false && (
           <div className="p-4 bg-red-50 border-b border-red-100 text-red-800 flex items-start gap-2">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -312,288 +321,320 @@ export function CartSidebar(props: any) {
             <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-20" />
             <p className="text-sm font-medium">Sua sacola está vazia.</p>
           </div>
-        ) : step === 1 ? (
-          /* =================== PASSO 1: LISTA DETALHADA =================== */
-          <div className="p-4 space-y-4">
-            {cartSelfService.map((item: any) => (
-              <div
-                key={item.id}
-                className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-sm space-y-3"
-              >
-                <div className="flex justify-between items-start border-b border-stone-100 pb-2">
-                  <span className="font-black text-stone-800 text-sm">
-                    Macarrão{" "}
-                    {sizes.find((s: any) => s.id === item.sizeId)?.name}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveSelfService(item.id)}
-                    className="text-stone-400 hover:text-red-500 bg-red-50/50 p-1.5 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
-                </div>
-                <div className="text-[12px] text-stone-600 leading-snug space-y-1.5 pl-2 border-l-2 border-orange-200">
-                  {item.pastaId && (
-                    <div>
-                      <span className="font-bold text-stone-400">Massa:</span>{" "}
-                      {getItemName(item.pastaId)}
-                    </div>
-                  )}
-                  {item.sauces?.length > 0 && (
-                    <div>
-                      <span className="font-bold text-stone-400">Molhos:</span>{" "}
-                      {item.sauces.map(getItemName).join(", ")}
-                    </div>
-                  )}
-                  {item.temperos?.length > 0 && (
-                    <div>
-                      <span className="font-bold text-stone-400">
-                        Temperos:
-                      </span>{" "}
-                      {item.temperos.map(getItemName).join(", ")}
-                    </div>
-                  )}
-                  {item.ingredients?.length > 0 && (
-                    <div>
-                      <span className="font-bold text-stone-400">
-                        Ingredientes:
-                      </span>{" "}
-                      {item.ingredients.map(getItemName).join(", ")}
-                    </div>
-                  )}
-                  {item.extras?.length > 0 && (
-                    <div className="text-amber-700">
-                      <span className="font-bold text-amber-500">Extras:</span>{" "}
-                      {item.extras.map(getItemName).join(", ")}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {cartAvulsos.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="font-black text-stone-800 text-sm mt-2 ml-1">
-                  Itens Avulsos
-                </h3>
-                {cartAvulsos.map((item: any) => (
+        ) : (
+          <div className="p-4 space-y-6">
+            {/* ETAPA 1: LISTA DETALHADA */}
+            {step === 1 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                {cartSelfService.map((item: any) => (
                   <div
                     key={item.id}
-                    className="flex justify-between items-center bg-white p-3 rounded-xl border border-stone-200 shadow-sm"
+                    className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-sm space-y-3"
                   >
-                    <span className="text-sm font-bold text-stone-700">
-                      {item.quantity}x {item.product.name}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveAvulso(item.id)}
-                      className="text-stone-400 hover:text-red-500 p-1.5 rounded-lg bg-red-50/50"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
+                    <div className="flex justify-between items-start border-b border-stone-100 pb-2">
+                      <span className="font-black text-stone-800 text-sm">
+                        Macarrão{" "}
+                        {sizes.find((s: any) => s.id === item.sizeId)?.name}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveSelfService(item.id)}
+                        className="text-stone-400 hover:text-red-500 bg-red-50/50 p-1.5 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                    <div className="text-[12px] text-stone-600 leading-snug space-y-1.5 pl-2 border-l-2 border-orange-200">
+                      {item.pastaId && (
+                        <div>
+                          <span className="font-bold text-stone-400">
+                            Massa:
+                          </span>{" "}
+                          {getItemName(item.pastaId)}
+                        </div>
+                      )}
+                      {item.sauces?.length > 0 && (
+                        <div>
+                          <span className="font-bold text-stone-400">
+                            Molhos:
+                          </span>{" "}
+                          {item.sauces.map(getItemName).join(", ")}
+                        </div>
+                      )}
+                      {item.temperos?.length > 0 && (
+                        <div>
+                          <span className="font-bold text-stone-400">
+                            Temperos:
+                          </span>{" "}
+                          {item.temperos.map(getItemName).join(", ")}
+                        </div>
+                      )}
+                      {item.ingredients?.length > 0 && (
+                        <div>
+                          <span className="font-bold text-stone-400">
+                            Ingredientes:
+                          </span>{" "}
+                          {item.ingredients.map(getItemName).join(", ")}
+                        </div>
+                      )}
+                      {item.extras?.length > 0 && (
+                        <div className="text-amber-700">
+                          <span className="font-bold text-amber-500">
+                            Extras:
+                          </span>{" "}
+                          {item.extras.map(getItemName).join(", ")}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
+
+                {cartAvulsos.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="font-black text-stone-800 text-sm mt-2 ml-1">
+                      Itens Avulsos
+                    </h3>
+                    {cartAvulsos.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-center bg-white p-3 rounded-xl border border-stone-200 shadow-sm"
+                      >
+                        <span className="text-sm font-bold text-stone-700">
+                          {item.quantity}x {item.product.name}
+                        </span>
+                        <button
+                          onClick={() => handleRemoveAvulso(item.id)}
+                          className="text-stone-400 hover:text-red-500 p-1.5 rounded-lg bg-red-50/50"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        ) : (
-          /* =================== PASSO 2: DADOS DE ENTREGA =================== */
-          <div className="p-4 space-y-6">
-            <div className="space-y-3">
-              <h3 className="font-black text-stone-800 text-sm flex items-center gap-2">
-                <User className="w-4 h-4 text-orange-600" /> Seus Dados
-              </h3>
-              <div className="grid grid-cols-1 gap-3">
-                <input
-                  type="text"
-                  placeholder="Nome Completo"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  disabled={!settings.isOpen}
-                  className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[16px] sm:text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 bg-white"
-                />
-                <input
-                  type="tel"
-                  placeholder="WhatsApp (Ex: 22 99999-9999)"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  disabled={!settings.isOpen}
-                  className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[16px] sm:text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 bg-white"
-                />
-              </div>
-            </div>
 
-            <div className="space-y-3">
-              <h3 className="font-black text-stone-800 text-sm flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-orange-600" /> Endereço de
-                Entrega
-              </h3>
-              <div className="space-y-3 bg-white p-4 rounded-xl border border-stone-200 shadow-sm">
-                <button
-                  onClick={handleGetLocation}
-                  disabled={!settings.isOpen || isFetchingLocation}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-xl border border-orange-200 text-xs font-black transition-all"
-                >
-                  {isFetchingLocation ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <MapPin className="w-4 h-4" />
-                  )}
-                  {isFetchingLocation
-                    ? "Buscando localização..."
-                    : "USAR MEU GPS"}
-                </button>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Logradouro/Rua"
-                    value={addressData.logradouro}
-                    onChange={(e) =>
-                      setAddressData({
-                        ...addressData,
-                        logradouro: e.target.value,
-                      })
-                    }
-                    disabled={!settings.isOpen}
-                    className="flex-1 border-b py-2 text-[16px] sm:text-sm outline-none focus:border-orange-600 bg-transparent"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Nº"
-                    value={addressData.numero}
-                    onChange={(e) =>
-                      setAddressData({ ...addressData, numero: e.target.value })
-                    }
-                    disabled={!settings.isOpen}
-                    className="w-16 border-b py-2 text-[16px] sm:text-sm outline-none focus:border-orange-600 text-center bg-transparent"
-                  />
+            {/* ETAPA 2: DADOS E ENTREGA */}
+            {step === 2 && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-3">
+                  <h3 className="font-black text-stone-800 text-sm flex items-center gap-2">
+                    <User className="w-4 h-4 text-orange-600" /> Identificação
+                  </h3>
+                  <div className="grid grid-cols-1 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Nome Completo"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      disabled={!settings.isOpen}
+                      className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[16px] sm:text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 bg-white"
+                    />
+                    <input
+                      type="tel"
+                      placeholder="WhatsApp (Ex: 22 99999-9999)"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      disabled={!settings.isOpen}
+                      className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[16px] sm:text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 bg-white"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    placeholder="Bairro (Para frete)"
-                    value={addressData.bairro}
-                    onChange={(e) =>
-                      setAddressData({ ...addressData, bairro: e.target.value })
-                    }
-                    disabled={!settings.isOpen}
-                    className="flex-1 border-b py-2 text-[16px] sm:text-sm outline-none focus:border-orange-600 font-bold bg-transparent"
-                  />
-                  {isValidatingArea && (
-                    <Loader2 className="w-4 h-4 animate-spin text-orange-600 shrink-0" />
-                  )}
+                <div className="space-y-3">
+                  <h3 className="font-black text-stone-800 text-sm flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-orange-600" /> Endereço de
+                    Entrega
+                  </h3>
+                  <div className="space-y-3 bg-white p-4 rounded-xl border border-stone-200 shadow-sm">
+                    <button
+                      onClick={handleGetLocation}
+                      disabled={!settings.isOpen || isFetchingLocation}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-xl border border-orange-200 text-xs font-black transition-all"
+                    >
+                      {isFetchingLocation ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <MapPin className="w-4 h-4" />
+                      )}
+                      {isFetchingLocation
+                        ? "Buscando localização..."
+                        : "USAR MEU GPS"}
+                    </button>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Logradouro/Rua"
+                        value={addressData.logradouro}
+                        onChange={(e) =>
+                          setAddressData({
+                            ...addressData,
+                            logradouro: e.target.value,
+                          })
+                        }
+                        disabled={!settings.isOpen}
+                        className="flex-1 border-b py-2 text-[16px] sm:text-sm outline-none focus:border-orange-600 bg-transparent"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nº"
+                        value={addressData.numero}
+                        onChange={(e) =>
+                          setAddressData({
+                            ...addressData,
+                            numero: e.target.value,
+                          })
+                        }
+                        disabled={!settings.isOpen}
+                        className="w-16 border-b py-2 text-[16px] sm:text-sm outline-none focus:border-orange-600 text-center bg-transparent"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="Bairro (Para frete)"
+                        value={addressData.bairro}
+                        onChange={(e) =>
+                          setAddressData({
+                            ...addressData,
+                            bairro: e.target.value,
+                          })
+                        }
+                        disabled={!settings.isOpen}
+                        className="flex-1 border-b py-2 text-[16px] sm:text-sm outline-none focus:border-orange-600 font-bold bg-transparent"
+                      />
+                      {isValidatingArea && (
+                        <Loader2 className="w-4 h-4 animate-spin text-orange-600 shrink-0" />
+                      )}
+                    </div>
+
+                    {bairroStatus?.valido === false && (
+                      <p className="text-[11px] font-bold text-red-600 uppercase mt-1 leading-tight bg-red-50 p-2 rounded-md">
+                        {bairroStatus.mensagem}
+                      </p>
+                    )}
+                  </div>
                 </div>
-
-                {bairroStatus?.valido === false && (
-                  <p className="text-[11px] font-bold text-red-600 uppercase mt-1 leading-tight bg-red-50 p-2 rounded-md">
-                    {bairroStatus.mensagem}
-                  </p>
-                )}
               </div>
-            </div>
+            )}
 
-            <div className="space-y-3">
-              <h3 className="font-black text-stone-800 text-sm flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-orange-600" /> Observação{" "}
-                <span className="font-normal text-stone-400 text-xs">
-                  (Opcional)
-                </span>
-              </h3>
-              <textarea
-                placeholder="Ex: Troco para R$50, tirar cebola..."
-                value={observation}
-                onChange={(e) => setObservation(e.target.value)}
-                disabled={!settings.isOpen}
-                rows={2}
-                className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[16px] sm:text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 bg-white resize-none"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="font-black text-stone-800 text-sm flex items-center gap-2">
-                <Banknote className="w-4 h-4 text-orange-600" /> Forma de
-                Pagamento
-              </h3>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setPayment("pix")}
-                  disabled={!settings.isOpen}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${payment === "pix" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400 bg-white"}`}
-                >
-                  <Smartphone className="w-5 h-5" />
-                  <span className="text-[10px] font-black">PIX</span>
-                </button>
-                <button
-                  onClick={() => setPayment("dinheiro")}
-                  disabled={!settings.isOpen}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${payment === "dinheiro" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400 bg-white"}`}
-                >
-                  <Banknote className="w-5 h-5" />
-                  <span className="text-[10px] font-black">DINHEIRO</span>
-                </button>
-                {settings.mercadoPagoAtivo && (
-                  <button
-                    onClick={() => setPayment("cartao")}
-                    disabled={!settings.isOpen}
-                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${payment === "cartao" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400 bg-white"}`}
-                  >
-                    <CreditCard className="w-5 h-5" />
-                    <span className="text-[10px] font-black text-center leading-tight">
-                      CARTÃO
+            {/* ETAPA 3: OBSERVAÇÃO */}
+            {step === 3 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-3">
+                  <h3 className="font-black text-stone-800 text-sm flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-orange-600" /> Algo a
+                    declarar?{" "}
+                    <span className="font-normal text-stone-400 text-xs">
+                      (Opcional)
                     </span>
-                  </button>
-                )}
+                  </h3>
+                  <textarea
+                    placeholder="Ex: Troco para R$50, por favor não enviar talheres, ponto da massa..."
+                    value={observation}
+                    onChange={(e) => setObservation(e.target.value)}
+                    disabled={!settings.isOpen}
+                    rows={5}
+                    className="w-full border border-stone-200 rounded-xl px-4 py-3 text-[16px] sm:text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 bg-white resize-none"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* RESUMO DOS VALORES ANTES DE FINALIZAR */}
-            <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-2 text-[12px] font-bold text-stone-500 uppercase">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span>{formatCurrency(cartSubtotal)}</span>
-              </div>
-              {taxaEmbalagem > 0 && (
-                <div className="flex justify-between">
-                  <span>Embalagem:</span>
-                  <span>{formatCurrency(taxaEmbalagem)}</span>
+            {/* ETAPA 4: PAGAMENTO E RESUMO */}
+            {step === 4 && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-3">
+                  <h3 className="font-black text-stone-800 text-sm flex items-center gap-2">
+                    <Banknote className="w-4 h-4 text-orange-600" /> Forma de
+                    Pagamento
+                  </h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => setPayment("pix")}
+                      disabled={!settings.isOpen}
+                      className={`flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl border-2 transition-all ${payment === "pix" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400 bg-white"}`}
+                    >
+                      <Smartphone className="w-6 h-6" />
+                      <span className="text-[11px] font-black">PIX</span>
+                    </button>
+                    <button
+                      onClick={() => setPayment("dinheiro")}
+                      disabled={!settings.isOpen}
+                      className={`flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl border-2 transition-all ${payment === "dinheiro" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400 bg-white"}`}
+                    >
+                      <Banknote className="w-6 h-6" />
+                      <span className="text-[11px] font-black">DINHEIRO</span>
+                    </button>
+                    {settings.mercadoPagoAtivo && (
+                      <button
+                        onClick={() => setPayment("cartao")}
+                        disabled={!settings.isOpen}
+                        className={`flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl border-2 transition-all ${payment === "cartao" ? "border-orange-600 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-400 bg-white"}`}
+                      >
+                        <CreditCard className="w-6 h-6" />
+                        <span className="text-[11px] font-black text-center leading-tight">
+                          CARTÃO
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div className="flex justify-between">
-                <span>Entrega:</span>
-                <span>
-                  {isValidatingArea
-                    ? "Calculando..."
-                    : formatCurrency(taxaEntrega)}
-                </span>
-              </div>
-              {taxaCartao > 0 && (
-                <div className="flex justify-between text-orange-600">
-                  <span>Taxa Cartão:</span>
-                  <span>{formatCurrency(taxaCartao)}</span>
+
+                <div className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-2 text-[13px] font-bold text-stone-500 uppercase">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span className="text-stone-800">
+                      {formatCurrency(cartSubtotal)}
+                    </span>
+                  </div>
+                  {taxaEmbalagem > 0 && (
+                    <div className="flex justify-between">
+                      <span>Embalagem:</span>
+                      <span className="text-stone-800">
+                        {formatCurrency(taxaEmbalagem)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>Entrega:</span>
+                    <span className="text-stone-800">
+                      {isValidatingArea
+                        ? "Calculando..."
+                        : formatCurrency(taxaEntrega)}
+                    </span>
+                  </div>
+                  {taxaCartao > 0 && (
+                    <div className="flex justify-between text-orange-600">
+                      <span>Taxa Cartão:</span>
+                      <span>{formatCurrency(taxaCartao)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-3 mt-3 border-t border-stone-100">
+                    <span className="text-sm font-black text-stone-800">
+                      Total a Pagar
+                    </span>
+                    <span className="text-2xl font-black text-orange-600">
+                      {formatCurrency(totalFinal)}
+                    </span>
+                  </div>
                 </div>
-              )}
-              <div className="flex justify-between items-center pt-3 mt-3 border-t border-stone-100">
-                <span className="text-sm font-black text-stone-800">
-                  Total a Pagar
-                </span>
-                <span className="text-2xl font-black text-orange-600">
-                  {formatCurrency(totalFinal)}
-                </span>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* FOOTER FIXO (AÇÃO PRINCIPAL) */}
+      {/* RODAPÉ FIXO COM SUPORTE AO SAFE-AREA DO IPHONE */}
       {!isCartEmpty && (
-        <div className="p-4 bg-white border-t border-stone-200 shrink-0 z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] pb-safe">
-          {step === 1 ? (
+        <div className="bg-white border-t border-stone-200 shrink-0 z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {step === 1 && (
             <>
               <div className="flex justify-between items-center mb-3 px-1">
                 <span className="text-sm font-bold text-stone-500 uppercase">
-                  Subtotal
+                  Total Estimado
                 </span>
                 <span className="text-2xl font-black text-stone-800">
                   {formatCurrency(cartSubtotal)}
@@ -604,31 +645,52 @@ export function CartSidebar(props: any) {
                 disabled={!settings.isOpen}
                 className="w-full py-4 rounded-2xl text-white font-black text-[15px] bg-orange-600 hover:bg-orange-700 transition-all flex justify-center items-center gap-2 active:scale-[0.98]"
               >
-                Avançar para Entrega <ChevronRight className="w-5 h-5" />
+                Ir para Entrega <ChevronRight className="w-5 h-5" />
               </button>
             </>
-          ) : (
+          )}
+
+          {step === 2 && (
             <>
-              {missingFields.length > 0 && settings.isOpen && (
+              {step2Missing.length > 0 && settings.isOpen && (
                 <div className="text-center animate-in fade-in zoom-in mb-3">
-                  <p className="text-[10px] font-black text-red-600 uppercase tracking-wider bg-red-50 py-2 px-3 rounded-xl border border-red-100 inline-block">
-                    ⚠️ Falta preencher: {missingFields.join(", ")}
+                  <p className="text-[10px] font-black text-red-600 uppercase tracking-wider bg-red-50 py-1.5 px-2 rounded-xl border border-red-100 inline-block">
+                    ⚠️ Preencha: {step2Missing.join(", ")}
                   </p>
                 </div>
               )}
               <button
-                onClick={handleFinalize}
-                disabled={isBlockSubmit}
-                className="w-full py-4 rounded-2xl text-white font-black text-[15px] bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-500 transition-all flex justify-center items-center gap-2 active:scale-[0.98]"
+                onClick={() => setStep(3)}
+                disabled={step2Missing.length > 0 || isValidatingArea}
+                className="w-full py-4 rounded-2xl text-white font-black text-[15px] bg-orange-600 hover:bg-orange-700 disabled:bg-stone-300 disabled:text-stone-500 transition-all flex justify-center items-center gap-2 active:scale-[0.98]"
               >
-                {isProcessing ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <ShoppingBag className="w-5 h-5" />
-                )}
-                {isProcessing ? "PROCESSANDO..." : "FINALIZAR PEDIDO"}
+                Avançar <ChevronRight className="w-5 h-5" />
               </button>
             </>
+          )}
+
+          {step === 3 && (
+            <button
+              onClick={() => setStep(4)}
+              className="w-full py-4 rounded-2xl text-white font-black text-[15px] bg-orange-600 hover:bg-orange-700 transition-all flex justify-center items-center gap-2 active:scale-[0.98]"
+            >
+              Ir para Pagamento <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
+
+          {step === 4 && (
+            <button
+              onClick={handleFinalize}
+              disabled={isBlockFinalize}
+              className="w-full py-4 rounded-2xl text-white font-black text-[15px] bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-500 transition-all flex justify-center items-center gap-2 active:scale-[0.98]"
+            >
+              {isProcessing ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ShoppingBag className="w-5 h-5" />
+              )}
+              {isProcessing ? "PROCESSANDO..." : "CONCLUIR E PEDIR"}
+            </button>
           )}
         </div>
       )}

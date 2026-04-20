@@ -2,13 +2,8 @@
  🔴 Urgentes (Bugs e Fluxo Crítico)
 
  
-
  🟠 Média Prioridade (Funcionalidades e Ajustes Operacionais)
- /admin/menu  Configurações de Operação
- Taxa do Cartão no Painel:
-     Adicionar inputs para o administrador poder mudar o valor da taxa do cartão.
-     Mudar a lógica atual: remover o valor fixo e deixar funcionando apenas com porcentagem.
-    Categorias: Adicionar botão para editar os nomes das categorias de produtos avulsos.
+
 
  Módulo de Mesas:
      Arrumar a impressão geral do comprovante de mesa.
@@ -16,15 +11,14 @@
      Adicionar botão de impressão no fechamento que abra direto o módulo de impressão (para a Elgin I9).
 
  Gestão de Turno e Dias:
-     Configurar o encerramento de turno para limpar automaticamente as despesas e vendas no painel Admin para o próximo turno.
+     Configurar o encerramento de turno para limpar automaticamente as despesas e vendas no painel Admin para o próximo turno. (exibir apenas o do turno atual)
      
  
- Experiência do Cliente (UX): Criar um feedback visual bem chamativo toda vez que um item for adicionado à sacola.
- Correção Visual Mobile: Consertar o layout da sacola no celular que está cortando a lista de itens e desativar aquele zoom ao clicar no campo para focar
+ 
 
 
  🟡 Leve (Filtros e Controle)
- Painel Entregadores: Criar filtro de buscas pelo nome dos bairros.
+
  Rastreabilidade no Painel Admin: Adicionar tags de auditoria nos pedidos: "Aprovado Automaticamente" e "Aprovado pelo Operador" (para controle e responsabilidade).
 
  🔵 Ideias / Próximos Passos (Sem Prioridade Atual)
