@@ -8,6 +8,7 @@
  Taxa do Cartão no Painel:
      Adicionar inputs para o administrador poder mudar o valor da taxa do cartão.
      Mudar a lógica atual: remover o valor fixo e deixar funcionando apenas com porcentagem.
+    Categorias: Adicionar botão para editar os nomes das categorias de produtos avulsos.
 
  Módulo de Mesas:
      Arrumar a impressão geral do comprovante de mesa.
@@ -18,9 +19,8 @@
      Configurar o encerramento de turno para limpar automaticamente as despesas e vendas no painel Admin para o próximo turno.
      
  
- Correção Visual Mobile: Consertar o layout da sacola no celular que está cortando a lista de itens e desativar aquele zoom ao clicar no campo para preencher
  Experiência do Cliente (UX): Criar um feedback visual bem chamativo toda vez que um item for adicionado à sacola.
- Categorias: Adicionar botão para editar os nomes das categorias de produtos avulsos.
+ Correção Visual Mobile: Consertar o layout da sacola no celular que está cortando a lista de itens e desativar aquele zoom ao clicar no campo para focar
 
 
  🟡 Leve (Filtros e Controle)

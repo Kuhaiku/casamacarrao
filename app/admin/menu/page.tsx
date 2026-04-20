@@ -1641,7 +1641,7 @@ function OperationsTabContent() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
-              Pagamento em Cartão (Mesas)
+              Pagamento em Cartão 
             </CardTitle>
             <CardDescription>
               Habilitar ou desabilitar a opção de fechar conta no Cartão de
@@ -1685,9 +1685,6 @@ function OperationsTabContent() {
             </div>
           </CardContent>
         </Card> 
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2 opacity-80 hover:opacity-100 transition-opacity">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Taxa Padrão de Embalagem</CardTitle>
