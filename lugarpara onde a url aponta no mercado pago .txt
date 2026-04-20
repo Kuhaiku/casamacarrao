@@ -1,18 +1,17 @@
 
  🔴 Urgentes (Bugs e Fluxo Crítico)
+Arrumar o problema de redirecionamento para a pagina do id, que atualmente só acontece depois da primeira compra
 
  
  🟠 Média Prioridade (Funcionalidades e Ajustes Operacionais)
 
 
  Módulo de Mesas:
+    ARRUMAR O MODAL PARA QUE ELE SEMPRE ABA NO TOPO DA PÁGINA
      Arrumar a impressão geral do comprovante de mesa.
      Ao "fechar a conta", exibir a descrição completa do pedido.
      Adicionar botão de impressão no fechamento que abra direto o módulo de impressão (para a Elgin I9).
 
- Gestão de Turno e Dias:
-     Configurar o encerramento de turno para limpar automaticamente as despesas e vendas no painel Admin para o próximo turno. (exibir apenas o do turno atual)
-     
  
  
 
