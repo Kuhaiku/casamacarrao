@@ -1,13 +1,18 @@
+https://github.com/Kuhaiku/casamacarrao/tree/feature/pagamento-mercadopago
+
 
  🔴 Urgentes (Bugs e Fluxo Crítico)
-Arrumar o problema de redirecionamento para a pagina do id, que atualmente só acontece depois da primeira compra
+    Arrumar o problema de redirecionamento para a pagina do id, que atualmente só acontece depois da primeira compra
 
  
  🟠 Média Prioridade (Funcionalidades e Ajustes Operacionais)
 
+no mobile quero que o botão de "acompanhar pedido" fique no topo encima de "minha sacola" e o quando clicado no botão tem que exibir o historico de pedidos não só o ultimo pedido
+
+
 
  Módulo de Mesas:
-    ARRUMAR O MODAL PARA QUE ELE SEMPRE ABA NO TOPO DA PÁGINA
+
      Arrumar a impressão geral do comprovante de mesa.
      Ao "fechar a conta", exibir a descrição completa do pedido.
      Adicionar botão de impressão no fechamento que abra direto o módulo de impressão (para a Elgin I9).
