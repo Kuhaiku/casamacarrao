@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Package, ChevronDown, ChevronUp, Clock, ArrowRight } from "lucide-react";
 
 // Função para salvar o ID do pedido no celular do cliente (Expira em 3 dias)
@@ -20,6 +20,10 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
+  // Estados e Referências para o Arrastar e Soltar (Drag)
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const dragRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0, isDragging: false });
+
   useEffect(() => {
     const checkOrders = () => {
       const stored = localStorage.getItem("casamacarrao_orders");
@@ -27,17 +31,14 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
         try {
           const parsed = JSON.parse(stored);
           const now = Date.now();
-          const threeDays = 3 * 24 * 60 * 60 * 1000; // 3 dias em milissegundos
+          const threeDays = 3 * 24 * 60 * 60 * 1000; 
           
-          // Filtra apenas pedidos recentes
           const validOrders = parsed.filter((o: any) => now - o.date < threeDays);
 
-          // Atualiza se algum expirou
           if (validOrders.length !== parsed.length) {
             localStorage.setItem("casamacarrao_orders", JSON.stringify(validOrders));
           }
 
-          // Ordena do mais recente para o mais antigo
           validOrders.sort((a: any, b: any) => b.date - a.date);
           setOrders(validOrders);
         } catch (e) {
@@ -56,13 +57,55 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
     };
   }, []);
 
+  // --- LÓGICA DE ARRASTAR E SOLTAR NATIVA ---
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current.startX = e.clientX - pos.x;
+    dragRef.current.startY = e.clientY - pos.y;
+    dragRef.current.initialX = e.clientX;
+    dragRef.current.initialY = e.clientY;
+    dragRef.current.isDragging = false;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    
+    // Verifica o quanto moveu desde o clique inicial
+    const moveX = Math.abs(e.clientX - dragRef.current.initialX);
+    const moveY = Math.abs(e.clientY - dragRef.current.initialY);
+    
+    // Tolerância: Se moveu mais que 10 pixels, consideramos que está arrastando de verdade e não só clicando
+    if (moveX > 10 || moveY > 10) {
+      dragRef.current.isDragging = true;
+    }
+    
+    const newX = e.clientX - dragRef.current.startX;
+    const newY = e.clientY - dragRef.current.startY;
+    setPos({ x: newX, y: newY });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const handleToggleOpen = (e: React.MouseEvent) => {
+    // Se for detectado um arraste de fato, não abre o histórico
+    if (dragRef.current.isDragging) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    setIsOpen(!isOpen);
+  };
+
   if (orders.length === 0) return null;
 
-  // LAYOUT PARA CELULAR: Fica logo abaixo da sacola e expande a lista
+  // LAYOUT PARA CELULAR: Fixo abaixo da sacola (Não precisa arrastar)
   if (isMobile) {
     return (
       <div className="mt-3">
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="w-full flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-xl text-orange-700 font-bold transition-all active:scale-[0.98]"
         >
@@ -77,6 +120,7 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
           <div className="mt-2 space-y-2 animate-in fade-in slide-in-from-top-2">
             {orders.map((order) => (
               <button
+                type="button"
                 key={order.id}
                 onClick={() => window.location.href = `/pedido/${order.id}`}
                 className="w-full flex items-center justify-between p-3 bg-white border border-stone-200 rounded-xl hover:border-orange-300 transition-colors shadow-sm"
@@ -99,17 +143,26 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
     );
   }
 
-  // LAYOUT PARA DESKTOP: Botão flutuante que abre um mini-menu
+  // LAYOUT PARA DESKTOP/FLUTUANTE: Arrastável
   return (
-    <div className="fixed bottom-10 right-4 z-[60] flex flex-col items-end">
+    <div 
+      className="fixed bottom-10 right-4 z-[60] flex flex-col items-end touch-none"
+      style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
+      {/* Menu popup */}
       {isOpen && (
         <div className="mb-4 w-72 bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-          <div className="bg-stone-900 p-3 text-white font-bold flex items-center gap-2">
+          <div className="bg-stone-900 p-3 text-white font-bold flex items-center gap-2 cursor-default">
             <Package className="w-4 h-4" /> Histórico de Pedidos
           </div>
           <div className="max-h-[60vh] overflow-y-auto p-2 space-y-2">
             {orders.map((order) => (
               <button
+                type="button"
                 key={order.id}
                 onClick={() => window.location.href = `/pedido/${order.id}`}
                 className="w-full flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-colors group"
@@ -126,13 +179,15 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
           </div>
         </div>
       )}
+
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="bg-orange-600 text-white p-3.5 rounded-full shadow-2xl hover:bg-orange-700 transition-transform active:scale-95 flex items-center gap-2 border-2 border-white"
+        type="button"
+        onClick={handleToggleOpen}
+        className="bg-orange-600 text-white p-3.5 rounded-full shadow-2xl hover:bg-orange-700 transition-transform flex items-center gap-2 border-2 border-white cursor-grab active:cursor-grabbing select-none"
       >
-        <Package className="w-6 h-6 animate-pulse" />
-        <span className="font-black text-sm pr-1">Meus Pedidos</span>
-        {isOpen ? <ChevronDown className="w-4 h-4 ml-1" /> : <ChevronUp className="w-4 h-4 ml-1" />}
+        <Package className="w-6 h-6 animate-pulse pointer-events-none" />
+        <span className="font-black text-sm pr-1 pointer-events-none">Meus Pedidos</span>
+        {isOpen ? <ChevronDown className="w-4 h-4 ml-1 pointer-events-none" /> : <ChevronUp className="w-4 h-4 ml-1 pointer-events-none" />}
       </button>
     </div>
   );
