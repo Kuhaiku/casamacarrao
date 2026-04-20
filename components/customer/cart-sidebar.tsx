@@ -112,17 +112,18 @@ export function CartSidebar(props: any) {
 
   const taxaEntrega = bairroStatus?.valido ? bairroStatus.taxa_entrega : 0;
 
-  const taxaCartao = useMemo(() => {
+const taxaCartao = useMemo(() => {
     if (payment !== "cartao") return 0;
-    const base = cartSubtotal + taxaEmbalagem + taxaEntrega;
-    return (
-      base * ((settings.taxaCartaoPercentual || 0) / 100) +
-      (settings.taxaCartaoFixa || 0)
-    );
+    
+    const base = Number(cartSubtotal) + Number(taxaEmbalagem) + Number(taxaEntrega);
+    const percentual = Number(settings.taxaCartaoPercentual) || 0;
+    const fixa = Number(settings.taxaCartaoFixa) || 0;
+    
+    return (base * (percentual / 100)) + fixa;
   }, [payment, cartSubtotal, taxaEmbalagem, taxaEntrega, settings]);
 
-  const totalFinal = cartSubtotal + taxaEmbalagem + taxaEntrega + taxaCartao;
-
+  const totalFinal = Number(cartSubtotal) + Number(taxaEmbalagem) + Number(taxaEntrega) + Number(taxaCartao);
+  
   // NOVO: Calcula exatamente quais campos estão faltando
   const missingFields = useMemo(() => {
     const missing = [];
