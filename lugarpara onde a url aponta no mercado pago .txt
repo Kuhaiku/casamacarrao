@@ -30,5 +30,9 @@ Sem prioridade(apenas ideias):
 
 
 
-ultimo prmpt de hoje:
-esquece essa porra de aceptCard, a coluna unica e exclusiva é "mercadoPagoAtivo" e cabou porra, simles assim, Aproveita e REVISA ESSA PORRA TODA, para ver onde ta esse problema de que qquando seleciona o cartão o valor fica "000.00" inclusive vou querer remover a coluna aceptCard, tudo onde tiver isso deve ser subistituido por "mercadoPagoAtivo"
+Domingo
+Erro na hora de escolher o cartão o valor da taxa não está entrando e o total do pedido fica com o preço todo errado.
+Depois de resolver isso precisamos jogar o cliente para a página do mercado livre, e precisamos colocar uma regra que é o seguinte, se o metodo de pagamento for em cartão, ele precisa verificar se o pagamento foi efetuado, para só ai passar para o estado "aprovado" ou seja, precisamos que o nosso sistema do percado pago, mude o status do pagamento do pedido para "pago" precisamos que ele crie uma regra para mesmo quando o auto aprove estiver ligado, se o pagamento for em "cartão" o auto aprove não funcione.
+
+
+Botão para editar nome das categorias dos produtos avulsos!
