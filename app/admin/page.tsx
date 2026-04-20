@@ -171,7 +171,12 @@ export default function AdminDashboardPage() {
 
   const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses } =
     useMemo(() => {
-      const active = orders.filter(
+      // 1. Filtra apenas pedidos e despesas do turno atual (que NÃO foram contabilizados)
+      const currentShiftOrders = orders.filter((o) => !o.isAccounted);
+      const currentShiftExpenses = expenses.filter((e) => !e.isAccounted);
+
+      // 2. Filtra os ativos a partir dos pedidos APENAS do turno atual
+      const active = currentShiftOrders.filter(
         (o) =>
           o.status !== "cancelado" && !(o.status === "entregue" && o.isPaid),
       );
@@ -183,13 +188,14 @@ export default function AdminDashboardPage() {
         activeDeliveryOrders: active.filter(
           (o) => getOrderType(o.address) === "ENTREGA",
         ),
-        totalSales: orders
-          .filter((o) => o.isPaid)
+        // 3. Soma apenas vendas pagas e não canceladas do turno atual
+        totalSales: currentShiftOrders
+          .filter((o) => o.isPaid && o.status !== "cancelado")
           .reduce((acc, o) => acc + o.total, 0),
-        totalExpenses: expenses.reduce((acc, e) => acc + e.amount, 0),
+        // 4. Soma apenas despesas do turno atual
+        totalExpenses: currentShiftExpenses.reduce((acc, e) => acc + e.amount, 0),
       };
     }, [orders, expenses]);
-
   const handleAddExpense = () => {
     const amount = parseFloat(expenseAmount);
     if (!amount || !expenseDesc.trim()) return;
