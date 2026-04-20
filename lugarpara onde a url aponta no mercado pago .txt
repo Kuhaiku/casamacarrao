@@ -1,39 +1,38 @@
-http://undefined/sucesso?collection_id=153813225221&collection_status=approved&payment_id=153813225221&status=approved&external_reference=null&payment_type=credit_card&merchant_order_id=39933791370&preference_id=274681452-4f994c55-2960-4387-bdad-4c7fd0d11a3c&site_id=MLB&processing_mode=aggregator&merchant_account_id=null
 
-https://github.com/Kuhaiku/casamacarrao/tree/feature/pagamento-mercadopago
-
-
-Prioridades:
-
-Leve:
--Criar o filtro com o nome dos bairros na página dos entregadores
--Painel: Adicionar uma Tag para o painel do nosso adm "aprovado automaticamente" e "aprovado pelo operador" (importante para controle e para "culpabilidade")
-
-Médio:
--Mesa Painel: Preciso que Haja uma descrição completa do pedido na hora de "fechar a conta"  Preciso da opção de (imprimi, abre o modulo de impressão para imprimir na elgin I9)
-
-ARRUMAR A IMPRESSÃO DO COMPROVANTE DE MESA
-
--Quando encerrar o turno as despesas e as vendas do painel page admin tem que reconhecer e limpar para o proximo turno
-!!! Preciso deixar "enraizado" que não funciona na segunda-feira
-
-Urgentes:
-!!! alguma coisa quebrou para o valor quando selecionamos cartão
-
-
-Sem prioridade(apenas ideias):
-
--A descrição das despesas e das gorjetas precisam aparecer no relatorio tambem
--Depois fazer com que seja possivel "imprimir o relatório das vendas" de cada fechamento, com todas as descrições das vendas
--Proximos modulos depois, quero oferecer um painel de métricas, um estoque de suprimentos, e um "gerenciador de estoque" que faça o "desconto" do estoque aproximado para cada pedido efetuado
+ 🔴 Urgentes (Bugs e Fluxo Crítico)
 
 
 
+ Integração Mercado Pago: Redirecionar o cliente para a página de confirmação corretamente o link atual é: http://undefined/pedido/f9aeb00c-c632-4c28-a390-2d9b19499ffa?status=sucesso&collection_id=155615988074&collection_status=approved&payment_id=155615988074&status=approved&external_reference=f9aeb00c-c632-4c28-a390-2d9b19499ffa&payment_type=credit_card&merchant_order_id=40146659426&preference_id=274681452-31e1b5c8-bbf4-401d-a5b3-cc0e184ff792&site_id=MLB&processing_mode=aggregator&merchant_account_id=null e pelo que sei o link deveria ser:
+ https://w-casamacarrao.velmc0.easypanel.host/pedido/ (id do pedido: f9aeb00c-c632-4c28-a390-2d9b19499ffa)
+ Regra de Aprovação de Pagamento: Garantir que o "Auto Aprovar" seja ignorado se o método for cartão. O status só deve mudar para "Aprovado" após o Mercado Pago confirmar que o pagamento foi efetuado. (Verificar lógica existente e reforçar) e Fazer com que mude o Status para pago tambem
+ 
+ 
+Correção Visual Mobile: Consertar o layout da sacola no celular que está cortando a lista de itens.
 
-Domingo:
-Erro na hora de escolher o cartão o valor da taxa não está entrando e o total do pedido fica com o preço todo errado.
-Depois de resolver isso precisamos jogar o cliente para a página do mercado livre, e precisamos colocar uma regra que é o seguinte, se o metodo de pagamento for em cartão, ele precisa verificar se o pagamento foi efetuado, para só ai passar para o estado "aprovado" ou seja, precisamos que o nosso sistema do percado pago, mude o status do pagamento do pedido para "pago" precisamos que ele crie uma regra para mesmo quando o auto aprove estiver ligado, se o pagamento for em "cartão" o auto aprove não funcione.
+ 🟠 Média Prioridade (Funcionalidades e Ajustes Operacionais)
+ Taxa do Cartão no Painel:
+     Adicionar inputs para o administrador poder mudar o valor da taxa do cartão.
+     Mudar a lógica atual: remover o valor fixo e deixar funcionando apenas com porcentagem.
+ Módulo de Mesas:
+     Arrumar a impressão geral do comprovante de mesa.
+     Ao "fechar a conta", exibir a descrição completa do pedido.
+     Adicionar botão de impressão no fechamento que abra direto o módulo de impressão (para a Elgin I9).
+ Gestão de Turno e Dias:
+     Configurar o encerramento de turno para limpar automaticamente as despesas e vendas no painel Admin para o próximo turno.
+     Travar o sistema ("enraizar") para não aceitar pedidos nas segundas-feiras.
+ Experiência do Cliente (UX): Criar um feedback visual bem chamativo toda vez que um item for adicionado à sacola.
+ Categorias: Adicionar botão para editar os nomes das categorias de produtos avulsos.
 
-Atenção que eu acho que ja tem essa parada de pagamento em cartão receber tratamento diferente do auto aprove "APROVADO" mesmo antes de pago, tem que por essa verificação
+ 🟡 Leve (Filtros e Controle)
+ Painel Entregadores: Criar filtro de buscas pelo nome dos bairros.
+ Rastreabilidade no Painel Admin: Adicionar tags de auditoria nos pedidos: "Aprovado Automaticamente" e "Aprovado pelo Operador" (para controle e responsabilidade).
 
-Botão para editar nome das categorias dos produtos avulsos!
+ 🔵 Ideias / Próximos Passos (Sem Prioridade Atual)
+ Melhorias em Relatórios:
+     Fazer com que despesas e gorjetas também apareçam no relatório.
+     Criar função para imprimir o relatório de vendas de cada fechamento (com todas as descrições das vendas).
+ Novos Módulos (Futuro):
+     Painel de Métricas.
+     Módulo de Estoque de Suprimentos.
+     Gerenciador de estoque com baixa automática/aproximada dos insumos a cada pedido efetuado.

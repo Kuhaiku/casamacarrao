@@ -1,9 +1,10 @@
 // app/pedido/[id]/page.tsx
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useStore } from "@/lib/store"
+import { dbDispatch } from "@/lib/actions"
 import { Badge } from "@/components/ui/badge"
 import { 
   ChefHat, 
@@ -25,7 +26,6 @@ function formatCurrency(value: number) {
   return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
-// Verifica se é pedido no local ou entrega
 function getOrderType(address: string) {
   if (!address) return "ENTREGA";
   const trimmed = address.trim().toLowerCase();
@@ -33,24 +33,33 @@ function getOrderType(address: string) {
   return isMesa ? "LOCAL" : "ENTREGA";
 }
 
-export default function OrderTrackingPage() {
+function OrderTrackingContent() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
   const orderId = params.id as string
+  const statusPagamento = searchParams.get("status")
   
   const { orders, sync, sizes, menuItems, products } = useStore()
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    sync() 
     setIsMounted(true)
+    sync() 
     
-    // Atualiza a tela a cada 5 segundos para o cliente ver o motoboy saindo
+    // VERIFICAÇÃO MERCADO PAGO: Se retornar com sucesso, confirma o pagamento e aprova
+    if (statusPagamento === "sucesso" && orderId) {
+      dbDispatch("CONFIRM_ONLINE_PAYMENT", { id: orderId }).then(() => {
+        sync() // Força atualização imediata da tela após confirmar no banco
+      }).catch(err => console.error("Erro ao aprovar pagamento:", err))
+    }
+
     const interval = setInterval(() => {
       sync()
     }, 5000)
     return () => clearInterval(interval)
-  }, [sync])
+  }, [sync, statusPagamento, orderId])
 
   if (!isMounted) return null
 
@@ -72,7 +81,6 @@ export default function OrderTrackingPage() {
   const orderType = getOrderType(order.address);
   const isCanceled = order.status === "cancelado";
 
-  // Define as etapas dependendo se é MESA ou ENTREGA
   const steps = orderType === "LOCAL" ? [
     { key: "novo", label: "Aguardando", icon: Clock, desc: "Recebemos o pedido na sua mesa." },
     { key: "aprovado", label: "Preparando", icon: ChefHat, desc: "A cozinha já está preparando seu macarrão." },
@@ -85,24 +93,20 @@ export default function OrderTrackingPage() {
     { key: "entregue", label: "Entregue", icon: CheckCircle2, desc: "Pedido entregue com sucesso! Bom apetite." },
   ];
 
-  // Mapeia em qual etapa o status atual está
   const statusOrder = steps.map(s => s.key);
   let currentStepIndex = statusOrder.indexOf(order.status);
   
-  // Se der algum bug e o status não estiver na lista (ex: pulou), mostra na última etapa logicamente possível
   if (currentStepIndex === -1 && !isCanceled) {
     if (order.status === "entregue") currentStepIndex = steps.length - 1;
     else currentStepIndex = 0;
   }
 
-  // Funções de ajuda para os nomes
   const getSizeName = (sizeId: string) => sizes.find((s) => s.id === sizeId)?.name || "Tamanho Indefinido";
   const getItemName = (itemId: string) => menuItems.find((i) => i.id === itemId)?.name || itemId;
   const getProductName = (prodId: string) => products.find((p) => p.id === prodId)?.name || prodId;
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans pb-10">
-      {/* HEADER DA PÁGINA */}
       <div className="bg-stone-900 text-white px-4 sm:px-6 py-6 shadow-md rounded-b-3xl">
         <div className="max-w-md mx-auto flex items-center gap-4">
           <button onClick={() => router.push("/")} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors shrink-0">
@@ -116,8 +120,6 @@ export default function OrderTrackingPage() {
       </div>
 
       <main className="max-w-md mx-auto p-4 mt-2 space-y-5 animate-in fade-in duration-500">
-        
-        {/* TIMELINE DE STATUS */}
         <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h2 className="font-black text-lg text-stone-800">Status do Pedido</h2>
@@ -167,7 +169,6 @@ export default function OrderTrackingPage() {
           )}
         </div>
 
-        {/* RESUMO DOS ITENS */}
         <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 shadow-sm">
           <h2 className="font-black text-lg text-stone-800 mb-4 border-b border-stone-100 pb-3 flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-orange-600" /> Resumo do Pedido
@@ -194,7 +195,6 @@ export default function OrderTrackingPage() {
                     <div><span className="font-bold text-stone-500">Ingredientes:</span> <span className="font-semibold text-stone-700 leading-relaxed">{item.ingredients.map(getItemName).join(', ')}</span></div>
                   )}
                   
-                  {/* AQUI ENTRA A VISUALIZAÇÃO DOS EXTRAS NO COMPROVANTE DO CLIENTE */}
                   {item.extras?.length > 0 && (
                     <div className="mt-2 pt-1 border-t border-stone-200">
                       <span className="font-bold text-amber-600 flex items-center gap-1">
@@ -205,8 +205,6 @@ export default function OrderTrackingPage() {
                       </span>
                     </div>
                   )}
-
-                
                 </div>
               </div>
             ))}
@@ -235,7 +233,6 @@ export default function OrderTrackingPage() {
           </div>
         </div>
 
-        {/* DETALHES GERAIS (CLIENTE E PAGAMENTO) */}
         <div className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 shadow-sm mb-8">
           <h2 className="font-black text-lg text-stone-800 mb-4 border-b border-stone-100 pb-3 flex items-center gap-2">
             <MapPin className="w-5 h-5 text-orange-600" /> Dados da Entrega
@@ -269,5 +266,14 @@ export default function OrderTrackingPage() {
 
       </main>
     </div>
+  )
+}
+
+export default function OrderTrackingPage() {
+  // Envolvemos a página em um Suspense devido ao uso do useSearchParams (Boa prática do Next.js)
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center">Carregando...</div>}>
+      <OrderTrackingContent />
+    </Suspense>
   )
 }
