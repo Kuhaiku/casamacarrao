@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ChefHat, ShoppingBag, ArrowLeft, AlertCircle, Check } from "lucide-react";
 import { useStore } from "@/lib/store";
-
 import { MenuView } from "@/components/customer/menu-view";
 import { OrderBuilder } from "@/components/customer/order-builder";
 import { CartSidebar } from "@/components/customer/cart-sidebar";
+import { FloatingOrderButton } from "@/components/customer/floating-order-button";
 
 export default function CustomerHome() {
   const router = useRouter();
@@ -175,14 +175,18 @@ export default function CustomerHome() {
         <CartSidebar {...cartProps} />
       </aside>
 
+      {/* TELA DA SACOLA NO MOBILE */}
       {isMobileCartOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex flex-col bg-stone-900/50 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-[70] lg:hidden flex flex-col bg-stone-900/50 backdrop-blur-sm animate-in fade-in">
           <div className="flex-1" onClick={() => setIsMobileCartOpen(false)}></div>
           <div className="h-[90dvh] bg-white rounded-t-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full flex flex-col">
             <CartSidebar {...cartProps} />
           </div>
         </div>
       )}
+
+      {/* NOVO: BOTÃO FLUTUANTE DE HISTÓRICO DE PEDIDO */}
+      <FloatingOrderButton />
     </div>
   );
 }

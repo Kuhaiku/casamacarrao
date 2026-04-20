@@ -1,4 +1,3 @@
-// app/pedido/[id]/page.tsx
 "use client"
 
 import { useEffect, useState, Suspense } from "react"
@@ -18,8 +17,8 @@ import {
   ShoppingBag, 
   Ban,
   MapPin,
-  Banknote,
-  Star
+  Star,
+  Loader2
 } from "lucide-react"
 
 function formatCurrency(value: number) {
@@ -43,15 +42,17 @@ function OrderTrackingContent() {
   
   const { orders, sync, sizes, menuItems, products } = useStore()
   const [isMounted, setIsMounted] = useState(false)
+  const [retryCount, setRetryCount] = useState(0) // Contador para a inteligência de espera
+
+  const order = orders.find(o => o.id === orderId)
 
   useEffect(() => {
     setIsMounted(true)
     sync() 
     
-    // VERIFICAÇÃO MERCADO PAGO: Se retornar com sucesso, confirma o pagamento e aprova
     if (statusPagamento === "sucesso" && orderId) {
       dbDispatch("CONFIRM_ONLINE_PAYMENT", { id: orderId }).then(() => {
-        sync() // Força atualização imediata da tela após confirmar no banco
+        sync()
       }).catch(err => console.error("Erro ao aprovar pagamento:", err))
     }
 
@@ -61,10 +62,31 @@ function OrderTrackingContent() {
     return () => clearInterval(interval)
   }, [sync, statusPagamento, orderId])
 
+  // LÓGICA DE ESPERA: Se não achou o pedido ainda, tenta buscar de novo a cada 1 segundo (até 5x)
+  useEffect(() => {
+    if (!order && retryCount < 5) {
+      const timer = setTimeout(() => {
+        sync();
+        setRetryCount(prev => prev + 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [order, retryCount, sync])
+
   if (!isMounted) return null
 
-  const order = orders.find(o => o.id === orderId)
+  // Se ainda não achou e está dentro das 5 tentativas, mostra tela de carregamento (Impede o erro visual)
+  if (!order && retryCount < 5) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-4 text-center">
+        <Loader2 className="w-12 h-12 text-orange-600 animate-spin mb-4" />
+        <h2 className="text-xl font-bold text-stone-800">Localizando seu pedido...</h2>
+        <p className="text-sm text-stone-500">Aguarde um instante.</p>
+      </div>
+    )
+  }
 
+  // Se já tentou 5 vezes e o pedido realmente não existe, aí sim mostra erro.
   if (!order) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-4 text-center">
@@ -270,9 +292,8 @@ function OrderTrackingContent() {
 }
 
 export default function OrderTrackingPage() {
-  // Envolvemos a página em um Suspense devido ao uso do useSearchParams (Boa prática do Next.js)
   return (
-    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center">Carregando...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-orange-600"/></div>}>
       <OrderTrackingContent />
     </Suspense>
   )

@@ -19,6 +19,7 @@ import { validateBairro } from "@/lib/actions";
 import { createPaymentPreference } from "@/lib/mercadopago-actions";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
+import { saveOrderLocally } from "./floating-order-button";
 
 export function CartSidebar(props: any) {
   const { toast } = useToast();
@@ -201,55 +202,57 @@ export function CartSidebar(props: any) {
   };
 
   const handleFinalize = async () => {
-    if (isBlockFinalize) return;
+      if (isBlockFinalize) return;
 
-    setIsProcessing(true);
-    const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`;
-    const trackingId = crypto.randomUUID();
+      setIsProcessing(true);
+      const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`;
+      const trackingId = crypto.randomUUID();
 
-    const orderData: any = {
-      id: trackingId,
-      customerName,
-      phone,
-      address: finalAddress,
-      paymentMethod: payment,
-      items: cartSelfService,
-      products: cartAvulsos.map((p: any) => ({
-        productId: p.productId,
-        quantity: p.quantity,
-      })),
-      observation,
-      total: totalFinal,
-      status: payment === "cartao" ? "aguardando_pagamento" : "novo",
-      isPaid: false,
-      isAccounted: false,
-      tipoPedido: "delivery",
-      taxaEmbalagem,
-      taxaEntrega,
-      taxaCartao,
-      subtotal: cartSubtotal,
-      createdAt: new Date().toISOString(),
-    };
+      const orderData: any = {
+        id: trackingId,
+        customerName,
+        phone,
+        address: finalAddress,
+        paymentMethod: payment,
+        items: cartSelfService,
+        products: cartAvulsos.map((p: any) => ({
+          productId: p.productId,
+          quantity: p.quantity,
+        })),
+        observation,
+        total: totalFinal,
+        status: payment === "cartao" ? "aguardando_pagamento" : "novo",
+        isPaid: false,
+        isAccounted: false,
+        tipoPedido: "delivery",
+        taxaEmbalagem,
+        taxaEntrega,
+        taxaCartao,
+        subtotal: cartSubtotal,
+        createdAt: new Date().toISOString(),
+      };
 
-    await addOrder(orderData);
+      await addOrder(orderData);
+      
+      // NOVO: Salva o ID localmente no celular do cliente!
+      saveOrderLocally(trackingId);
 
-    if (payment === "cartao") {
-      const totalMercadoPago = Number(totalFinal.toFixed(2));
-      const res = await createPaymentPreference(orderData, totalMercadoPago);
-      if (res.success && res.init_point) {
-        window.location.href = res.init_point;
-        return;
-      } else {
-        toast({ title: "Erro de Pagamento", description: "Não gerou link do Mercado Pago.", variant: "destructive" });
-        setIsProcessing(false);
-        return;
+      if (payment === "cartao") {
+        const totalMercadoPago = Number(totalFinal.toFixed(2));
+        const res = await createPaymentPreference(orderData, totalMercadoPago);
+        if (res.success && res.init_point) {
+          window.location.href = res.init_point;
+          return;
+        } else {
+          toast({ title: "Erro de Pagamento", description: "Não gerou link do Mercado Pago.", variant: "destructive" });
+          setIsProcessing(false);
+          return;
+        }
       }
-    }
 
-    setIsProcessing(false);
-    router.push(`/pedido/${trackingId}`);
-  };
-
+      setIsProcessing(false);
+      router.push(`/pedido/${trackingId}`);
+    };
   const getItemName = (id: string) => {
     const item = menuItems?.find((m: any) => m.id === id);
     return item ? item.name : "Item";
