@@ -34,6 +34,6 @@ Domingo:
 Erro na hora de escolher o cartão o valor da taxa não está entrando e o total do pedido fica com o preço todo errado.
 Depois de resolver isso precisamos jogar o cliente para a página do mercado livre, e precisamos colocar uma regra que é o seguinte, se o metodo de pagamento for em cartão, ele precisa verificar se o pagamento foi efetuado, para só ai passar para o estado "aprovado" ou seja, precisamos que o nosso sistema do percado pago, mude o status do pagamento do pedido para "pago" precisamos que ele crie uma regra para mesmo quando o auto aprove estiver ligado, se o pagamento for em "cartão" o auto aprove não funcione.
 
-Atenção que eu acho que ja tem essa parada de pagamento em cartão receber tratamento diferente do auto aprove
+Atenção que eu acho que ja tem essa parada de pagamento em cartão receber tratamento diferente do auto aprove "APROVADO" mesmo antes de pago, tem que por essa verificação
 
 Botão para editar nome das categorias dos produtos avulsos!
