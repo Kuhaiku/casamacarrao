@@ -50,9 +50,7 @@ export async function getStoreData() {
   try {
     const [sizes] = await pool.query("SELECT * FROM sizes");
     const [menuItems] = await pool.query("SELECT * FROM menu_items");
-    const [productCategories] = await pool.query(
-      "SELECT * FROM product_categories",
-    );
+    const [productCategories] = await pool.query("SELECT * FROM product_categories ORDER BY orderIndex ASC, id ASC");
     const [products] = await pool.query("SELECT * FROM products");
     const [bairros] = await pool.query(
       "SELECT * FROM bairros_atendidos ORDER BY nome ASC",
@@ -177,6 +175,11 @@ export async function dbDispatch(action: string, payload: any) {
       ]);
       break;
     }
+    case "REORDER_CATEGORIES":
+      for (const cat of payload.categories) {
+        await pool.query("UPDATE product_categories SET orderIndex = ? WHERE id = ?", [cat.orderIndex, cat.id]);
+      }
+      break;
     case "ADD_BAIRRO":
       await pool.query(
         "INSERT INTO bairros_atendidos (nome, cidade, taxa_entrega, ativo) VALUES (?, ?, ?, ?)",

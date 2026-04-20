@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { dbDispatch } from "@/lib/actions";
 import {
   Card,
   CardContent,
@@ -34,6 +35,9 @@ import {
   Settings2,
   Box,
   MapPin,
+  Check,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import type { MenuItem, Size, Product, ProductCategory } from "@/lib/types";
 
@@ -650,6 +654,7 @@ function ProductsTabContent() {
     deleteProductCategory,
     addProduct,
     settings,
+    sync,
   } = useStore();
 
   const [catName, setCatName] = useState("");
@@ -662,10 +667,41 @@ function ProductsTabContent() {
   >("padrao");
   const [taxaEmbalagemProd, setTaxaEmbalagemProd] = useState("");
 
+  // Estados para Edição de Categorias
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
+
   const handleAddCategory = () => {
     if (!catName) return;
     addProductCategory({ name: catName, isActive: true });
     setCatName("");
+  };
+
+  const handleEditCategoryClick = (cat: any) => {
+    setEditingCategory(cat.id);
+    setEditCategoryName(cat.name);
+  };
+
+  const handleSaveCategoryEdit = async (id: string) => {
+    if (!editCategoryName.trim()) return;
+    await dbDispatch("UPDATE_PRODUCT_CATEGORY", { id, updates: { name: editCategoryName } });
+    setEditingCategory(null);
+    sync();
+  };
+
+  const handleReorderCategories = async (currentIndex: number, direction: number) => {
+    const newIndex = currentIndex + direction;
+    if (newIndex < 0 || newIndex >= productCategories.length) return;
+
+    const newCategories = [...productCategories];
+    const temp = newCategories[currentIndex];
+    newCategories[currentIndex] = newCategories[newIndex];
+    newCategories[newIndex] = temp;
+
+    const reorderedPayload = newCategories.map((c, idx) => ({ id: c.id, orderIndex: idx }));
+    
+    await dbDispatch("REORDER_CATEGORIES", { categories: reorderedPayload });
+    sync();
   };
 
   const handleAddProduct = () => {
@@ -727,17 +763,68 @@ function ProductsTabContent() {
           </Card>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {productCategories.map((cat) => (
+            {productCategories.map((cat, index) => (
               <Card key={cat.id}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <span className="font-semibold">{cat.name}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteProductCategory(cat.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                <CardContent className="p-4 flex flex-col justify-center min-h-[72px]">
+                  {editingCategory === cat.id ? (
+                    <div className="flex items-center gap-2 w-full animate-in fade-in zoom-in-95 duration-200">
+                      <Input 
+                        value={editCategoryName}
+                        onChange={(e) => setEditCategoryName(e.target.value)}
+                        className="h-8 text-sm"
+                        autoFocus
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveCategoryEdit(cat.id)}
+                      />
+                      <Button variant="ghost" size="icon" onClick={() => handleSaveCategoryEdit(cat.id)} className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 shrink-0">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setEditingCategory(null)} className="h-8 w-8 text-stone-400 hover:text-stone-600 shrink-0">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between w-full group">
+                      <span className="font-semibold text-stone-800">{cat.name}</span>
+                      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <div className="flex flex-col mr-1 bg-stone-100 rounded-md">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-4 w-6 hover:bg-stone-200 rounded-b-none" 
+                            disabled={index === 0} 
+                            onClick={() => handleReorderCategories(index, -1)}
+                          >
+                            <ChevronUp className="h-3 w-3 text-stone-500" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-4 w-6 hover:bg-stone-200 rounded-t-none" 
+                            disabled={index === productCategories.length - 1} 
+                            onClick={() => handleReorderCategories(index, 1)}
+                          >
+                            <ChevronDown className="h-3 w-3 text-stone-500" />
+                          </Button>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
+                          onClick={() => handleEditCategoryClick(cat)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => deleteProductCategory(cat.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -1344,7 +1431,7 @@ function DeliveryTabContent() {
               <Label className="font-bold text-stone-700">Nome do Bairro</Label>
               <Input
                 placeholder="Ex: Centro"
-                value={newBairro.nome}
+                newBairro-nome={newBairro.nome}
                 onChange={(e) =>
                   setNewBairro({ ...newBairro, nome: e.target.value })
                 }
@@ -1638,10 +1725,11 @@ function OperationsTabContent() {
             </div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
-              Pagamento em Cartão 
+              Pagamento em Cartão (Mesas)
             </CardTitle>
             <CardDescription>
               Habilitar ou desabilitar a opção de fechar conta no Cartão de
@@ -1649,7 +1737,6 @@ function OperationsTabContent() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Toggle de Ativação do Cartão */}
             <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
               <Label className="font-bold cursor-pointer text-sm sm:text-base">
                 {settings.mercadoPagoAtivo !== false ? "CARTÃO LIBERADO" : "CARTÃO BLOQUEADO"}
@@ -1661,7 +1748,6 @@ function OperationsTabContent() {
               />
             </div>
 
-            {/* Input da Taxa do Cartão (%) */}
             <div className="bg-muted/50 p-4 rounded-xl border space-y-3">
               <Label className="font-bold text-sm sm:text-base">
                 Taxa do Cartão (%)
@@ -1684,7 +1770,8 @@ function OperationsTabContent() {
               </p>
             </div>
           </CardContent>
-        </Card> 
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Taxa Padrão de Embalagem</CardTitle>
