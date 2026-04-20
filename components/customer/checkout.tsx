@@ -254,8 +254,7 @@ export function Checkout() {
                   </button>
                   
                   {/* TRAVA DUPLA: Verifica se o Mercado Pago está ativo E se a loja aceita cartão */}
-                  {settings.mercadoPagoAtivo === true && (
-                    <button type="button" onClick={() => setPaymentMethod("cartao")} disabled={!settings.isOpen} className={cn("p-3 rounded-lg border-2 flex flex-col items-center gap-1", paymentMethod === "cartao" ? "border-primary bg-primary/5" : "border-border opacity-70")}>
+                  {settings.mercadoPagoAtivo === true && (<button type="button" onClick={() => setPaymentMethod("cartao")} disabled={!settings.isOpen} className={cn("p-3 rounded-lg border-2 flex flex-col items-center gap-1", paymentMethod === "cartao" ? "border-primary bg-primary/5" : "border-border opacity-70")}>
                       <CreditCard className="h-5 w-5" /> <span className="text-xs font-medium">Cartão</span>
                     </button>
                   )}

@@ -1588,69 +1588,6 @@ function OperationsTabContent() {
         </CardHeader>
       </Card>
 
-      {/* <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Horários de Funcionamento</CardTitle>
-          <CardDescription>
-            Defina os horários de abertura e fechamento para cada dia da semana.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {diasSemana.map((dia) => {
-              const dayConfig = settings.deliverySchedule?.[dia.key] || {
-                active: true,
-                start: "18:00",
-                end: "23:59",
-              };
-
-              return (
-                <div
-                  key={dia.key}
-                  className={`p-3 rounded-xl border transition-colors ${
-                    dayConfig.active
-                      ? "bg-stone-50 border-stone-300"
-                      : "bg-muted/30 border-dashed opacity-70"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <Label className="font-bold cursor-pointer">{dia.label}</Label>
-                    <Switch
-                      checked={dayConfig.active}
-                      onCheckedChange={(val) => toggleDay(dia.key, val)}
-                      disabled={dia.key === "1"} // Segunda-feira é forçada como fechada no servidor
-                    />
-                  </div>
-
-                  {dayConfig.active && (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="time"
-                        value={dayConfig.start}
-                        onChange={(e) => updateDayTime(dia.key, "start", e.target.value)}
-                        className="h-8 text-xs font-mono"
-                      />
-                      <span className="text-xs text-stone-400 font-medium">até</span>
-                      <Input
-                        type="time"
-                        value={dayConfig.end}
-                        onChange={(e) => updateDayTime(dia.key, "end", e.target.value)}
-                        className="h-8 text-xs font-mono"
-                      />
-                    </div>
-                  )}
-                  {dia.key === "1" && (
-                    <p className="text-[10px] text-red-500 font-medium mt-1 italic">
-                      Fechamento obrigatório na segunda.
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card> */}
-
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -1677,7 +1614,30 @@ function OperationsTabContent() {
             </div>
           </CardContent>
         </Card>
-
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Aprovação Automática Delivery
+            </CardTitle>
+            <CardDescription>
+              Pula a tela de espera e envia pedidos do site direto para preparo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
+              <Label className="font-bold cursor-pointer text-sm">
+                {settings.autoApprove
+                  ? "LIGADA (Envio direto)"
+                  : "DESLIGADA (Manual)"}
+              </Label>
+              <Switch
+                checked={settings.autoApprove}
+                onCheckedChange={(val) => updateSettings({ autoApprove: val })}
+                className="data-[state=checked]:bg-orange-600"
+              />
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
@@ -1685,24 +1645,46 @@ function OperationsTabContent() {
             </CardTitle>
             <CardDescription>
               Habilitar ou desabilitar a opção de fechar conta no Cartão de
-              Crédito/Débito.
+              Crédito/Débito e configurar a taxa aplicada.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Toggle de Ativação do Cartão */}
             <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
               <Label className="font-bold cursor-pointer text-sm sm:text-base">
-                {settings.mercadoPagoAtivo !== false
-                  ? "CARTÃO LIBERADO"
-                  : "CARTÃO BLOQUEADO"}
+                {settings.mercadoPagoAtivo !== false ? "CARTÃO LIBERADO" : "CARTÃO BLOQUEADO"}
               </Label>
               <Switch
-                checked={settings.mercadoPagoAtivo !== false}
+                checked={settings.mercadoPagoAtivo !== false} 
                 onCheckedChange={(val) => updateSettings({ mercadoPagoAtivo: val })}
                 className="data-[state=checked]:bg-green-600"
               />
             </div>
+
+            {/* Input da Taxa do Cartão (%) */}
+            <div className="bg-muted/50 p-4 rounded-xl border space-y-3">
+              <Label className="font-bold text-sm sm:text-base">
+                Taxa do Cartão (%)
+              </Label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={settings.taxaCartaoPercentual || ""}
+                  onChange={(e) => updateSettings({ taxaCartaoPercentual: parseFloat(e.target.value) || 0 })}
+                  placeholder="Ex: 4.99"
+                  className="max-w-[150px] bg-white dark:bg-stone-900"
+                />
+                <span className="text-sm font-bold text-muted-foreground">%</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Esta porcentagem será cobrada do cliente em cima do subtotal + taxa de entrega + embalagens, 
+                apenas quando o pagamento for em "Cartão".
+              </p>
+            </div>
           </CardContent>
-        </Card>
+        </Card> 
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 opacity-80 hover:opacity-100 transition-opacity">
@@ -1726,31 +1708,6 @@ function OperationsTabContent() {
               <Button onClick={handleSaveGlobalTax} variant="secondary">
                 <Save className="w-4 h-4 mr-2" /> Salvar
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Aprovação Automática Delivery
-            </CardTitle>
-            <CardDescription>
-              Pula a tela de espera e envia pedidos do site direto para preparo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between space-x-3 bg-muted/50 p-4 rounded-xl border">
-              <Label className="font-bold cursor-pointer text-sm">
-                {settings.autoApprove
-                  ? "LIGADA (Envio direto)"
-                  : "DESLIGADA (Manual)"}
-              </Label>
-              <Switch
-                checked={settings.autoApprove}
-                onCheckedChange={(val) => updateSettings({ autoApprove: val })}
-                className="data-[state=checked]:bg-orange-600"
-              />
             </div>
           </CardContent>
         </Card>
