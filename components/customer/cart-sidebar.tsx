@@ -13,13 +13,14 @@ import {
   ChevronLeft,
   User,
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  ChefHat
 } from "lucide-react";
 import { validateBairro } from "@/lib/actions";
 import { createPaymentPreference } from "@/lib/mercadopago-actions";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
-import { saveOrderLocally } from "./floating-order-button";
+import { saveOrderLocally } from "./floating-order-button"; 
 
 export function CartSidebar(props: any) {
   const { toast } = useToast();
@@ -36,13 +37,14 @@ export function CartSidebar(props: any) {
     formatCurrency,
     setIsMobileCartOpen,
     addOrder,
-    router,
     products,
   } = props;
 
   const isCartEmpty = totalItemsCount === 0;
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  // Adicionado o passo 5 para a Tela de Espera
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [progress, setProgress] = useState(0);
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -149,11 +151,7 @@ export function CartSidebar(props: any) {
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
-      toast({
-        title: "Erro",
-        description: "GPS não suportado.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "GPS não suportado.", variant: "destructive" });
       return;
     }
     setIsFetchingLocation(true);
@@ -161,9 +159,7 @@ export function CartSidebar(props: any) {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-          );
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
           const data = await res.json();
           if (data && data.address) {
             setAddressData({
@@ -174,99 +170,146 @@ export function CartSidebar(props: any) {
               estado: data.address.state || "RJ",
               cep: data.address.postcode || "",
             });
-            toast({
-              title: "Localizado!",
-              description: "Confirme os dados e adicione o número.",
-            });
+            toast({ title: "Localizado!", description: "Confirme os dados e adicione o número." });
           }
         } catch (error) {
-          toast({
-            title: "Erro",
-            description: "Falha ao obter endereço.",
-            variant: "destructive",
-          });
+          toast({ title: "Erro", description: "Falha ao obter endereço.", variant: "destructive" });
         } finally {
           setIsFetchingLocation(false);
         }
       },
       () => {
         setIsFetchingLocation(false);
-        toast({
-          title: "GPS Desativado",
-          description: "Ative a localização no seu celular.",
-          variant: "destructive",
-        });
+        toast({ title: "GPS Desativado", description: "Ative a localização no seu celular.", variant: "destructive" });
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };
 
   const handleFinalize = async () => {
-      if (isBlockFinalize) return;
+    if (isBlockFinalize) return;
 
-      setIsProcessing(true);
-      const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`;
-      const trackingId = crypto.randomUUID();
+    setIsProcessing(true);
+    setStep(5); // <-- Chama a tela de carregamento bonita
+    setProgress(0);
 
-      const orderData: any = {
-        id: trackingId,
-        customerName,
-        phone,
-        address: finalAddress,
-        paymentMethod: payment,
-        items: cartSelfService,
-        products: cartAvulsos.map((p: any) => ({
-          productId: p.productId,
-          quantity: p.quantity,
-        })),
-        observation,
-        total: totalFinal,
-        status: payment === "cartao" ? "aguardando_pagamento" : "novo",
-        isPaid: false,
-        isAccounted: false,
-        tipoPedido: "delivery",
-        taxaEmbalagem,
-        taxaEntrega,
-        taxaCartao,
-        subtotal: cartSubtotal,
-        createdAt: new Date().toISOString(),
-      };
+    // Inicia a barra de progresso simulada (vai de 0 a 90%)
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
+      currentProgress += Math.floor(Math.random() * 15) + 5;
+      if (currentProgress > 90) currentProgress = 90;
+      setProgress(currentProgress);
+    }, 300);
 
+    const finalAddress = `${addressData.logradouro}, Nº ${addressData.numero} - ${addressData.bairro}, ${addressData.cidade}`;
+    const trackingId = crypto.randomUUID();
+
+    const orderData: any = {
+      id: trackingId,
+      customerName,
+      phone,
+      address: finalAddress,
+      paymentMethod: payment,
+      items: cartSelfService,
+      products: cartAvulsos.map((p: any) => ({
+        productId: p.productId,
+        quantity: p.quantity,
+      })),
+      observation,
+      total: totalFinal,
+      status: payment === "cartao" ? "aguardando_pagamento" : "novo",
+      isPaid: false,
+      isAccounted: false,
+      tipoPedido: "delivery",
+      taxaEmbalagem,
+      taxaEntrega,
+      taxaCartao,
+      subtotal: cartSubtotal,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
       await addOrder(orderData);
-      
-      // NOVO: Salva o ID localmente no celular do cliente!
       saveOrderLocally(trackingId);
 
-      if (payment === "cartao") {
+     if (payment === "cartao") {
         const totalMercadoPago = Number(totalFinal.toFixed(2));
         const res = await createPaymentPreference(orderData, totalMercadoPago);
-        if (res.success && res.init_point) {
-          window.location.href = res.init_point;
+        
+        clearInterval(progressInterval);
+        setProgress(100);
+
+        // Isolamos a URL em uma constante garantida para o TypeScript não reclamar no setTimeout
+        const urlMercadoPago = res.init_point;
+
+        if (res.success && urlMercadoPago) {
+          setTimeout(() => {
+            window.location.href = urlMercadoPago;
+          }, 600); // Dá meio segundo em 100% para o cliente ver
           return;
         } else {
-          toast({ title: "Erro de Pagamento", description: "Não gerou link do Mercado Pago.", variant: "destructive" });
+          setStep(4);
           setIsProcessing(false);
+          toast({ title: "Erro de Pagamento", description: "Não gerou link do Mercado Pago.", variant: "destructive" });
           return;
         }
       }
+      
+      // Se for PIX ou Dinheiro: O delay principal que garante que o DB salvou tudo
+      setTimeout(() => {
+        clearInterval(progressInterval);
+        setProgress(100);
+        
+        // Espera mais meio segundo pro cliente ver "100% concluído" antes de mudar a página
+        setTimeout(() => {
+          window.location.href = `/pedido/${trackingId}`;
+        }, 600);
+      }, 2500);
 
+    } catch (error) {
+      clearInterval(progressInterval);
+      setStep(4);
       setIsProcessing(false);
-      router.push(`/pedido/${trackingId}`);
-    };
+      toast({ title: "Erro", description: "Falha ao processar pedido. Tente novamente.", variant: "destructive" });
+    }
+  };
+
   const getItemName = (id: string) => {
     const item = menuItems?.find((m: any) => m.id === id);
     return item ? item.name : "Item";
   };
 
-  const stepTitles = {
+  const stepTitles: any = {
     1: "Sua Sacola",
     2: "Dados e Entrega",
     3: "Observação",
     4: "Finalizar Pedido"
   };
 
+  // TELA DE ESPERA ANIMADA (STEP 5)
+  if (step === 5) {
+    return (
+      <div className="flex flex-col h-full bg-stone-50 items-center justify-center p-6 text-center animate-in fade-in zoom-in-95 duration-500">
+        <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mb-6 animate-pulse shadow-inner border-4 border-white">
+          <ChefHat className="w-12 h-12 text-orange-600" />
+        </div>
+        <h2 className="text-2xl font-black text-stone-800 mb-2">Enviando pedido...</h2>
+        <p className="text-stone-500 text-sm mb-10 max-w-[250px] mx-auto leading-relaxed">
+          Estamos confirmando seu pedido com a nossa cozinha. Por favor, aguarde!
+        </p>
+        
+        <div className="w-full max-w-[250px] bg-stone-200 rounded-full h-3 overflow-hidden shadow-inner">
+          <div 
+            className="bg-green-500 h-full rounded-full transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <p className="text-xs font-black text-stone-400 mt-4 tracking-widest">{progress}% CONCLUÍDO</p>
+      </div>
+    );
+  }
+
   return (
-    // Correção 1: h-full no lugar de h-[100dvh] para respeitar o limite do modal de fundo
     <div className="flex flex-col h-full bg-stone-50">
       
       <div className="p-4 border-b border-stone-200 bg-white flex items-center justify-between shrink-0 z-10 shadow-sm">
@@ -517,7 +560,6 @@ export function CartSidebar(props: any) {
         )}
       </div>
 
-      {/* Correção 2: Margem de segurança nativa (CSS in-line) para o rodapé não ficar escondido */}
       {!isCartEmpty && (
         <div 
           className="bg-white border-t border-stone-200 shrink-0 z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] px-4 pt-4"
@@ -574,8 +616,8 @@ export function CartSidebar(props: any) {
               disabled={isBlockFinalize}
               className="w-full py-4 rounded-2xl text-white font-black text-[15px] bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:text-stone-500 transition-all flex justify-center items-center gap-2 active:scale-[0.98]"
             >
-              {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingBag className="w-5 h-5" />}
-              {isProcessing ? "PROCESSANDO..." : "CONCLUIR E PEDIR"}
+              <ShoppingBag className="w-5 h-5" />
+              CONCLUIR E PEDIR
             </button>
           )}
 

@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 import { MenuView } from "@/components/customer/menu-view";
 import { OrderBuilder } from "@/components/customer/order-builder";
 import { CartSidebar } from "@/components/customer/cart-sidebar";
-import { FloatingOrderButton } from "@/components/customer/floating-order-button";
+import { OrderHistoryWidget } from "@/components/customer/floating-order-button";
 
 export default function CustomerHome() {
   const router = useRouter();
@@ -176,17 +176,33 @@ export default function CustomerHome() {
       </aside>
 
       {/* TELA DA SACOLA NO MOBILE */}
-      {isMobileCartOpen && (
-        <div className="fixed inset-0 z-[70] lg:hidden flex flex-col bg-stone-900/50 backdrop-blur-sm animate-in fade-in">
-          <div className="flex-1" onClick={() => setIsMobileCartOpen(false)}></div>
-          <div className="h-[90dvh] bg-white rounded-t-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full flex flex-col">
-            <CartSidebar {...cartProps} />
-          </div>
+     {/* BOTÃO MOBILE DA SACOLA COM FEEDBACK VISUAL */}
+        <div className="lg:hidden bg-stone-50 px-4 py-3 border-b border-stone-200 z-10 shadow-sm shrink-0">
+          <button 
+            onClick={() => setIsMobileCartOpen(true)} 
+            className={`w-full rounded-2xl p-3 flex items-center justify-between transition-all duration-300 shadow-md border-2
+              ${cartBump 
+                ? 'bg-green-600 border-green-500 text-white scale-[1.02]' 
+                : 'bg-stone-900 border-stone-900 text-white'}`}
+          >
+            <div className="flex items-center gap-3">
+              <ShoppingBag className={`w-5 h-5 transition-transform duration-300 ${cartBump ? 'scale-125' : 'text-stone-200'}`} />
+              <span className="font-bold text-sm tracking-wide">
+                {cartBump ? "Adicionado com Sucesso!" : `Minha Sacola (${totalItemsCount})`}
+              </span>
+            </div>
+            {cartTotal > 0 && !cartBump && (
+              <span className="font-black bg-white/10 px-2 py-1 rounded-lg text-xs tracking-wider">
+                {formatCurrency(cartTotal)}
+              </span>
+            )}
+          </button>
+          
+          {/* AQUI ENTRA O HISTÓRICO NO CELULAR (isMobile ativado) */}
+          <OrderHistoryWidget isMobile={true} />
         </div>
-      )}
-
-      {/* NOVO: BOTÃO FLUTUANTE DE HISTÓRICO DE PEDIDO */}
-      <FloatingOrderButton />
+        {/* BOTÃO DO HISTÓRICO LOCAL NO DESKTOP */}
+      <OrderHistoryWidget />
     </div>
   );
 }
