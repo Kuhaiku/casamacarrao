@@ -1,31 +1,24 @@
 https://github.com/Kuhaiku/casamacarrao/tree/feature/pagamento-mercadopago
 
-
- 🔴 Urgentes (Bugs e Fluxo Crítico)
-    Arrumar o problema de redirecionamento para a pagina do id, que atualmente só acontece depois da primeira compra
+🔴 Urgentes (Bugs e Fluxo Crítico)
+    
 
  
- 🟠 Média Prioridade (Funcionalidades e Ajustes Operacionais)
-
-no mobile quero que o botão de "acompanhar pedido" fique no topo encima de "minha sacola" e o quando clicado no botão tem que exibir o historico de pedidos não só o ultimo pedido
+🟠 Média Prioridade (Funcionalidades e Ajustes Operacionais)
 
 
-
- Módulo de Mesas:
+Módulo de Mesas:
 
      Arrumar a impressão geral do comprovante de mesa.
      Ao "fechar a conta", exibir a descrição completa do pedido.
      Adicionar botão de impressão no fechamento que abra direto o módulo de impressão (para a Elgin I9).
 
- 
- 
-
-
- 🟡 Leve (Filtros e Controle)
+🟡 Leve (Filtros e Controle)
 
  Rastreabilidade no Painel Admin: Adicionar tags de auditoria nos pedidos: "Aprovado Automaticamente" e "Aprovado pelo Operador" (para controle e responsabilidade).
 
- 🔵 Ideias / Próximos Passos (Sem Prioridade Atual)
+
+🔵 Ideias / Próximos Passos (Sem Prioridade Atual)
  Melhorias em Relatórios:
      Fazer com que despesas e gorjetas também apareçam no relatório.
      Criar função para imprimir o relatório de vendas de cada fechamento (com todas as descrições das vendas).
