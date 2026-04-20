@@ -1,28 +1,27 @@
 
  🔴 Urgentes (Bugs e Fluxo Crítico)
 
-
-
- Integração Mercado Pago: Redirecionar o cliente para a página de confirmação corretamente o link atual é: http://undefined/pedido/f9aeb00c-c632-4c28-a390-2d9b19499ffa?status=sucesso&collection_id=155615988074&collection_status=approved&payment_id=155615988074&status=approved&external_reference=f9aeb00c-c632-4c28-a390-2d9b19499ffa&payment_type=credit_card&merchant_order_id=40146659426&preference_id=274681452-31e1b5c8-bbf4-401d-a5b3-cc0e184ff792&site_id=MLB&processing_mode=aggregator&merchant_account_id=null e pelo que sei o link deveria ser:
- https://w-casamacarrao.velmc0.easypanel.host/pedido/ (id do pedido: f9aeb00c-c632-4c28-a390-2d9b19499ffa)
- Regra de Aprovação de Pagamento: Garantir que o "Auto Aprovar" seja ignorado se o método for cartão. O status só deve mudar para "Aprovado" após o Mercado Pago confirmar que o pagamento foi efetuado. (Verificar lógica existente e reforçar) e Fazer com que mude o Status para pago tambem
  
- 
-Correção Visual Mobile: Consertar o layout da sacola no celular que está cortando a lista de itens.
 
  🟠 Média Prioridade (Funcionalidades e Ajustes Operacionais)
+ /admin/menu  Configurações de Operação
  Taxa do Cartão no Painel:
      Adicionar inputs para o administrador poder mudar o valor da taxa do cartão.
      Mudar a lógica atual: remover o valor fixo e deixar funcionando apenas com porcentagem.
+
  Módulo de Mesas:
      Arrumar a impressão geral do comprovante de mesa.
      Ao "fechar a conta", exibir a descrição completa do pedido.
      Adicionar botão de impressão no fechamento que abra direto o módulo de impressão (para a Elgin I9).
+
  Gestão de Turno e Dias:
      Configurar o encerramento de turno para limpar automaticamente as despesas e vendas no painel Admin para o próximo turno.
-     Travar o sistema ("enraizar") para não aceitar pedidos nas segundas-feiras.
+     
+ 
+ Correção Visual Mobile: Consertar o layout da sacola no celular que está cortando a lista de itens.
  Experiência do Cliente (UX): Criar um feedback visual bem chamativo toda vez que um item for adicionado à sacola.
  Categorias: Adicionar botão para editar os nomes das categorias de produtos avulsos.
+ 
 
  🟡 Leve (Filtros e Controle)
  Painel Entregadores: Criar filtro de buscas pelo nome dos bairros.

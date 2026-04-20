@@ -109,8 +109,7 @@ export function Checkout() {
     if (paymentMethod !== "cartao") return 0;
     const baseSegura = Number(subtotal) + Number(taxaEmbalagem) + Number(taxaEntrega);
     const percentual = Number(settings?.taxaCartaoPercentual) || 0;
-    const fixa = Number(settings?.taxaCartaoFixa) || 0;
-    const resultado = (baseSegura * (percentual / 100)) + fixa;
+    const resultado = (baseSegura * (percentual / 100));
     return isNaN(resultado) ? 0 : resultado;
   }, [paymentMethod, subtotal, taxaEmbalagem, taxaEntrega, settings]);
 
