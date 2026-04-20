@@ -1,7 +1,7 @@
 // app/entregador/page.tsx
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useStore } from "@/lib/store"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,8 +21,27 @@ const paymentIcons: Record<string, React.ElementType> = {
   pix: Smartphone,
 }
 
+// Utilitário para remover acentos e padronizar o texto para comparação exata
+function normalizeString(str: string) {
+  if (!str) return ""
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+}
+
+// Extrai o bairro pegando tudo que estiver após o último hífen no endereço
+function extractBairro(address: string) {
+  if (!address) return ""
+  const parts = address.split("-")
+  if (parts.length > 1) {
+    return parts.pop()?.trim() || ""
+  }
+  return ""
+}
+
 export default function EntregadorPage() {
-  const { orders, sync, updateOrderStatus, toggleOrderPaid } = useStore()
+  const { orders, bairros, sync, updateOrderStatus, toggleOrderPaid } = useStore()
+  
+  // Estado para armazenar o filtro atual
+  const [selectedBairro, setSelectedBairro] = useState<string>("todos")
   
   // ATUALIZAÇÃO EM TEMPO REAL (A cada 3 segundos)
   useEffect(() => {
@@ -34,8 +53,20 @@ export default function EntregadorPage() {
   // Puxa pedidos que estão aguardando retirada OU que já saíram pra entrega
   const deliveries = orders.filter(o => o.status === "pronto" || o.status === "despachado")
 
+  // Filtra as entregas baseando-se no bairro selecionado
+  const filteredDeliveries = useMemo(() => {
+    if (selectedBairro === "todos") return deliveries
+    
+    const normalizedSelected = normalizeString(selectedBairro)
+    
+    return deliveries.filter(order => {
+      const orderBairro = extractBairro(order.address)
+      return normalizeString(orderBairro) === normalizedSelected
+    })
+  }, [deliveries, selectedBairro])
+
   const openMaps = (address: string) => {
-    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, "_blank")
+    window.open(`https://www.google.com/maps/search/?api=1&query=$?q=${encodeURIComponent(address)}`, "_blank")
   }
 
   const openWhatsApp = (phone: string, name: string) => {
@@ -58,20 +89,51 @@ export default function EntregadorPage() {
             </div>
           </div>
           <Badge className="bg-orange-500 text-lg px-3 py-1 font-black">
-            {deliveries.length}
+            {filteredDeliveries.length}
           </Badge>
         </div>
       </div>
 
+      {/* BARRA DE FILTROS POR BAIRRO */}
+      <div className="px-4 py-3 bg-stone-200/50 flex gap-2 overflow-x-auto no-scrollbar border-b border-stone-200">
+        <button
+          onClick={() => setSelectedBairro("todos")}
+          className={`px-5 py-2 rounded-full text-sm font-black whitespace-nowrap transition-all shadow-sm ${
+            selectedBairro === "todos" 
+              ? 'bg-orange-600 text-white' 
+              : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+          }`}
+        >
+          Todos os Bairros
+        </button>
+        {bairros.filter(b => b.ativo).map(bairro => (
+          <button
+            key={bairro.id}
+            onClick={() => setSelectedBairro(bairro.nome)}
+            className={`px-5 py-2 rounded-full text-sm font-black whitespace-nowrap transition-all shadow-sm ${
+              selectedBairro === bairro.nome 
+                ? 'bg-orange-600 text-white' 
+                : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+            }`}
+          >
+            {bairro.nome}
+          </button>
+        ))}
+      </div>
+
       <div className="p-4 space-y-4 mt-2 max-w-lg mx-auto">
-        {deliveries.length === 0 ? (
+        {filteredDeliveries.length === 0 ? (
           <div className="text-center py-20 text-stone-400">
             <Bike className="w-16 h-16 mx-auto mb-4 opacity-30" />
-            <h2 className="text-xl font-bold">Nenhuma entrega no momento</h2>
-            <p className="text-sm">Aguarde novos pedidos.</p>
+            <h2 className="text-xl font-bold">Nenhuma entrega encontrada</h2>
+            <p className="text-sm">
+              {selectedBairro === "todos" 
+                ? "Aguarde novos pedidos." 
+                : `Não há pedidos prontos ou em rota para "${selectedBairro}".`}
+            </p>
           </div>
         ) : (
-          deliveries.map(order => {
+          filteredDeliveries.map(order => {
             const PaymentIcon = paymentIcons[order.paymentMethod] || Banknote
             const isDespachado = order.status === "despachado"
             
