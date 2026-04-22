@@ -14,7 +14,7 @@ import {
   Wallet, Utensils, Motorbike, Banknote, CreditCard, QrCode, Receipt,
   TrendingDown, Lock, X, CheckCircle2, AlertCircle, Check, Truck, Ban,
   DollarSign, Eye, EyeOff, HeartHandshake, Bell, BellOff, MessageCircle,
-  ChevronDown, ChevronUp, Maximize2
+  ChevronDown, ChevronUp, Maximize2, ChevronsUp, ChevronsDown
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Order } from "@/lib/types";
@@ -117,6 +117,17 @@ export default function AdminDashboardPage() {
     setExpandedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  // Expandir / Recolher Todos
+  const toggleAllOrders = () => {
+    if (expandedOrders.length > 0) {
+      setExpandedOrders([]); // Recolhe todos
+    } else {
+      // Expande todos ativos
+      const allIds = [...activeLocalOrders.map(o => o.id), ...activeDeliveryOrders.map(o => o.id)];
+      setExpandedOrders(allIds);
+    }
+  };
+
   const handleAddExpense = () => {
     const amount = parseFloat(expenseAmount);
     if (!amount || !expenseDesc.trim()) return;
@@ -142,7 +153,6 @@ export default function AdminDashboardPage() {
     const finalTotal = orderToPay.total + (addTenPercent ? orderToPay.total * 0.1 : 0);
     const serviceFeeAmount = addTenPercent ? orderToPay.total * 0.1 : 0;
 
-    // Guarda a imagem estática do pedido antes de mudar estados que renderizam a tela
     const payloadData = {
       ...orderToPay,
       isPaid: true,
@@ -220,7 +230,19 @@ export default function AdminDashboardPage() {
           <p className="text-stone-500 font-medium text-xs">Visão geral da operação</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 shadow-sm">
+          
+          {/* BOTÃO EXPANDIR/RECOLHER TODOS */}
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={toggleAllOrders} 
+            className="h-8 w-8 text-stone-600 bg-stone-50 border-stone-200"
+            title={expandedOrders.length > 0 ? "Recolher Todos" : "Expandir Todos"}
+          >
+            {expandedOrders.length > 0 ? <ChevronsUp className="w-4 h-4" /> : <ChevronsDown className="w-4 h-4" />}
+          </Button>
+
+          <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 shadow-sm ml-1">
             <Switch checked={settings.isOpen} onCheckedChange={(checked) => updateSettings({ isOpen: checked })} className="data-[state=checked]:bg-green-600 scale-75" />
             <span className={`text-[10px] font-black tracking-wider ${settings.isOpen ? "text-green-600" : "text-red-500"}`}>
               {settings.isOpen ? "ABERTA" : "FECHADA"}
@@ -326,11 +348,71 @@ export default function AdminDashboardPage() {
                             return <div key={idx} className="text-[9px] font-bold text-stone-600 bg-white p-1.5 border border-stone-100 rounded">{p.quantity}x {prodInfo?.name || "Prod."}</div>
                           })}
                         </div>
-                        <Button onClick={() => setViewOrderId(order.id)} variant="outline" className="w-full h-7 text-[10px] font-bold border-blue-200 text-blue-700 hover:bg-blue-50">
-                          <Maximize2 className="w-3 h-3 mr-1.5" /> Gerenciar
-                        </Button>
                       </div>
                     )}
+                    
+                    {/* BARRA DE AÇÕES RÁPIDAS (MESA) */}
+                    <div className="flex justify-between items-center p-1.5 border-t border-stone-100 bg-stone-50 shrink-0">
+                      <div className="flex gap-1.5">
+                        <Button
+                          variant={order.isPaid ? "default" : "outline"}
+                          size="icon"
+                          className={`h-7 w-7 ${order.isPaid ? 'bg-green-600 text-white' : 'text-stone-600 bg-stone-200 border-stone-300'}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!order.isPaid) {
+                              setOrderToPayId(order.id);
+                              setPaymentMethodFinal(order.paymentMethod);
+                              setAddTenPercent(false);
+                            }
+                          }}
+                          title={order.isPaid ? "Conta Paga" : "Fechar Conta"}
+                        >
+                          {order.isPaid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (order.status === 'novo') updateOrderStatus(order.id, 'aprovado');
+                            else if (order.status === 'aprovado') updateOrderStatus(order.id, 'pronto');
+                            else if (order.status === 'pronto') updateOrderStatus(order.id, 'entregue');
+                          }}
+                          title="Avançar Status"
+                        >
+                          {order.status === 'novo' && <Check className="w-3.5 h-3.5" />}
+                          {order.status === 'aprovado' && <Utensils className="w-3.5 h-3.5" />}
+                          {order.status === 'pronto' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                          {order.status === 'entregue' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if(window.confirm('Cancelar este pedido?')) updateOrderStatus(order.id, 'cancelado');
+                          }}
+                          title="Cancelar Pedido"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-stone-400 hover:text-stone-700"
+                        onClick={(e) => { e.stopPropagation(); setViewOrderId(order.id); }}
+                        title="Ver Detalhes / Gerenciar"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -378,11 +460,63 @@ export default function AdminDashboardPage() {
                             return <div key={idx} className="text-[9px] font-bold text-stone-600 bg-white p-1.5 border border-stone-100 rounded">{p.quantity}x {prodInfo?.name || "Prod."}</div>
                           })}
                         </div>
-                        <Button onClick={() => setViewOrderId(order.id)} variant="outline" className="w-full h-7 text-[10px] font-bold border-purple-200 text-purple-700 hover:bg-purple-50">
-                          <Maximize2 className="w-3 h-3 mr-1.5" /> Gerenciar
-                        </Button>
                       </div>
                     )}
+                    
+                    {/* BARRA DE AÇÕES RÁPIDAS (DELIVERY) */}
+                    <div className="flex justify-between items-center p-1.5 border-t border-stone-100 bg-stone-50 shrink-0">
+                      <div className="flex gap-1.5">
+                        <Button
+                          variant={order.isPaid ? "default" : "outline"}
+                          size="icon"
+                          className={`h-7 w-7 ${order.isPaid ? 'bg-green-600 text-white' : 'text-stone-400 bg-white'}`}
+                          onClick={(e) => { e.stopPropagation(); toggleOrderPaid(order.id); }}
+                          title={order.isPaid ? "Pago" : "Marcar como Pago"}
+                        >
+                          <DollarSign className="w-3.5 h-3.5" />
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (order.status === 'novo') updateOrderStatus(order.id, 'aprovado');
+                            else if (order.status === 'aprovado') updateOrderStatus(order.id, 'pronto');
+                            else if (order.status === 'pronto') updateOrderStatus(order.id, 'despachado');
+                            else if (order.status === 'despachado') updateOrderStatus(order.id, 'entregue');
+                          }}
+                          title="Avançar Status"
+                        >
+                          {order.status === 'novo' && <Check className="w-3.5 h-3.5" />}
+                          {order.status === 'aprovado' && <Utensils className="w-3.5 h-3.5" />}
+                          {order.status === 'pronto' && <Truck className="w-3.5 h-3.5" />}
+                          {order.status === 'despachado' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                          {order.status === 'entregue' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 bg-[#25D366]/10 text-[#25D366] border-[#25D366]/30 hover:bg-[#25D366]/20"
+                          onClick={(e) => { e.stopPropagation(); handleWhatsApp(order.phone); }}
+                          title="WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-stone-400 hover:text-stone-700"
+                        onClick={(e) => { e.stopPropagation(); setViewOrderId(order.id); }}
+                        title="Ver Detalhes / Gerenciar"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -505,7 +639,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* CONTROLES */}
+            {/* CONTROLES EXTRAS NO MODAL */}
             <div className="p-3 border-t border-stone-200 bg-stone-50 shrink-0">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 
