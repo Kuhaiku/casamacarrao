@@ -229,20 +229,29 @@ export default function AdminDashboardPage() {
     const item = menuItems?.find((m: any) => m.id === id);
     return item ? item.name : "Item";
   };
-
-  const handleWhatsApp = (phone: string) => {
+const handleWhatsApp = (order: any) => {
+    const phone = order.phone;
     if (!phone || phone === "Não informado") {
       toast.error("Telefone não informado.");
       return;
     }
+    
     const cleanPhone = phone.replace(/\D/g, '');
+    
     if (cleanPhone.length >= 10) {
-      window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+      // Puxa a mensagem do banco ou usa uma genérica
+      let baseMessage = settings.whatsappMessage || "Olá {nome}! Tudo bem? Somos da Casa do Macarrão.";
+      
+      // Substitui variáveis dinâmicas caso você coloque {nome} ou {pedido} no texto lá no banco
+      let finalMessage = baseMessage
+        .replace(/{nome}/g, order.customerName || "Cliente")
+        .replace(/{pedido}/g, String(order.id).split('-')[0].toUpperCase());
+
+      window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(finalMessage)}`, '_blank');
     } else {
       toast.error("Número inválido.");
     }
   };
-
   return (
     <div className="flex flex-col h-screen w-full bg-stone-100 overflow-hidden font-sans">
       
@@ -577,7 +586,7 @@ export default function AdminDashboardPage() {
                           variant="outline"
                           size="icon"
                           className="h-7 w-7 bg-[#25D366]/10 text-[#25D366] border-[#25D366]/30 hover:bg-[#25D366]/20"
-                          onClick={(e) => { e.stopPropagation(); handleWhatsApp(order.phone); }}
+                          onClick={(e) => { e.stopPropagation(); handleWhatsApp(order); }}
                           title="WhatsApp"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
