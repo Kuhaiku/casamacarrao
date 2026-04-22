@@ -45,12 +45,19 @@ function formatCurrency(value: number) {
   return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// CORREÇÃO DEFINITIVA DE FUSO HORÁRIO
 function ajustarFusoHorario(dateString?: string) {
   if (!dateString) return "N/A";
   try {
-    const date = new Date(dateString);
-    date.setHours(date.getHours() - 3);
+    let isoString = dateString.replace(" ", "T");
+    if (!isoString.includes("Z") && !isoString.match(/[+-]\d{2}:?\d{2}$/)) {
+      isoString += "Z"; // Força a interpretação como UTC
+    }
+    const date = new Date(isoString);
+    
+    // Formata cravado no horário do Brasil
     return date.toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
       day: "2-digit",
       month: "2-digit",
       year: "2-digit",
@@ -60,6 +67,13 @@ function ajustarFusoHorario(dateString?: string) {
   } catch {
     return "Data inválida";
   }
+}
+
+function getOrderType(address: string) {
+  if (!address) return "ENTREGA";
+  const trimmed = address.trim().toLowerCase();
+  const isMesa = trimmed.startsWith("mesa") || /^\d+$/.test(trimmed);
+  return isMesa ? "LOCAL" : "ENTREGA";
 }
 
 export default function FinanceiroPage() {
@@ -101,16 +115,13 @@ export default function FinanceiroPage() {
   const currentExpenses = expenses.filter((e) => !e.isAccounted);
   const currentTips = tips.filter((t) => !t.isAccounted);
 
-  const totalSales = currentOrders.reduce((acc, o) => acc + o.total, 0);
-  const totalExpenses = currentExpenses.reduce((acc, e) => acc + e.amount, 0);
-  const totalTips = currentTips.reduce((acc, t) => acc + t.amount, 0);
+  const totalSales = currentOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+  const totalExpenses = currentExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const totalTips = currentTips.reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
   const netTotal = totalSales + totalTips - totalExpenses;
 
   // Lógica da Aba "Entregas do Turno"
-  const deliveryOrders = currentOrders.filter((o) => {
-    const isMesa = o.address.toLowerCase().includes("mesa") || /^\d+$/.test(o.address.trim());
-    return !isMesa;
-  });
+  const deliveryOrders = currentOrders.filter((o) => getOrderType(o.address) === "ENTREGA");
 
   const getBairro = (address: string) => {
     const parts = address.split('-');
@@ -206,7 +217,7 @@ export default function FinanceiroPage() {
             listaPedidos
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
               .map((order) => {
-                const isMesa = order.address.toLowerCase().includes("mesa") || /^\d+$/.test(order.address.trim());
+                const isMesa = getOrderType(order.address) === "LOCAL";
                 return (
                   <TableRow key={order.id} className="hover:bg-stone-50/50 bg-white">
                     <TableCell className="text-xs text-stone-500 font-medium">
@@ -214,7 +225,7 @@ export default function FinanceiroPage() {
                     </TableCell>
                     <TableCell className="font-bold text-stone-800">
                       {order.customerName}
-                      <div className="text-xs font-normal text-stone-500 truncate max-w-[300px]">
+                      <div className="text-xs font-normal text-stone-500 truncate max-w-[300px]" title={order.address}>
                         {order.address}
                       </div>
                     </TableCell>
@@ -229,6 +240,57 @@ export default function FinanceiroPage() {
                     <TableCell className="text-right font-black text-green-600 text-base">
                       {formatCurrency(order.total)}
                     </TableCell>
+                  </TableRow>
+                );
+              })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
+  // TABELA EXCLUSIVA DE ENTREGAS
+  const renderDeliveryClosureTable = (listaEntregas: any[]) => (
+    <div className="max-h-[500px] overflow-y-auto">
+      <Table>
+        <TableHeader className="bg-purple-50 sticky top-0 shadow-sm z-10">
+          <TableRow>
+            <TableHead className="w-[140px] text-purple-900 font-bold">Data/Hora</TableHead>
+            <TableHead className="text-purple-900 font-bold">Cliente</TableHead>
+            <TableHead className="text-purple-900 font-bold">Origem</TableHead>
+            <TableHead className="text-purple-900 font-bold">Endereço</TableHead>
+            <TableHead className="text-purple-900 font-bold">Bairro</TableHead>
+            <TableHead className="text-right text-purple-900 font-bold">Entrega (Taxa)</TableHead>
+            <TableHead className="text-right text-purple-900 font-bold">Total Líquido</TableHead>
+            <TableHead className="text-right text-purple-900 font-bold">Total Bruto</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {listaEntregas.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="text-center py-10 text-stone-400 font-medium border-b-0 bg-white">
+                Nenhuma entrega registrada neste fechamento.
+              </TableCell>
+            </TableRow>
+          ) : (
+            listaEntregas
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .map((order) => {
+                const taxaEntrega = Number(order.taxaEntrega) || 0;
+                const totalBruto = Number(order.total) || 0;
+                const totalLiquido = totalBruto - taxaEntrega;
+                const bairro = getBairro(order.address);
+
+                return (
+                  <TableRow key={order.id} className="hover:bg-stone-50/50 bg-white">
+                    <TableCell className="text-xs text-stone-500 font-medium">{ajustarFusoHorario(order.createdAt)}</TableCell>
+                    <TableCell className="font-bold text-stone-800">{order.customerName}</TableCell>
+                    <TableCell className="uppercase text-xs font-bold text-stone-600">{order.paymentMethod}</TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate" title={order.address}>{order.address}</TableCell>
+                    <TableCell className="text-xs font-bold text-stone-600">{bairro}</TableCell>
+                    <TableCell className="text-right font-bold text-blue-600">{formatCurrency(taxaEntrega)}</TableCell>
+                    <TableCell className="text-right font-bold text-stone-600">{formatCurrency(totalLiquido)}</TableCell>
+                    <TableCell className="text-right font-black text-green-600 text-base">{formatCurrency(totalBruto)}</TableCell>
                   </TableRow>
                 );
               })
@@ -300,7 +362,6 @@ export default function FinanceiroPage() {
 
         {/* ABA 1: CAIXA DO TURNO */}
         <TabsContent value="atual" className="space-y-6 mt-6 focus-visible:outline-none">
-          {/* ... (Resumo, Gorjetas, Despesas inalterados) ... */}
           <div className="grid gap-4 md:grid-cols-4">
             <Card className="border-green-200 bg-green-50/30">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -475,7 +536,7 @@ export default function FinanceiroPage() {
                 </div>
               </div>
 
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-stone-50 p-5 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
                   <p className="text-stone-500 font-bold uppercase text-xs tracking-widest mb-1">Qtd. Entregas</p>
                   <p className="text-3xl font-black text-stone-800">{filteredDeliveries.length}</p>
@@ -483,29 +544,28 @@ export default function FinanceiroPage() {
                 <div className="bg-blue-50 p-5 rounded-2xl border border-blue-200 flex flex-col items-center justify-center text-center">
                   <p className="text-blue-600/70 font-bold uppercase text-xs tracking-widest mb-1">Soma das Taxas</p>
                   <p className="text-3xl font-black text-blue-700">
-                    {/* ADICIONADO O Number() PARA EVITAR CONCATENAÇÃO DE TEXTO */}
                     {formatCurrency(filteredDeliveries.reduce((acc, o) => acc + (Number(o.taxaEntrega) || 0), 0))}
                   </p>
                 </div>
                 <div className="bg-green-50 p-5 rounded-2xl border border-green-200 flex flex-col items-center justify-center text-center">
                   <p className="text-green-600/70 font-bold uppercase text-xs tracking-widest mb-1">Total Faturado</p>
                   <p className="text-3xl font-black text-green-700">
-                    {/* ADICIONADO O Number() AQUI TAMBÉM POR SEGURANÇA */}
                     {formatCurrency(filteredDeliveries.reduce((acc, o) => acc + (Number(o.total) || 0), 0))}
                   </p>
                 </div>
               </div>
+
               <div className="border rounded-xl overflow-hidden shadow-sm">
-                {renderOrdersTable(filteredDeliveries)}
+                {renderDeliveryClosureTable(filteredDeliveries)}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ABA 3: HISTÓRICO */}
+        {/* ABA 3: HISTÓRICO DE FECHAMENTOS */}
         <TabsContent value="historico" className="mt-6 focus-visible:outline-none">
           <Card className="border-none shadow-none bg-transparent">
-            <CardContent className="p-0 space-y-4">
+            <CardContent className="p-0 space-y-6">
               {cashRegisters.length === 0 ? (
                 <div className="text-center p-12 bg-white rounded-2xl border border-dashed border-stone-300 text-stone-400">
                   <p className="font-bold text-lg">Histórico Vazio</p>
@@ -557,14 +617,56 @@ export default function FinanceiroPage() {
                           </div>
                         </div>
                       </div>
+                      
+                      {/* ÁREA EXPANDIDA DO RELATÓRIO */}
                       {expandedReg === reg.id && (
-                        <div className="border-t border-stone-200 bg-stone-100/50 p-4 animate-in slide-in-from-top-2">
-                          <h4 className="font-bold text-stone-700 mb-4 flex items-center gap-2">
-                            <ShoppingBag className="w-4 h-4" /> Pedidos Registrados Neste Fechamento
-                          </h4>
-                          <div className="rounded-lg border shadow-sm overflow-hidden bg-white">
-                            {renderOrdersTable(regOrders)}
+                        <div className="border-t border-stone-200 bg-stone-100/50 p-4 animate-in slide-in-from-top-2 space-y-6">
+                          
+                          {/* SESSÃO 1: FECHAMENTO DAS ENTREGAS */}
+                          {(() => {
+                            const closedDeliveries = regOrders.filter(o => getOrderType(o.address) === "ENTREGA");
+                            const sumTaxas = closedDeliveries.reduce((acc, o) => acc + (Number(o.taxaEntrega) || 0), 0);
+                            const sumBruto = closedDeliveries.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+                            const sumLiquido = sumBruto - sumTaxas;
+
+                            return (
+                              <div className="space-y-4">
+                                <h4 className="font-bold text-purple-800 flex items-center gap-2">
+                                  <Motorbike className="w-5 h-5" /> Fechamento de Entregas (Motoboys)
+                                </h4>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div className="bg-white p-4 rounded-xl border border-blue-200 flex flex-col justify-center">
+                                    <p className="text-blue-500 font-bold uppercase text-[10px] tracking-widest mb-1">Valor das Entregas (Taxas)</p>
+                                    <p className="text-2xl font-black text-blue-700">{formatCurrency(sumTaxas)}</p>
+                                  </div>
+                                  <div className="bg-white p-4 rounded-xl border border-stone-200 flex flex-col justify-center">
+                                    <p className="text-stone-500 font-bold uppercase text-[10px] tracking-widest mb-1">Total Venda (S/ Entregas)</p>
+                                    <p className="text-2xl font-black text-stone-700">{formatCurrency(sumLiquido)}</p>
+                                  </div>
+                                  <div className="bg-white p-4 rounded-xl border border-green-200 flex flex-col justify-center">
+                                    <p className="text-green-600 font-bold uppercase text-[10px] tracking-widest mb-1">Faturamento Bruto (Delivery)</p>
+                                    <p className="text-2xl font-black text-green-700">{formatCurrency(sumBruto)}</p>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border shadow-sm overflow-hidden bg-white">
+                                  {renderDeliveryClosureTable(closedDeliveries)}
+                                </div>
+                              </div>
+                            )
+                          })()}
+
+                          {/* SESSÃO 2: TODOS OS PEDIDOS (SALÃO E MISTO) */}
+                          <div className="pt-4 border-t border-stone-200">
+                            <h4 className="font-bold text-stone-700 mb-4 flex items-center gap-2">
+                              <ShoppingBag className="w-5 h-5" /> Todos os Pedidos (Salão e Delivery)
+                            </h4>
+                            <div className="rounded-lg border shadow-sm overflow-hidden bg-white">
+                              {renderOrdersTable(regOrders)}
+                            </div>
                           </div>
+
                         </div>
                       )}
                     </Card>

@@ -30,17 +30,17 @@ import Link from "next/link";
 
 function normalizeDate(dateString: string) {
   if (!dateString) return new Date();
+  
+  // Troca espaço por T para garantir o padrão ISO
   let isoString = dateString.replace(" ", "T");
+  
+  // Se não tem a indicação de fuso (Z), nós forçamos o JavaScript a entender que essa data veio em UTC
   if (!isoString.includes("Z") && !isoString.match(/[+-]\d{2}:?\d{2}$/)) {
     isoString += "Z";
   }
   
-  const date = new Date(isoString);
-  
-  // Corrige o fuso horário subtraindo 3 horas
-  date.setHours(date.getHours() - 3);
-  
-  return date;
+  // Não precisamos mais do "setHours(-3)" pois o navegador converte o "Z" automaticamente para o horário local (Brasil).
+  return new Date(isoString);
 }
 function formatTime(dateString: string) {
   const date = normalizeDate(dateString);
