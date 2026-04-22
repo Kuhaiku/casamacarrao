@@ -37,7 +37,9 @@ import {
   ChevronUp,
   MapPin,
   Motorbike,
-  Check
+  Check,
+  Utensils,
+  LayoutList
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,7 +47,6 @@ function formatCurrency(value: number) {
   return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-// CORREÇÃO DEFINITIVA DE FUSO HORÁRIO
 function ajustarFusoHorario(dateString?: string) {
   if (!dateString) return "N/A";
   try {
@@ -81,8 +82,9 @@ export default function FinanceiroPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  
   const [expandedReg, setExpandedReg] = useState<string | null>(null);
-
+  const [historyFilter, setHistoryFilter] = useState<"TUDO" | "LOCAL" | "ENTREGA">("TUDO");
   const [selectedBairros, setSelectedBairros] = useState<string[]>([]);
 
   const {
@@ -194,6 +196,16 @@ export default function FinanceiroPage() {
     }
   };
 
+  const handleExpandReg = (id: string) => {
+    if (expandedReg === id) {
+      setExpandedReg(null);
+    } else {
+      setExpandedReg(id);
+      setHistoryFilter("TUDO"); // Reseta o filtro ao abrir um novo relatório
+    }
+  };
+
+  // TABELA GERAL
   const renderOrdersTable = (listaPedidos: any[]) => (
     <div className="max-h-[500px] overflow-y-auto">
       <Table>
@@ -210,7 +222,7 @@ export default function FinanceiroPage() {
           {listaPedidos.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="text-center py-10 text-stone-400 font-medium border-b-0 bg-white">
-                Nenhuma venda encontrada para este período/filtro.
+                Nenhuma venda encontrada para este filtro.
               </TableCell>
             </TableRow>
           ) : (
@@ -562,7 +574,7 @@ export default function FinanceiroPage() {
           </Card>
         </TabsContent>
 
-        {/* ABA 3: HISTÓRICO DE FECHAMENTOS */}
+        {/* ABA 3: HISTÓRICO DE FECHAMENTOS COM FILTROS AVANÇADOS */}
         <TabsContent value="historico" className="mt-6 focus-visible:outline-none">
           <Card className="border-none shadow-none bg-transparent">
             <CardContent className="p-0 space-y-6">
@@ -583,7 +595,7 @@ export default function FinanceiroPage() {
 
                   return (
                     <Card key={reg.id} className="overflow-hidden border-stone-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex flex-col lg:flex-row cursor-pointer hover:bg-stone-50 transition-colors" onClick={() => setExpandedReg(expandedReg === reg.id ? null : reg.id)}>
+                      <div className="flex flex-col lg:flex-row cursor-pointer hover:bg-stone-50 transition-colors" onClick={() => handleExpandReg(reg.id)}>
                         <div className="bg-stone-100 p-4 lg:w-64 border-b lg:border-b-0 lg:border-r border-stone-200 flex flex-col justify-center">
                           <div className="mb-3">
                             <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Abertura</p>
@@ -618,55 +630,119 @@ export default function FinanceiroPage() {
                         </div>
                       </div>
                       
-                      {/* ÁREA EXPANDIDA DO RELATÓRIO */}
+                      {/* ÁREA EXPANDIDA DO RELATÓRIO COM FILTROS */}
                       {expandedReg === reg.id && (
-                        <div className="border-t border-stone-200 bg-stone-100/50 p-4 animate-in slide-in-from-top-2 space-y-6">
+                        <div className="border-t border-stone-200 bg-stone-100/50 p-4 sm:p-6 animate-in slide-in-from-top-2 space-y-6">
                           
-                          {/* SESSÃO 1: FECHAMENTO DAS ENTREGAS */}
-                          {(() => {
-                            const closedDeliveries = regOrders.filter(o => getOrderType(o.address) === "ENTREGA");
-                            const sumTaxas = closedDeliveries.reduce((acc, o) => acc + (Number(o.taxaEntrega) || 0), 0);
-                            const sumBruto = closedDeliveries.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
-                            const sumLiquido = sumBruto - sumTaxas;
-
-                            return (
-                              <div className="space-y-4">
-                                <h4 className="font-bold text-purple-800 flex items-center gap-2">
-                                  <Motorbike className="w-5 h-5" /> Fechamento de Entregas (Motoboys)
-                                </h4>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                  <div className="bg-white p-4 rounded-xl border border-blue-200 flex flex-col justify-center">
-                                    <p className="text-blue-500 font-bold uppercase text-[10px] tracking-widest mb-1">Valor das Entregas (Taxas)</p>
-                                    <p className="text-2xl font-black text-blue-700">{formatCurrency(sumTaxas)}</p>
-                                  </div>
-                                  <div className="bg-white p-4 rounded-xl border border-stone-200 flex flex-col justify-center">
-                                    <p className="text-stone-500 font-bold uppercase text-[10px] tracking-widest mb-1">Total Venda (S/ Entregas)</p>
-                                    <p className="text-2xl font-black text-stone-700">{formatCurrency(sumLiquido)}</p>
-                                  </div>
-                                  <div className="bg-white p-4 rounded-xl border border-green-200 flex flex-col justify-center">
-                                    <p className="text-green-600 font-bold uppercase text-[10px] tracking-widest mb-1">Faturamento Bruto (Delivery)</p>
-                                    <p className="text-2xl font-black text-green-700">{formatCurrency(sumBruto)}</p>
-                                  </div>
-                                </div>
-
-                                <div className="rounded-lg border shadow-sm overflow-hidden bg-white">
-                                  {renderDeliveryClosureTable(closedDeliveries)}
-                                </div>
-                              </div>
-                            )
-                          })()}
-
-                          {/* SESSÃO 2: TODOS OS PEDIDOS (SALÃO E MISTO) */}
-                          <div className="pt-4 border-t border-stone-200">
-                            <h4 className="font-bold text-stone-700 mb-4 flex items-center gap-2">
-                              <ShoppingBag className="w-5 h-5" /> Todos os Pedidos (Salão e Delivery)
-                            </h4>
-                            <div className="rounded-lg border shadow-sm overflow-hidden bg-white">
-                              {renderOrdersTable(regOrders)}
-                            </div>
+                          {/* BARRA DE FILTROS */}
+                          <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 pb-4">
+                            <span className="text-sm font-bold text-stone-500 mr-2 flex items-center gap-1.5"><LayoutList className="w-4 h-4"/> Exibir:</span>
+                            <Button 
+                              size="sm" 
+                              variant={historyFilter === "TUDO" ? "default" : "outline"} 
+                              onClick={() => setHistoryFilter("TUDO")} 
+                              className={historyFilter === "TUDO" ? "bg-stone-800" : "bg-white"}
+                            >
+                              Visão Geral (Tudo)
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant={historyFilter === "LOCAL" ? "default" : "outline"} 
+                              onClick={() => setHistoryFilter("LOCAL")} 
+                              className={historyFilter === "LOCAL" ? "bg-blue-600 hover:bg-blue-700" : "bg-white"}
+                            >
+                              <Utensils className="w-4 h-4 mr-2" /> Apenas Mesas
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant={historyFilter === "ENTREGA" ? "default" : "outline"} 
+                              onClick={() => setHistoryFilter("ENTREGA")} 
+                              className={historyFilter === "ENTREGA" ? "bg-purple-600 hover:bg-purple-700" : "bg-white"}
+                            >
+                              <Motorbike className="w-4 h-4 mr-2" /> Apenas Delivery
+                            </Button>
                           </div>
 
+                          {/* LÓGICA DINÂMICA DE EXIBIÇÃO BASEADA NO FILTRO */}
+                          {(() => {
+                            const filteredOrders = regOrders.filter(o => historyFilter === "TUDO" || getOrderType(o.address) === historyFilter);
+                            const sumBruto = filteredOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+                            const sumTaxas = filteredOrders.reduce((acc, o) => acc + (Number(o.taxaEntrega) || 0), 0);
+                            const sumLiquido = sumBruto - sumTaxas;
+                            const qtdPedidos = filteredOrders.length;
+                            
+                            return (
+                              <div className="space-y-4 animate-in fade-in duration-300">
+                                
+                                {/* CARDS DINÂMICOS */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  
+                                  {historyFilter === "ENTREGA" && (
+                                    <>
+                                      <div className="bg-white p-5 rounded-xl border border-blue-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-blue-500 font-bold uppercase text-[10px] tracking-widest mb-1">Valor das Entregas (Taxas)</p>
+                                        <p className="text-3xl font-black text-blue-700">{formatCurrency(sumTaxas)}</p>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-xl border border-stone-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-stone-500 font-bold uppercase text-[10px] tracking-widest mb-1">Total Venda (S/ Entregas)</p>
+                                        <p className="text-3xl font-black text-stone-700">{formatCurrency(sumLiquido)}</p>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-xl border border-green-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-green-600 font-bold uppercase text-[10px] tracking-widest mb-1">Faturamento Bruto (Delivery)</p>
+                                        <p className="text-3xl font-black text-green-700">{formatCurrency(sumBruto)}</p>
+                                      </div>
+                                    </>
+                                  )}
+
+                                  {historyFilter === "LOCAL" && (
+                                    <>
+                                      <div className="bg-white p-5 rounded-xl border border-blue-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-blue-500 font-bold uppercase text-[10px] tracking-widest mb-1">Faturamento Bruto (Mesas)</p>
+                                        <p className="text-3xl font-black text-blue-700">{formatCurrency(sumBruto)}</p>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-xl border border-stone-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-stone-500 font-bold uppercase text-[10px] tracking-widest mb-1">Qtd. Pedidos Salão</p>
+                                        <p className="text-3xl font-black text-stone-700">{qtdPedidos}</p>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-xl border border-green-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-green-600 font-bold uppercase text-[10px] tracking-widest mb-1">Ticket Médio (Mesas)</p>
+                                        <p className="text-3xl font-black text-green-700">{formatCurrency(sumBruto / (qtdPedidos || 1))}</p>
+                                      </div>
+                                    </>
+                                  )}
+
+                                  {historyFilter === "TUDO" && (
+                                    <>
+                                      <div className="bg-white p-5 rounded-xl border border-stone-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-stone-500 font-bold uppercase text-[10px] tracking-widest mb-1">Faturamento Total (Geral)</p>
+                                        <p className="text-3xl font-black text-stone-700">{formatCurrency(sumBruto)}</p>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-xl border border-blue-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-blue-500 font-bold uppercase text-[10px] tracking-widest mb-1">Faturamento Salão</p>
+                                        <p className="text-3xl font-black text-blue-700">
+                                          {formatCurrency(regOrders.filter(o => getOrderType(o.address) === "LOCAL").reduce((acc, o) => acc + (Number(o.total) || 0), 0))}
+                                        </p>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-xl border border-purple-200 flex flex-col justify-center shadow-sm">
+                                        <p className="text-purple-600 font-bold uppercase text-[10px] tracking-widest mb-1">Faturamento Delivery</p>
+                                        <p className="text-3xl font-black text-purple-700">
+                                          {formatCurrency(regOrders.filter(o => getOrderType(o.address) === "ENTREGA").reduce((acc, o) => acc + (Number(o.total) || 0), 0))}
+                                        </p>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                
+                                {/* TABELA DINÂMICA */}
+                                <div className="rounded-lg border shadow-sm overflow-hidden bg-white">
+                                  {historyFilter === "ENTREGA" 
+                                    ? renderDeliveryClosureTable(filteredOrders) 
+                                    : renderOrdersTable(filteredOrders)
+                                  }
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </Card>
