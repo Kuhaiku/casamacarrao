@@ -229,7 +229,11 @@ export default function AdminDashboardPage() {
     const item = menuItems?.find((m: any) => m.id === id);
     return item ? item.name : "Item";
   };
-const handleWhatsApp = (order: any) => {
+
+  // ==========================================
+  // FUNÇÃO WHATSAPP COM TAGS INTELIGENTES
+  // ==========================================
+  const handleWhatsApp = (order: any) => {
     const phone = order.phone;
     if (!phone || phone === "Não informado") {
       toast.error("Telefone não informado.");
@@ -239,19 +243,39 @@ const handleWhatsApp = (order: any) => {
     const cleanPhone = phone.replace(/\D/g, '');
     
     if (cleanPhone.length >= 10) {
-      // Puxa a mensagem do banco ou usa uma genérica
-      let baseMessage = settings.whatsappMessage || "Olá {nome}! Tudo bem? Somos da Casa do Macarrão.";
+      let baseMessage = settings.whatsappMessage || "Olá {{nome}}! Tudo bem? Somos da Casa do Macarrão.";
       
-      // Substitui variáveis dinâmicas caso você coloque {nome} ou {pedido} no texto lá no banco
+      // Compila os itens para a tag {{itens}}
+      let itensText: string[] = [];
+      if (order.items) {
+         order.items.forEach((item: any) => {
+           const size = sizes.find((s: any) => s.id === item.sizeId);
+           itensText.push(`1x Macarrão ${size?.name || ''}`);
+         });
+      }
+      if (order.products) {
+         order.products.forEach((p: any) => {
+           const prodInfo = products.find(prod => prod.id === p.productId);
+           itensText.push(`${p.quantity}x ${prodInfo?.name || 'Item'}`);
+         });
+      }
+      
+      // Expressão Regular avançada: Funciona com 1 ou 2 chaves {tag} ou {{tag}}, ignorando maiúsculas e minúsculas (/gi)
       let finalMessage = baseMessage
-        .replace(/{nome}/g, order.customerName || "Cliente")
-        .replace(/{pedido}/g, String(order.id).split('-')[0].toUpperCase());
+        .replace(/\{\{?nome\}\}?/gi, order.customerName || "Cliente")
+        .replace(/\{\{?pedido_id\}\}?/gi, String(order.id).split('-')[0].toUpperCase())
+        .replace(/\{\{?pedido\}\}?/gi, String(order.id).split('-')[0].toUpperCase())
+        .replace(/\{\{?total\}\}?/gi, formatCurrency(order.total))
+        .replace(/\{\{?link\}\}?/gi, `${window.location.origin}/pedido/${order.id}`)
+        .replace(/\{\{?endereco\}\}?/gi, order.address || "Retirada")
+        .replace(/\{\{?itens\}\}?/gi, itensText.join(", "));
 
       window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(finalMessage)}`, '_blank');
     } else {
       toast.error("Número inválido.");
     }
   };
+
   return (
     <div className="flex flex-col h-screen w-full bg-stone-100 overflow-hidden font-sans">
       
@@ -743,7 +767,7 @@ const handleWhatsApp = (order: any) => {
                         <DollarSign className="w-3.5 h-3.5 mr-1" /> Marcar Pago
                       </Button>
                     )}
-                    <Button onClick={() => handleWhatsApp(viewOrder.phone)} className="bg-[#25D366] hover:bg-[#1DA851] text-white h-9 text-[11px] font-bold col-span-2">
+                    <Button onClick={() => handleWhatsApp(viewOrder)} className="bg-[#25D366] hover:bg-[#1DA851] text-white h-9 text-[11px] font-bold col-span-2">
                       <MessageCircle className="w-3.5 h-3.5 mr-1.5" /> WhatsApp
                     </Button>
                   </>
