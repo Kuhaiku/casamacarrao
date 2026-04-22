@@ -22,12 +22,19 @@ function formatCurrency(value: number) {
 function formatDate(dateString?: string) {
   if (!dateString) return "--/--/---- --:--";
   
-  const date = new Date(dateString);
+  // Troca espaço por T para garantir o padrão ISO
+  let isoString = dateString.replace(" ", "T");
   
-  // Corrige o fuso horário subtraindo 3 horas (Ajuste para GMT-3)
-  date.setHours(date.getHours() - 3);
+  // Se não tem a indicação de fuso (Z), forçamos o JavaScript a entender que a data do banco é UTC (GMT 0)
+  if (!isoString.includes("Z") && !isoString.match(/[+-]\d{2}:?\d{2}$/)) {
+    isoString += "Z";
+  }
+  
+  const date = new Date(isoString);
 
+  // O navegador agora formata cravado no horário de Brasília, sem precisar fazer matemática manual
   return date.toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
     day: "2-digit", 
     month: "2-digit", 
     year: "2-digit", 
