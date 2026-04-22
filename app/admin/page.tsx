@@ -52,19 +52,44 @@ export default function AdminDashboardPage() {
   const [tipAmount, setTipAmount] = useState("");
   const [tipDesc, setTipDesc] = useState("");
 
-  const [audioEnabled, setAudioEnabled] = useState(false);
-  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  // ==========================================
+  // CONFIGURAÇÕES DAS MESAS (N/N)
+  // ==========================================
+  const [totalTables, setTotalTables] = useState(25);
+  const [isEditingTables, setIsEditingTables] = useState(false);
 
   useEffect(() => {
-    const currentPending = orders.filter((o) => o.status === "novo").length;
-    if (audioEnabled && currentPending > pendingOrdersCount) {
-      const audio = new Audio("/bell.mp3");
-      audio.play().catch(() => {
-        console.warn("Áudio não encontrado ou bloqueado.");
-      });
+    const savedTables = localStorage.getItem("totalTables");
+    if (savedTables) {
+      setTotalTables(Number(savedTables));
     }
-    setPendingOrdersCount(currentPending);
-  }, [orders, audioEnabled, pendingOrdersCount]);
+  }, []);
+
+  // ==========================================
+  // LÓGICA DE ÁUDIO (MESA VS DELIVERY)
+  // ==========================================
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [pendingLocalCount, setPendingLocalCount] = useState(0);
+  const [pendingDeliveryCount, setPendingDeliveryCount] = useState(0);
+
+  useEffect(() => {
+    const currentLocalPending = orders.filter((o) => o.status === "novo" && getOrderType(o.address) === "LOCAL").length;
+    const currentDeliveryPending = orders.filter((o) => o.status === "novo" && getOrderType(o.address) === "ENTREGA").length;
+
+    if (audioEnabled) {
+      // Prioriza tocar som de delivery se ambos chegarem juntos
+      if (currentDeliveryPending > pendingDeliveryCount) {
+        const audio = new Audio("/delivery.mp3");
+        audio.play().catch(() => console.warn("Áudio delivery bloqueado."));
+      } else if (currentLocalPending > pendingLocalCount) {
+        const audio = new Audio("/bell.mp3");
+        audio.play().catch(() => console.warn("Áudio bell bloqueado."));
+      }
+    }
+    
+    setPendingLocalCount(currentLocalPending);
+    setPendingDeliveryCount(currentDeliveryPending);
+  }, [orders, audioEnabled, pendingLocalCount, pendingDeliveryCount]);
 
   useEffect(() => {
     sync();
@@ -117,12 +142,10 @@ export default function AdminDashboardPage() {
     setExpandedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
-  // Expandir / Recolher Todos
   const toggleAllOrders = () => {
     if (expandedOrders.length > 0) {
-      setExpandedOrders([]); // Recolhe todos
+      setExpandedOrders([]); 
     } else {
-      // Expande todos ativos
       const allIds = [...activeLocalOrders.map(o => o.id), ...activeDeliveryOrders.map(o => o.id)];
       setExpandedOrders(allIds);
     }
@@ -231,7 +254,6 @@ export default function AdminDashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           
-          {/* BOTÃO EXPANDIR/RECOLHER TODOS */}
           <Button 
             variant="outline" 
             size="icon" 
@@ -248,6 +270,7 @@ export default function AdminDashboardPage() {
               {settings.isOpen ? "ABERTA" : "FECHADA"}
             </span>
           </div>
+          
           <Button 
             variant={audioEnabled ? "default" : "outline"} 
             size="icon" 
@@ -255,9 +278,12 @@ export default function AdminDashboardPage() {
               const newAudioState = !audioEnabled;
               setAudioEnabled(newAudioState);
               if (newAudioState) {
-                const audio = new Audio("/bell.mp3");
-                audio.play().then(() => audio.pause()).catch(() => {}); 
-                toast.success("Campainha ativada!");
+                // Tenta engatilhar os sons no navegador para liberar as permissões
+                const audio1 = new Audio("/bell.mp3");
+                const audio2 = new Audio("/delivery.mp3");
+                audio1.play().then(() => audio1.pause()).catch(() => {}); 
+                audio2.play().then(() => audio2.pause()).catch(() => {}); 
+                toast.success("Campainha ativada para Delivery e Salão!");
               }
             }} 
             className={`h-8 w-8 ${audioEnabled ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-stone-100 text-stone-400'}`}
@@ -265,6 +291,7 @@ export default function AdminDashboardPage() {
           >
             {audioEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
           </Button>
+          
           <Button variant={isFinancialDataVisible ? "destructive" : "outline"} size="icon" onClick={() => isFinancialDataVisible ? setIsFinancialDataVisible(false) : setShowAuthModal(true)} className="h-8 w-8">
             {isFinancialDataVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </Button>
@@ -310,10 +337,50 @@ export default function AdminDashboardPage() {
         
         {/* COLUNA: MESAS */}
         <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-stone-200 min-h-0">
-          <div className="p-3 bg-blue-50/50 border-b border-stone-200 shrink-0 flex items-center justify-between">
-            <h2 className="text-xs font-black text-blue-900 flex items-center gap-1.5"><Utensils className="w-3.5 h-3.5" /> Mesas Ativas</h2>
-            <Badge className="bg-blue-600 text-[10px]">{activeLocalOrders.length}</Badge>
+          <div className="p-3 bg-blue-50/50 border-b border-stone-200 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xs font-black text-blue-900 flex items-center gap-1.5"><Utensils className="w-3.5 h-3.5" /> Mesas Ativas</h2>
+              {/* LEGENDA DE CORES */}
+              <div className="flex items-center gap-2 text-[8px] uppercase font-bold text-stone-500 bg-white px-2 py-1 rounded-md border border-blue-100 shadow-sm">
+                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-300"></div>Novo</span>
+                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>Prep</span>
+                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>Pronto/Serv</span>
+              </div>
+            </div>
+            
+            {/* OCUPAÇÃO N/N COM DONUT CHART */}
+            <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-blue-100 shadow-sm">
+               <div className="flex items-center gap-1 text-xs font-bold text-blue-900">
+                  <span>{activeLocalOrders.length} /</span>
+                  {isEditingTables ? (
+                    <Input 
+                      type="number" 
+                      className="w-12 h-5 text-xs p-1 bg-stone-50 rounded-sm outline-none" 
+                      value={totalTables} 
+                      onChange={e => setTotalTables(Number(e.target.value))}
+                      onBlur={() => { setIsEditingTables(false); localStorage.setItem('totalTables', totalTables.toString()) }}
+                      onKeyDown={e => { if(e.key === 'Enter') { setIsEditingTables(false); localStorage.setItem('totalTables', totalTables.toString())} }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span 
+                      className="cursor-pointer border-b border-dashed border-blue-400 hover:text-blue-600 transition-colors" 
+                      onClick={() => setIsEditingTables(true)} 
+                      title="Editar capacidade total de mesas"
+                    >
+                      {totalTables}
+                    </span>
+                  )}
+               </div>
+               <div className="relative w-5 h-5 flex items-center justify-center">
+                  <svg viewBox="0 0 36 36" className="w-5 h-5 -rotate-90">
+                    <path className="text-blue-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+                    <path className="text-blue-600 transition-all duration-500" strokeDasharray={`${Math.min(100, (activeLocalOrders.length / (totalTables || 1)) * 100)}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+                  </svg>
+               </div>
+            </div>
           </div>
+
           <div className="flex-1 overflow-y-auto p-3">
             {activeLocalOrders.length === 0 ? (
                <div className="text-center p-4 border border-dashed rounded-lg border-stone-200 text-stone-400 text-xs">Vazio.</div>
@@ -408,7 +475,7 @@ export default function AdminDashboardPage() {
                         size="icon"
                         className="h-7 w-7 text-stone-400 hover:text-stone-700"
                         onClick={(e) => { e.stopPropagation(); setViewOrderId(order.id); }}
-                        title="Ver Detalhes / Gerenciar"
+                        title="Ver Detalhes Expandidos"
                       >
                         <Maximize2 className="w-3.5 h-3.5" />
                       </Button>
@@ -422,10 +489,20 @@ export default function AdminDashboardPage() {
 
         {/* COLUNA: ENTREGAS */}
         <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-stone-200 min-h-0">
-          <div className="p-3 bg-purple-50/50 border-b border-stone-200 shrink-0 flex items-center justify-between">
-            <h2 className="text-xs font-black text-purple-900 flex items-center gap-1.5"><Motorbike className="w-3.5 h-3.5" /> Entregas Ativas</h2>
+          <div className="p-3 bg-purple-50/50 border-b border-stone-200 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xs font-black text-purple-900 flex items-center gap-1.5"><Motorbike className="w-3.5 h-3.5" /> Entregas</h2>
+              {/* LEGENDA DE CORES */}
+              <div className="flex items-center gap-2 text-[8px] uppercase font-bold text-stone-500 bg-white px-2 py-1 rounded-md border border-purple-100 shadow-sm">
+                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-300"></div>Novo</span>
+                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-500"></div>Prep</span>
+                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>Pronto</span>
+                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>Saiu</span>
+              </div>
+            </div>
             <Badge className="bg-purple-600 text-[10px]">{activeDeliveryOrders.length}</Badge>
           </div>
+
           <div className="flex-1 overflow-y-auto p-3">
             {activeDeliveryOrders.length === 0 ? (
                <div className="text-center p-4 border border-dashed rounded-lg border-stone-200 text-stone-400 text-xs">Vazio.</div>
@@ -512,7 +589,7 @@ export default function AdminDashboardPage() {
                         size="icon"
                         className="h-7 w-7 text-stone-400 hover:text-stone-700"
                         onClick={(e) => { e.stopPropagation(); setViewOrderId(order.id); }}
-                        title="Ver Detalhes / Gerenciar"
+                        title="Ver Detalhes Expandidos"
                       >
                         <Maximize2 className="w-3.5 h-3.5" />
                       </Button>
@@ -573,7 +650,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* MODAL: GERENCIAMENTO DO PEDIDO (REAL-TIME COMPACTO) */}
+      {/* MODAL: GERENCIAMENTO DO PEDIDO (COMPACTO) */}
       {viewOrder && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
@@ -639,7 +716,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* CONTROLES EXTRAS NO MODAL */}
             <div className="p-3 border-t border-stone-200 bg-stone-50 shrink-0">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 
