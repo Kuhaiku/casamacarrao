@@ -42,6 +42,7 @@ function normalizeDate(dateString: string) {
   // Não precisamos mais do "setHours(-3)" pois o navegador converte o "Z" automaticamente para o horário local (Brasil).
   return new Date(isoString);
 }
+
 function formatTime(dateString: string) {
   const date = normalizeDate(dateString);
   return date.toLocaleTimeString("pt-BR", {
