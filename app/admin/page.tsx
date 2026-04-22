@@ -38,6 +38,10 @@ import {
   HeartHandshake,
   Printer,
   Settings2,
+  ChevronDown,
+  ChevronUp,
+  Bell,
+  BellOff
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Order } from "@/lib/types";
@@ -85,15 +89,53 @@ export default function AdminDashboardPage() {
     closeRegister,
     settings,
     updateSettings,
+    sizes,
+    menuItems,
+    products,
   } = useStore();
 
   const printAreaRef = useRef<HTMLDivElement | null>(null);
+
+  // Estados dos Cards Expansíveis e da Campainha
+  const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
+  const [isMuted, setIsMuted] = useState(false);
+  const prevOrdersRef = useRef<any[]>([]);
+  const isFirstRender = useRef(true);
+
+  const toggleExpand = (id: string) => {
+    setExpandedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   useEffect(() => {
     sync();
     const interval = setInterval(() => sync(), 5000);
     return () => clearInterval(interval);
   }, [sync]);
+
+  // Lógica da Campainha de Novo Pedido
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      prevOrdersRef.current = orders;
+      return;
+    }
+
+    const currentNew = orders.filter(o => o.status === "novo");
+    const prevNew = prevOrdersRef.current.filter(o => o.status === "novo");
+    
+    // Checa se há um pedido novo que NÃO estava na lista anterior
+    const hasTrulyNewOrder = currentNew.some(no => !prevNew.find(po => po.id === no.id));
+
+    if (hasTrulyNewOrder && !isMuted) {
+      try {
+        // Toca o som (Certifique-se de colocar um bell.mp3 na pasta public/)
+        const audio = new Audio('/bell.mp3');
+        audio.play().catch(e => console.warn('Navegador bloqueou o áudio automático.'));
+      } catch (e) {}
+    }
+
+    prevOrdersRef.current = orders;
+  }, [orders, isMuted]);
 
   useEffect(() => {
     const checkSchedule = () => {
@@ -171,11 +213,9 @@ export default function AdminDashboardPage() {
 
   const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses } =
     useMemo(() => {
-      // 1. Filtra apenas pedidos e despesas do turno atual (que NÃO foram contabilizados)
       const currentShiftOrders = orders.filter((o) => !o.isAccounted);
       const currentShiftExpenses = expenses.filter((e) => !e.isAccounted);
 
-      // 2. Filtra os ativos a partir dos pedidos APENAS do turno atual
       const active = currentShiftOrders.filter(
         (o) =>
           o.status !== "cancelado" && !(o.status === "entregue" && o.isPaid),
@@ -188,17 +228,16 @@ export default function AdminDashboardPage() {
         activeDeliveryOrders: active.filter(
           (o) => getOrderType(o.address) === "ENTREGA",
         ),
-        // 3. Soma apenas vendas pagas e não canceladas do turno atual
         totalSales: currentShiftOrders
           .filter((o) => o.isPaid && o.status !== "cancelado")
           .reduce((acc, o) => acc + o.total, 0),
-        // 4. Soma apenas despesas do turno atual
         totalExpenses: currentShiftExpenses.reduce(
           (acc, e) => acc + e.amount,
           0,
         ),
       };
     }, [orders, expenses]);
+
   const handleAddExpense = () => {
     const amount = parseFloat(expenseAmount);
     if (!amount || !expenseDesc.trim()) return;
@@ -275,6 +314,11 @@ export default function AdminDashboardPage() {
     window.print();
   };
 
+  const getItemName = (id: string) => {
+    const item = menuItems?.find((m: any) => m.id === id);
+    return item ? item.name : "Item";
+  };
+
   return (
     <div className="container max-w-[1600px] mx-auto p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
       <style jsx global>{`
@@ -344,7 +388,7 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full md:w-auto">
           <div className="flex items-center gap-3 bg-white dark:bg-stone-900 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm flex-1 md:flex-none justify-center">
             <Switch
               checked={settings.isOpen}
@@ -356,9 +400,18 @@ export default function AdminDashboardPage() {
                 settings.isOpen ? "text-green-600" : "text-red-500"
               }`}
             >
-              {settings.isOpen ? "🟢 LOJA ABERTA" : "🔴 LOJA FECHADA"}
+              {settings.isOpen ? "🟢 ABERTA" : "🔴 FECHADA"}
             </span>
           </div>
+
+          <Button
+            variant="outline"
+            onClick={() => setIsMuted(!isMuted)}
+            className={`font-bold shadow-sm px-3 ${isMuted ? 'bg-stone-100' : 'bg-orange-50 border-orange-200'}`}
+            title={isMuted ? "Ativar som de novo pedido" : "Silenciar som"}
+          >
+            {isMuted ? <BellOff className="w-4 h-4 text-stone-400" /> : <Bell className="w-4 h-4 text-orange-600" />}
+          </Button>
 
           <Button
             variant={isFinancialDataVisible ? "destructive" : "outline"}
@@ -437,10 +490,12 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print-hide">
+        
+        {/* COLUNA DE MESAS ATIVAS */}
         <div className="col-span-1 lg:col-span-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-200 dark:border-blue-900">
             <Utensils className="w-5 h-5 text-blue-600" />
-            <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">
+            <h2 className="text-lg font-bold text-stone-800 dark:text-stone-100">
               Mesas Ativas
             </h2>
             <Badge
@@ -451,135 +506,123 @@ export default function AdminDashboardPage() {
             </Badge>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {activeLocalOrders.length === 0 ? (
-              <div className="text-center p-8 border border-dashed rounded-xl border-stone-300 text-stone-400">
+              <div className="text-center p-6 border border-dashed rounded-xl border-stone-300 text-stone-400 text-sm">
                 Nenhuma mesa em atendimento.
               </div>
             ) : (
               activeLocalOrders.map((order) => (
                 <Card
                   key={order.id}
-                  className="border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all"
+                  className="border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all overflow-hidden"
                 >
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-black text-lg text-blue-900 dark:text-blue-400">
+                  <div 
+                    onClick={() => toggleExpand(order.id)}
+                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0 pr-3">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="font-black text-sm text-blue-900 dark:text-blue-400 truncate max-w-[120px] sm:max-w-[200px]">
                           {order.address}
                         </h3>
-                        <p className="text-sm text-stone-500 font-medium">
-                          {order.customerName}
-                        </p>
-                      </div>
-                      <Badge
-                        className={
-                          order.status === "pronto" ||
-                          order.status === "entregue"
-                            ? "bg-green-100 text-green-700"
-                            : order.status === "novo"
-                              ? "bg-stone-100 text-stone-700"
-                              : "bg-orange-100 text-orange-700"
-                        }
-                      >
-                        {order.status.toUpperCase()}
-                      </Badge>
-                    </div>
-
-                    {order.observation && (
-                      <div className="mb-2 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg border border-amber-200">
-                        <div className="flex items-center gap-1.5 text-amber-800 mb-0.5">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-black uppercase tracking-wider">
-                            Observação
-                          </span>
-                        </div>
-                        <p className="text-xs font-bold text-amber-900 italic">
-                          "{order.observation}"
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="flex items-end justify-between mt-4 border-b border-blue-50 pb-4 mb-4">
-                      <div>
-                        <p className="text-xs text-stone-400 uppercase font-bold tracking-wider mb-0.5">
-                          Subtotal
-                        </p>
-                        <p className="font-black text-xl text-stone-800">
-                          {formatCurrency(order.total)}
-                        </p>
-                      </div>
-
-                      {!order.isPaid ? (
-                        <Button
-                          onClick={() => {
-                            setOrderToPay(order);
-                            setPaymentMethodFinal(order.paymentMethod);
-                            setAddTenPercent(false);
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 font-bold"
+                        <Badge className={`text-[9px] px-1.5 py-0 h-4 uppercase ${
+                            order.status === "pronto" || order.status === "entregue"
+                              ? "bg-green-100 text-green-700"
+                              : order.status === "novo"
+                                ? "bg-stone-100 text-stone-700"
+                                : "bg-orange-100 text-orange-700"
+                          }`}
                         >
-                          <Receipt className="w-4 h-4 mr-2" /> Fechar Conta
-                        </Button>
-                      ) : (
-                        <Badge className="bg-green-600 text-white px-3 py-1 text-sm">
-                          <CheckCircle2 className="w-4 h-4 mr-1" /> Pago
+                          {order.status}
                         </Badge>
-                      )}
+                      </div>
+                      <p className="text-xs text-stone-500 font-medium truncate">{order.customerName}</p>
                     </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-black text-sm text-stone-800">
+                        {formatCurrency(order.total)}
+                      </span>
+                      {expandedOrders.includes(order.id) ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+                    </div>
+                  </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      {order.status === "novo" && (
-                        <Button
-                          onClick={() =>
-                            updateOrderStatus(order.id, "aprovado")
-                          }
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                          size="sm"
-                        >
-                          <Check className="w-4 h-4 mr-1" /> Aprovar
-                        </Button>
+                  {expandedOrders.includes(order.id) && (
+                    <CardContent className="p-3 pt-0 bg-stone-50/50 border-t border-stone-100">
+                      {order.observation && (
+                        <div className="mb-2 bg-amber-50 p-2 rounded border border-amber-200 mt-2">
+                          <div className="flex items-center gap-1 text-amber-800 mb-0.5">
+                            <AlertCircle className="w-3 h-3" />
+                            <span className="text-[9px] font-black uppercase tracking-wider">Obs</span>
+                          </div>
+                          <p className="text-[11px] font-bold text-amber-900 italic">"{order.observation}"</p>
+                        </div>
                       )}
-                      {order.status === "aprovado" && (
+
+                      <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-stone-200/50">
+                        {!order.isPaid ? (
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOrderToPay(order);
+                              setPaymentMethodFinal(order.paymentMethod);
+                              setAddTenPercent(false);
+                            }}
+                            className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 font-bold"
+                          >
+                            <Receipt className="w-3 h-3 mr-1" /> Fechar Conta
+                          </Button>
+                        ) : (
+                          <Badge className="bg-green-600 text-white px-2 py-0.5 text-[10px] h-7 flex items-center">
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Pago
+                          </Badge>
+                        )}
+
+                        {order.status === "novo" && (
+                          <Button
+                            onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "aprovado"); }}
+                            className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            <Check className="w-3 h-3 mr-1" /> Aprovar
+                          </Button>
+                        )}
+                        {order.status === "aprovado" && (
+                          <Button
+                            onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "pronto"); }}
+                            className="h-7 px-2 text-[10px] bg-orange-600 hover:bg-orange-700 text-white"
+                          >
+                            <Utensils className="w-3 h-3 mr-1" /> Pronto
+                          </Button>
+                        )}
+                        {order.status === "pronto" && (
+                          <Button
+                            onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "entregue"); }}
+                            className="h-7 px-2 text-[10px] bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Servido
+                          </Button>
+                        )}
                         <Button
-                          onClick={() => updateOrderStatus(order.id, "pronto")}
-                          className="bg-orange-600 hover:bg-orange-700 text-white"
-                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "cancelado"); }}
+                          className="h-7 px-2 text-[10px] text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto"
                         >
-                          <Utensils className="w-4 h-4 mr-1" /> Pronto
+                          <Ban className="w-3 h-3" />
                         </Button>
-                      )}
-                      {order.status === "pronto" && (
-                        <Button
-                          onClick={() =>
-                            updateOrderStatus(order.id, "entregue")
-                          }
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          size="sm"
-                        >
-                          <CheckCircle2 className="w-4 h-4 mr-1" /> Servido
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => updateOrderStatus(order.id, "cancelado")}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto"
-                      >
-                        <Ban className="w-4 h-4 mr-1" /> Cancelar
-                      </Button>
-                    </div>
-                  </CardContent>
+                      </div>
+                    </CardContent>
+                  )}
                 </Card>
               ))
             )}
           </div>
         </div>
 
+        {/* COLUNA DE ENTREGAS ATIVAS */}
         <div className="col-span-1 lg:col-span-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-200 dark:border-purple-900">
             <Motorbike className="w-5 h-5 text-purple-600" />
-            <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">
+            <h2 className="text-lg font-bold text-stone-800 dark:text-stone-100">
               Entregas Ativas
             </h2>
             <Badge
@@ -590,153 +633,117 @@ export default function AdminDashboardPage() {
             </Badge>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {activeDeliveryOrders.length === 0 ? (
-              <div className="text-center p-8 border border-dashed rounded-xl border-stone-300 text-stone-400">
+              <div className="text-center p-6 border border-dashed rounded-xl border-stone-300 text-stone-400 text-sm">
                 Nenhuma entrega pendente.
               </div>
             ) : (
               activeDeliveryOrders.map((order) => (
                 <Card
                   key={order.id}
-                  className="border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-all"
+                  className="border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-all overflow-hidden"
                 >
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-bold text-stone-800">
+                  <div 
+                    onClick={() => toggleExpand(order.id)}
+                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0 pr-3">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="font-bold text-sm text-stone-800 truncate max-w-[120px] sm:max-w-[200px]">
                           {order.customerName}
                         </h3>
-                        <p
-                          className="text-xs text-stone-500 font-medium mt-0.5 max-w-[200px] truncate"
-                          title={order.address}
+                        <Badge className={`text-[9px] px-1.5 py-0 h-4 uppercase ${
+                            order.status === "pronto"
+                              ? "bg-amber-100 text-amber-700"
+                              : order.status === "despachado"
+                                ? "bg-blue-100 text-blue-700"
+                                : order.status === "novo"
+                                  ? "bg-stone-100 text-stone-700"
+                                  : "bg-stone-100 text-stone-600"
+                          }`}
                         >
-                          {order.address}
-                        </p>
+                          {order.status === "pronto" ? "MOTOBOY" : order.status === "despachado" ? "SAIU" : order.status}
+                        </Badge>
                       </div>
-                      <Badge
-                        className={
-                          order.status === "pronto"
-                            ? "bg-amber-100 text-amber-700"
-                            : order.status === "despachado"
-                              ? "bg-blue-100 text-blue-700"
-                              : order.status === "novo"
-                                ? "bg-stone-100 text-stone-700"
-                                : "bg-stone-100 text-stone-600"
-                        }
-                      >
-                        {order.status === "pronto"
-                          ? "AGUARDANDO MOTOBOY"
-                          : order.status === "despachado"
-                            ? "SAIU P/ ENTREGA"
-                            : order.status.toUpperCase()}
-                      </Badge>
-                    </div>
-
-                    <div className="bg-stone-50 p-2 rounded-lg text-xs font-bold text-stone-600 flex items-center justify-between mb-3 border border-stone-100">
-                      <span>Via:</span>
-                      <span className="uppercase text-purple-700 flex items-center gap-1">
-                        {order.paymentMethod === "pix" && (
-                          <QrCode className="w-3 h-3" />
-                        )}
-                        {order.paymentMethod === "dinheiro" && (
-                          <Banknote className="w-3 h-3" />
-                        )}
-                        {order.paymentMethod === "cartao" && (
-                          <CreditCard className="w-3 h-3" />
-                        )}
-                        {order.paymentMethod}
-                      </span>
-                    </div>
-
-                    <div className="mb-4">
-                      <p className="font-black text-xl text-stone-800">
-                        {formatCurrency(order.total)}
+                      <p className="text-xs text-stone-500 font-medium truncate" title={order.address}>
+                        {order.address}
                       </p>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-purple-50">
-                      <Button
-                        variant={order.isPaid ? "default" : "outline"}
-                        className={`${order.isPaid ? "bg-green-600 text-white" : "text-stone-500"}`}
-                        onClick={() => toggleOrderPaid(order.id)}
-                        size="sm"
-                      >
-                        <DollarSign className="w-4 h-4 mr-1" />
-                        {order.isPaid ? "Pago" : "Marcar Pago"}
-                      </Button>
-
-                      {order.status === "novo" && (
-                        <Button
-                          onClick={() =>
-                            updateOrderStatus(order.id, "aprovado")
-                          }
-                          className="bg-blue-600 text-white"
-                          size="sm"
-                        >
-                          <Check className="w-4 h-4 mr-1" /> Aprovar
-                        </Button>
-                      )}
-                      {order.status === "aprovado" && (
-                        <Button
-                          onClick={() => updateOrderStatus(order.id, "pronto")}
-                          className="bg-orange-600 text-white"
-                          size="sm"
-                        >
-                          <Utensils className="w-4 h-4 mr-1" /> Pronto
-                        </Button>
-                      )}
-                      {order.status === "pronto" && (
-                        <Button
-                          onClick={() =>
-                            updateOrderStatus(order.id, "despachado")
-                          }
-                          className="bg-purple-600 text-white"
-                          size="sm"
-                        >
-                          <Truck className="w-4 h-4 mr-1" /> Despachar
-                        </Button>
-                      )}
-                      {order.status === "despachado" && (
-                        <Button
-                          onClick={() =>
-                            updateOrderStatus(order.id, "entregue")
-                          }
-                          className="bg-green-600 text-white"
-                          size="sm"
-                        >
-                          <CheckCircle2 className="w-4 h-4 mr-1" /> Entregue
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => updateOrderStatus(order.id, "cancelado")}
-                        className="text-red-500 hover:bg-red-50 ml-auto p-2"
-                      >
-                        <Ban className="w-4 h-4" />
-                      </Button>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-black text-sm text-stone-800">
+                        {formatCurrency(order.total)}
+                      </span>
+                      {expandedOrders.includes(order.id) ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
                     </div>
-                  </CardContent>
+                  </div>
+
+                  {expandedOrders.includes(order.id) && (
+                    <CardContent className="p-3 pt-0 bg-stone-50/50 border-t border-stone-100">
+                      <div className="bg-white p-1.5 rounded text-[10px] font-bold text-stone-600 flex items-center justify-between mb-2 border border-stone-200 mt-2">
+                        <span>Pagamento:</span>
+                        <span className="uppercase text-purple-700 flex items-center gap-1">
+                          {order.paymentMethod === "pix" && <QrCode className="w-3 h-3" />}
+                          {order.paymentMethod === "dinheiro" && <Banknote className="w-3 h-3" />}
+                          {order.paymentMethod === "cartao" && <CreditCard className="w-3 h-3" />}
+                          {order.paymentMethod}
+                        </span>
+                      </div>
+
+                      {order.observation && (
+                        <div className="mb-2 bg-amber-50 p-2 rounded border border-amber-200">
+                          <div className="flex items-center gap-1 text-amber-800 mb-0.5">
+                            <AlertCircle className="w-3 h-3" />
+                            <span className="text-[9px] font-black uppercase tracking-wider">Obs</span>
+                          </div>
+                          <p className="text-[11px] font-bold text-amber-900 italic">"{order.observation}"</p>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-purple-50">
+                        <Button
+                          variant={order.isPaid ? "default" : "outline"}
+                          className={`h-7 px-2 text-[10px] ${order.isPaid ? "bg-green-600 text-white" : "text-stone-500 bg-white"}`}
+                          onClick={(e) => { e.stopPropagation(); toggleOrderPaid(order.id); }}
+                        >
+                          <DollarSign className="w-3 h-3 mr-1" /> {order.isPaid ? "Pago" : "Pagar"}
+                        </Button>
+
+                        {order.status === "novo" && (
+                          <Button onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "aprovado"); }} className="h-7 px-2 text-[10px] bg-blue-600 text-white"><Check className="w-3 h-3 mr-1" /> Aprovar</Button>
+                        )}
+                        {order.status === "aprovado" && (
+                          <Button onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "pronto"); }} className="h-7 px-2 text-[10px] bg-orange-600 text-white"><Utensils className="w-3 h-3 mr-1" /> Pronto</Button>
+                        )}
+                        {order.status === "pronto" && (
+                          <Button onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "despachado"); }} className="h-7 px-2 text-[10px] bg-purple-600 text-white"><Truck className="w-3 h-3 mr-1" /> Despachar</Button>
+                        )}
+                        {order.status === "despachado" && (
+                          <Button onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "entregue"); }} className="h-7 px-2 text-[10px] bg-green-600 text-white"><CheckCircle2 className="w-3 h-3 mr-1" /> Entregue</Button>
+                        )}
+                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "cancelado"); }} className="h-7 px-2 text-[10px] text-red-500 hover:bg-red-50 ml-auto"><Ban className="w-3 h-3" /></Button>
+                      </div>
+                    </CardContent>
+                  )}
                 </Card>
               ))
             )}
           </div>
         </div>
 
+        {/* COLUNA CAIXA RÁPIDO */}
         <div className="col-span-1 lg:col-span-4 space-y-6">
           <div className="flex items-center gap-2 pb-2 border-b-2 border-stone-200 dark:border-stone-800">
             <Wallet className="w-5 h-5 text-stone-600" />
-            <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">
+            <h2 className="text-lg font-bold text-stone-800 dark:text-stone-100">
               Caixa Rápido
             </h2>
           </div>
 
           <Card className="border-stone-200 shadow-sm">
             <CardHeader className="pb-3 bg-stone-50/50">
-              <CardTitle className="text-lg flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2">
                 <TrendingDown className="w-4 h-4 text-red-600" /> Lançar Despesa
-                / Saída
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
@@ -745,6 +752,7 @@ export default function AdminDashboardPage() {
                   placeholder="Motivo (Ex: Gás)"
                   value={expenseDesc}
                   onChange={(e) => setExpenseDesc(e.target.value)}
+                  className="h-9 text-sm"
                 />
                 <Input
                   type="number"
@@ -752,13 +760,13 @@ export default function AdminDashboardPage() {
                   placeholder="R$"
                   value={expenseAmount}
                   onChange={(e) => setExpenseAmount(e.target.value)}
-                  className="w-24"
+                  className="w-20 h-9 text-sm"
                 />
               </div>
               <Button
                 onClick={handleAddExpense}
                 disabled={!expenseAmount || !expenseDesc}
-                className="w-full bg-stone-800 text-white font-bold"
+                className="w-full h-9 text-sm bg-stone-800 text-white font-bold"
               >
                 Lançar Despesa
               </Button>
@@ -767,8 +775,8 @@ export default function AdminDashboardPage() {
 
           <Card className="border-blue-100 shadow-sm dark:border-blue-900">
             <CardHeader className="pb-3 bg-blue-50/50 dark:bg-blue-900/20">
-              <CardTitle className="text-lg flex items-center gap-2 text-blue-800 dark:text-blue-300">
-                <HeartHandshake className="w-4 h-4" /> Lançar Gorjeta Extra
+              <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300">
+                <HeartHandshake className="w-4 h-4" /> Lançar Gorjeta
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
@@ -777,6 +785,7 @@ export default function AdminDashboardPage() {
                   placeholder="Origem (Ex: Balcão)"
                   value={tipDesc}
                   onChange={(e) => setTipDesc(e.target.value)}
+                  className="h-9 text-sm"
                 />
                 <Input
                   type="number"
@@ -784,13 +793,13 @@ export default function AdminDashboardPage() {
                   placeholder="R$"
                   value={tipAmount}
                   onChange={(e) => setTipAmount(e.target.value)}
-                  className="w-24"
+                  className="w-20 h-9 text-sm"
                 />
               </div>
               <Button
                 onClick={handleAddTip}
                 disabled={!tipAmount || !tipDesc}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                className="w-full h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold"
               >
                 Adicionar Gorjeta
               </Button>
@@ -804,13 +813,14 @@ export default function AdminDashboardPage() {
               }
             }}
             variant="outline"
-            className="w-full border-red-200 text-red-600 hover:bg-red-50 font-bold py-6"
+            className="w-full border-red-200 text-red-600 hover:bg-red-50 font-bold py-5 text-sm"
           >
-            <Lock className="w-4 h-4 mr-2" /> Encerrar Turno (Fechar Caixa)
+            <Lock className="w-4 h-4 mr-2" /> Encerrar Turno
           </Button>
         </div>
       </div>
 
+      {/* AUTENTICAÇÃO */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/80 backdrop-blur-sm p-4 print-hide">
           <Card className="w-full max-w-sm shadow-2xl animate-in zoom-in-95">
@@ -852,69 +862,104 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
+      {/* MODAL FECHAR CONTA */}
       {orderToPay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm p-4 animate-in fade-in print-hide">
-          <Card className="w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-hidden flex flex-col">
-            <CardHeader className="border-b bg-stone-50 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl font-black text-blue-900">
-                    Fechar Conta
-                  </CardTitle>
-                  <CardDescription className="font-bold text-stone-500 mt-0.5">
-                    {orderToPay.address} • {orderToPay.customerName}
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setOrderToPay(null)}
-                  className="rounded-full"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
+        <div className="fixed inset-0 z-[100] bg-stone-50 overflow-y-auto animate-in slide-in-from-bottom-8 duration-300 print-hide">
+          <div className="min-h-screen max-w-4xl mx-auto bg-white shadow-2xl flex flex-col relative border-x border-stone-200">
+            
+            <div className="sticky top-0 z-20 bg-white border-b border-stone-200 px-6 py-5 flex items-center justify-between shadow-sm">
+              <div>
+                <h2 className="text-2xl font-black text-blue-900 leading-none mb-1">
+                  Fechar Conta
+                </h2>
+                <p className="font-bold text-stone-500 text-sm">
+                  {orderToPay.address} • {orderToPay.customerName}
+                </p>
               </div>
-            </CardHeader>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOrderToPay(null)}
+                className="rounded-full hover:bg-stone-100"
+              >
+                <X className="w-6 h-6 text-stone-600" />
+              </Button>
+            </div>
 
-            <CardContent className="pt-6 space-y-6 overflow-y-auto">
-              <div className="space-y-3">
+            <div className="p-6 md:p-10 flex-1 space-y-8">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider text-stone-500">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-stone-400">
                     Resumo do Pedido
                   </h3>
                 </div>
 
-                <OrderDetailsView order={orderToPay} />
+                <div className="bg-stone-50 p-4 sm:p-6 rounded-2xl border border-stone-200 space-y-4">
+                  {orderToPay.items?.map((item: any) => {
+                    const size = sizes.find((s: any) => s.id === item.sizeId);
+                    return (
+                      <div key={item.id} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-2">
+                        <span className="font-black text-stone-800 text-base block border-b border-stone-100 pb-2 mb-2">
+                          Macarrão {size?.name}
+                        </span>
+                        <div className="text-[13px] text-stone-600 leading-relaxed space-y-1.5 pl-3 border-l-2 border-orange-300">
+                          {item.pastaId && <div><span className="font-bold text-stone-400">Massa:</span> {getItemName(item.pastaId)}</div>}
+                          {item.sauces?.length > 0 && <div><span className="font-bold text-stone-400">Molhos:</span> {item.sauces.map(getItemName).join(', ')}</div>}
+                          {item.temperos?.length > 0 && <div><span className="font-bold text-stone-400">Temperos:</span> {item.temperos.map(getItemName).join(', ')}</div>}
+                          {item.ingredients?.length > 0 && <div><span className="font-bold text-stone-400">Ingredientes:</span> {item.ingredients.map(getItemName).join(', ')}</div>}
+                          {item.extras?.length > 0 && <div className="text-amber-700"><span className="font-bold text-amber-500">Extras:</span> {item.extras.map(getItemName).join(', ')}</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {orderToPay.items?.length === 0 && <p className="text-sm text-stone-400 italic">Nenhum macarrão personalizado neste pedido.</p>}
+                  
+                  {orderToPay.products && orderToPay.products.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-stone-200">
+                      <h4 className="font-black text-stone-600 text-sm mb-3">Itens Avulsos / Bebidas</h4>
+                      {orderToPay.products.map((p: any, idx: number) => {
+                         const prodInfo = products.find(prod => prod.id === p.productId);
+                         return (
+                           <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-lg border border-stone-100 mb-2">
+                             <span className="text-sm font-bold text-stone-700">
+                               {p.quantity}x {prodInfo?.name || "Produto Removido"}
+                             </span>
+                           </div>
+                         )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {orderToPay.observation && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-xs font-black uppercase tracking-wider text-amber-700 mb-1">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                  <p className="text-xs font-black uppercase tracking-wider text-amber-700 mb-2">
                     Observação geral do pedido
                   </p>
-                  <p className="text-sm font-semibold text-amber-900">
+                  <p className="text-base font-semibold text-amber-900">
                     {orderToPay.observation}
                   </p>
                 </div>
               )}
 
-              <div className="flex justify-between items-center text-lg">
+              <div className="flex justify-between items-center text-xl bg-stone-100 p-6 rounded-2xl">
                 <span className="font-medium text-stone-600">
                   Subtotal Consumido:
                 </span>
-                <span className="font-bold text-stone-800">
+                <span className="font-black text-stone-800">
                   {formatCurrency(orderToPay.total)}
                 </span>
               </div>
 
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between gap-4">
+              <div className="bg-blue-50 border-2 border-blue-100 rounded-2xl p-6 flex items-center justify-between gap-4">
                 <div>
-                  <Label className="text-base font-bold text-blue-900">
+                  <Label className="text-lg font-black text-blue-900 cursor-pointer" onClick={() => setAddTenPercent(!addTenPercent)}>
                     Incluir 10% de Serviço?
                   </Label>
-                  <p className="text-sm font-medium text-blue-700 mt-1">
+                  <p className="text-base font-medium text-blue-700 mt-1">
                     Gorjeta:{" "}
-                    <span className="font-black">
+                    <span className="font-black bg-blue-100 px-2 py-0.5 rounded-md">
                       +{formatCurrency(orderToPay.total * 0.1)}
                     </span>
                   </p>
@@ -922,15 +967,15 @@ export default function AdminDashboardPage() {
                 <Switch
                   checked={addTenPercent}
                   onCheckedChange={setAddTenPercent}
-                  className="data-[state=checked]:bg-blue-600"
+                  className="data-[state=checked]:bg-blue-600 scale-125 mr-2"
                 />
               </div>
 
-              <div className="flex justify-between items-end border-t pt-4">
-                <span className="text-sm font-bold uppercase text-stone-500 tracking-wider">
+              <div className="flex justify-between items-end border-t-2 border-stone-100 pt-8">
+                <span className="text-sm font-black uppercase text-stone-400 tracking-widest">
                   Total a Receber
                 </span>
-                <span className="text-3xl font-black text-green-600">
+                <span className="text-5xl font-black text-green-600 tracking-tighter">
                   {formatCurrency(
                     orderToPay.total +
                       (addTenPercent ? orderToPay.total * 0.1 : 0),
@@ -938,9 +983,9 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
 
-              <div className="space-y-3 pt-2">
-                <Label className="text-stone-600">Forma de Pagamento</Label>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-4 pt-4">
+                <Label className="text-stone-500 font-bold uppercase tracking-wider text-xs">Selecione a Forma de Pagamento</Label>
+                <div className="grid grid-cols-3 gap-4">
                   {[
                     { id: "pix", label: "PIX", icon: QrCode },
                     { id: "dinheiro", label: "Dinheiro", icon: Banknote },
@@ -950,14 +995,14 @@ export default function AdminDashboardPage() {
                       type="button"
                       key={method.id}
                       onClick={() => setPaymentMethodFinal(method.id)}
-                      className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-lg border-2 transition-all ${
+                      className={`flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 transition-all ${
                         paymentMethodFinal === method.id
-                          ? "border-green-600 bg-green-50 text-green-700"
-                          : "border-stone-200 text-stone-500 hover:border-stone-300"
+                          ? "border-green-600 bg-green-50 text-green-700 shadow-md scale-[1.02]"
+                          : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50"
                       }`}
                     >
-                      <method.icon className="w-5 h-5" />
-                      <span className="text-xs font-bold uppercase">
+                      <method.icon className="w-8 h-8" />
+                      <span className="text-sm font-black uppercase tracking-wider">
                         {method.label}
                       </span>
                     </button>
@@ -965,166 +1010,19 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowPrintSettings(true)}
-                  className="py-6 text-base font-bold"
-                >
-                  <Settings2 className="w-4 h-4 mr-2" />
-                  Impressão
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrintOrder}
-                  className="py-6 text-base font-bold"
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Imprimir
-                </Button>
-
+              <div className="pt-8 pb-10">
                 <Button
                   onClick={handleConfirmPayment}
-                  className="py-6 text-base font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                  className="w-full py-8 text-xl font-black bg-green-600 hover:bg-green-700 text-white shadow-xl hover:scale-[1.01] transition-transform rounded-2xl"
                 >
-                  Confirmar Recebimento
+                  <CheckCircle2 className="w-7 h-7 mr-3" /> Confirmar Recebimento e Fechar Conta
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
 
-      <PrintSettingsModal
-        open={showPrintSettings}
-        onClose={() => setShowPrintSettings(false)}
-        value={printConfig}
-        onChange={setPrintConfig}
-      />
-
-      {orderToPay && (
-        <div
-          ref={printAreaRef}
-          className={`print-order-area ${
-            printConfig.paperWidth === "58mm" ? "paper-58" : "paper-80"
-          } hidden`}
-        >
-          {(() => {
-            const serviceFee = addTenPercent ? orderToPay.total * 0.1 : 0;
-            const finalTotal = orderToPay.total + serviceFee;
-
-            return (
-              <div
-                style={{
-                  paddingTop: `${printConfig.marginTop}mm`,
-                  paddingRight: `${printConfig.marginRight}mm`,
-                  paddingBottom: `${printConfig.marginBottom}mm`,
-                  paddingLeft: `${printConfig.marginLeft}mm`,
-                  fontSize: `${printConfig.fontSize}px`,
-                }}
-              >
-                <div style={{ textAlign: "center", marginBottom: "10px" }}>
-                  <div style={{ fontWeight: 700, fontSize: "16px" }}>
-                    FECHAMENTO DE CONTA
-                  </div>
-                  <div>Mesa: {orderToPay.address}</div>
-
-                  {printConfig.showCustomer && (
-                    <div>
-                      Cliente: {orderToPay.customerName || "Não informado"}
-                    </div>
-                  )}
-
-                  <div>
-                    Data:{" "}
-                    {formatDateTime(
-                      (orderToPay as any).createdAt || new Date(),
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  style={{ borderTop: "1px dashed #000", margin: "8px 0" }}
-                />
-
-                <PrintableOrderDetails
-                  order={orderToPay}
-                  config={printConfig}
-                />
-
-                {printConfig.showGeneralObservation &&
-                orderToPay.observation ? (
-                  <>
-                    <div
-                      style={{ borderTop: "1px dashed #000", margin: "8px 0" }}
-                    />
-                    <div
-                      style={{
-                        fontSize: "11px",
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      <strong>Obs. pedido:</strong> {orderToPay.observation}
-                    </div>
-                  </>
-                ) : null}
-
-                <div
-                  style={{ borderTop: "1px dashed #000", margin: "8px 0" }}
-                />
-
-                <div
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <span>Subtotal</span>
-                  <strong>{formatCurrency(orderToPay.total)}</strong>
-                </div>
-
-                {printConfig.showServiceFee && addTenPercent && (
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <span>Serviço 10%</span>
-                    <strong>{formatCurrency(serviceFee)}</strong>
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginTop: "6px",
-                    fontSize: "15px",
-                  }}
-                >
-                  <span>
-                    <strong>TOTAL</strong>
-                  </span>
-                  <strong>{formatCurrency(finalTotal)}</strong>
-                </div>
-
-                {printConfig.showPaymentMethod && (
-                  <div style={{ marginTop: "10px" }}>
-                    <div>Pagamento: {paymentMethodFinal.toUpperCase()}</div>
-                  </div>
-                )}
-
-                <div
-                  style={{ borderTop: "1px dashed #000", margin: "10px 0" }}
-                />
-
-                <div style={{ textAlign: "center", fontSize: "11px" }}>
-                  Comprovante impresso pelo navegador
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
     </div>
   );
 }
