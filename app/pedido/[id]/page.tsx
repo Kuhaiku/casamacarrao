@@ -131,9 +131,9 @@ function OrderTrackingContent() {
     <div className="min-h-screen bg-stone-50 font-sans pb-10">
       <div className="bg-stone-900 text-white px-4 sm:px-6 py-6 shadow-md rounded-b-3xl">
         <div className="max-w-md mx-auto flex items-center gap-4">
-          <button onClick={() => router.push("/")} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors shrink-0">
+          {/* <button onClick={() => router.push("/")} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors shrink-0">
             <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
+          </button> */}
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">Acompanhar Pedido</h1>
             <p className="text-orange-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5">ID: #{order.id.slice(0,8)}</p>
