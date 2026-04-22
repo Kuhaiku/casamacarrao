@@ -4,69 +4,23 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useStore } from "@/lib/store";
 import { verifyFinanceiroPassword } from "@/lib/actions";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
-  Wallet,
-  Utensils,
-  Motorbike,
-  Banknote,
-  CreditCard,
-  QrCode,
-  Receipt,
-  TrendingDown,
-  Lock,
-  X,
-  CheckCircle2,
-  AlertCircle,
-  Check,
-  Truck,
-  Ban,
-  DollarSign,
-  Eye,
-  EyeOff,
-  HeartHandshake,
-  Printer,
-  Settings2,
-  ChevronDown,
-  ChevronUp,
-  Bell,
-  BellOff
+  Wallet, Utensils, Motorbike, Banknote, CreditCard, QrCode, Receipt,
+  TrendingDown, Lock, X, CheckCircle2, AlertCircle, Check, Truck, Ban,
+  DollarSign, Eye, EyeOff, HeartHandshake, Bell, BellOff, MessageCircle,
+  ChevronDown, ChevronUp, Maximize2
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Order } from "@/lib/types";
-import {
-  OrderDetailsView,
-  PrintableOrderDetails,
-} from "@/components/admin/order-details";
-import {
-  PrintSettingsModal,
-  DEFAULT_PRINT_CONFIG,
-  type PrintConfig,
-} from "@/components/admin/print-settings-modal";
 
 function formatCurrency(value: number) {
-  return (value || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
-function formatDateTime(date?: string | Date) {
-  if (!date) return "";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "";
-  return parsed.toLocaleString("pt-BR");
+  return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function getOrderType(address: string) {
@@ -78,33 +32,40 @@ function getOrderType(address: string) {
 
 export default function AdminDashboardPage() {
   const {
-    orders,
-    expenses,
-    tips,
-    sync,
-    toggleOrderPaid,
-    updateOrderStatus,
-    addExpense,
-    addTip,
-    closeRegister,
-    settings,
-    updateSettings,
-    sizes,
-    menuItems,
-    products,
+    orders, expenses, tips, sync, toggleOrderPaid, updateOrderStatus,
+    addExpense, addTip, closeRegister, settings, updateSettings, sizes, menuItems, products,
   } = useStore();
 
-  const printAreaRef = useRef<HTMLDivElement | null>(null);
+  const [isFinancialDataVisible, setIsFinancialDataVisible] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authPassword, setAuthPassword] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  // Estados dos Cards Expansíveis e da Campainha
+  const [orderToPayId, setOrderToPayId] = useState<string | null>(null);
+  const [viewOrderId, setViewOrderId] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
-  const [isMuted, setIsMuted] = useState(false);
-  const prevOrdersRef = useRef<any[]>([]);
-  const isFirstRender = useRef(true);
+  
+  const [addTenPercent, setAddTenPercent] = useState(false);
+  const [paymentMethodFinal, setPaymentMethodFinal] = useState<string>("pix");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseDesc, setExpenseDesc] = useState("");
+  const [tipAmount, setTipAmount] = useState("");
+  const [tipDesc, setTipDesc] = useState("");
 
-  const toggleExpand = (id: string) => {
-    setExpandedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
+  // ==========================================
+  // LÓGICA DE ÁUDIO
+  // ==========================================
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+  useEffect(() => {
+    const currentPending = orders.filter((o) => o.status === "novo").length;
+    if (audioEnabled && currentPending > pendingOrdersCount) {
+      const audio = new Audio("/bell.mp3");
+      audio.play().catch((e) => console.error("Erro ao tocar áudio:", e));
+    }
+    setPendingOrdersCount(currentPending);
+  }, [orders, audioEnabled, pendingOrdersCount]);
 
   useEffect(() => {
     sync();
@@ -112,189 +73,114 @@ export default function AdminDashboardPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-  // Lógica da Campainha de Novo Pedido
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      prevOrdersRef.current = orders;
-      return;
-    }
-
-    const currentNew = orders.filter(o => o.status === "novo");
-    const prevNew = prevOrdersRef.current.filter(o => o.status === "novo");
-    
-    // Checa se há um pedido novo que NÃO estava na lista anterior
-    const hasTrulyNewOrder = currentNew.some(no => !prevNew.find(po => po.id === no.id));
-
-    if (hasTrulyNewOrder && !isMuted) {
-      try {
-        // Toca o som (Certifique-se de colocar um bell.mp3 na pasta public/)
-        const audio = new Audio('/bell.mp3');
-        audio.play().catch(e => console.warn('Navegador bloqueou o áudio automático.'));
-      } catch (e) {}
-    }
-
-    prevOrdersRef.current = orders;
-  }, [orders, isMuted]);
-
+  // ==========================================
+  // LÓGICA DE HORÁRIO AUTOMÁTICO
+  // ==========================================
   useEffect(() => {
     const checkSchedule = () => {
       if (!settings.deliverySchedule) return;
-
       const now = new Date();
       now.setHours(now.getHours() - 3);
       const day = now.getDay().toString();
-      const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now
-        .getMinutes()
-        .toString()
-        .padStart(2, "0")}`;
-
+      const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
       const schedule: any = settings.deliverySchedule;
       const today = schedule[day];
-
       let shouldBeOpen = false;
 
-      if (today && today.active) {
-        if (timeStr >= today.start && timeStr <= today.end) {
-          shouldBeOpen = true;
-        }
+      if (today && today.active && timeStr >= today.start && timeStr <= today.end) {
+        shouldBeOpen = true;
       }
 
       if (settings.isOpen !== shouldBeOpen) {
         updateSettings({ isOpen: shouldBeOpen });
-        toast.info(
-          `Piloto Automático: A loja foi ${shouldBeOpen ? "ABERTA" : "FECHADA"} pelo horário programado.`,
-        );
+        toast.info(`Piloto Automático: Loja ${shouldBeOpen ? "ABERTA" : "FECHADA"} pelo horário.`);
       }
     };
 
     const interval = setInterval(checkSchedule, 60000);
     const timeout = setTimeout(checkSchedule, 3000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
+    return () => { clearInterval(interval); clearTimeout(timeout); };
   }, [settings.deliverySchedule, settings.isOpen, updateSettings]);
 
-  const [isFinancialDataVisible, setIsFinancialDataVisible] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authPassword, setAuthPassword] = useState("");
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  // ==========================================
+  // FILTROS DE PEDIDOS
+  // ==========================================
+  const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses } = useMemo(() => {
+    const currentShiftOrders = orders.filter((o) => !o.isAccounted);
+    const currentShiftExpenses = expenses.filter((e) => !e.isAccounted);
+    const active = currentShiftOrders.filter((o) => o.status !== "cancelado" && !(o.status === "entregue" && o.isPaid));
 
-  const [orderToPay, setOrderToPay] = useState<Order | null>(null);
-  const [addTenPercent, setAddTenPercent] = useState(false);
-  const [paymentMethodFinal, setPaymentMethodFinal] = useState<string>("pix");
+    return {
+      activeLocalOrders: active.filter((o) => getOrderType(o.address) === "LOCAL"),
+      activeDeliveryOrders: active.filter((o) => getOrderType(o.address) === "ENTREGA"),
+      totalSales: currentShiftOrders.filter((o) => o.isPaid && o.status !== "cancelado").reduce((acc, o) => acc + o.total, 0),
+      totalExpenses: currentShiftExpenses.reduce((acc, e) => acc + e.amount, 0),
+    };
+  }, [orders, expenses]);
 
-  const [expenseAmount, setExpenseAmount] = useState("");
-  const [expenseDesc, setExpenseDesc] = useState("");
-  const [tipAmount, setTipAmount] = useState("");
-  const [tipDesc, setTipDesc] = useState("");
-
-  const [showPrintSettings, setShowPrintSettings] = useState(false);
-  const [printConfig, setPrintConfig] =
-    useState<PrintConfig>(DEFAULT_PRINT_CONFIG);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("admin_print_config");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setPrintConfig({ ...DEFAULT_PRINT_CONFIG, ...parsed });
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("admin_print_config", JSON.stringify(printConfig));
-    } catch {}
-  }, [printConfig]);
-
-  const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses } =
-    useMemo(() => {
-      const currentShiftOrders = orders.filter((o) => !o.isAccounted);
-      const currentShiftExpenses = expenses.filter((e) => !e.isAccounted);
-
-      const active = currentShiftOrders.filter(
-        (o) =>
-          o.status !== "cancelado" && !(o.status === "entregue" && o.isPaid),
-      );
-
-      return {
-        activeLocalOrders: active.filter(
-          (o) => getOrderType(o.address) === "LOCAL",
-        ),
-        activeDeliveryOrders: active.filter(
-          (o) => getOrderType(o.address) === "ENTREGA",
-        ),
-        totalSales: currentShiftOrders
-          .filter((o) => o.isPaid && o.status !== "cancelado")
-          .reduce((acc, o) => acc + o.total, 0),
-        totalExpenses: currentShiftExpenses.reduce(
-          (acc, e) => acc + e.amount,
-          0,
-        ),
-      };
-    }, [orders, expenses]);
+  // ==========================================
+  // FUNÇÕES DE AÇÃO
+  // ==========================================
+  const toggleExpand = (id: string) => {
+    setExpandedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   const handleAddExpense = () => {
     const amount = parseFloat(expenseAmount);
     if (!amount || !expenseDesc.trim()) return;
-
     addExpense({ amount, description: expenseDesc.trim() });
-    setExpenseAmount("");
-    setExpenseDesc("");
-    toast.success("Despesa lançada com sucesso!");
+    setExpenseAmount(""); setExpenseDesc("");
+    toast.success("Despesa lançada!");
   };
 
   const handleAddTip = () => {
     const amount = parseFloat(tipAmount);
     if (!amount || !tipDesc.trim()) return;
-
     addTip({ amount, description: tipDesc.trim() });
-    setTipAmount("");
-    setTipDesc("");
-    toast.success("Gorjeta lançada com sucesso!");
+    setTipAmount(""); setTipDesc("");
+    toast.success("Gorjeta lançada!");
   };
 
-  const handleConfirmPayment = () => {
+  const orderToPay = orders.find(o => o.id === orderToPayId);
+  const viewOrder = orders.find(o => o.id === viewOrderId);
+
+  const handleConfirmPayment = async () => {
     if (!orderToPay) return;
+    
+    const finalTotal = orderToPay.total + (addTenPercent ? orderToPay.total * 0.1 : 0);
 
-    if (addTenPercent) {
-      addTip({
-        amount: orderToPay.total * 0.1,
-        description: `10% Serviço - ${orderToPay.address}`,
+    if (addTenPercent) addTip({ amount: orderToPay.total * 0.1, description: `10% Serviço - ${orderToPay.address}` });
+    
+    if (!orderToPay.isPaid) toggleOrderPaid(orderToPay.id);
+    if (orderToPay.status !== "entregue") updateOrderStatus(orderToPay.id, "entregue");
+
+    // ENVIO PARA A FILA DE IMPRESSÃO
+    try {
+      await fetch('/api/print-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...orderToPay,
+          isPaid: true,
+          paymentMethod: paymentMethodFinal,
+          total: finalTotal,
+          serviceFee: addTenPercent ? orderToPay.total * 0.1 : 0
+        })
       });
+      toast.success("Pago, Finalizado e Enviado para Impressão!");
+    } catch (error) {
+      console.error("Erro na impressão:", error);
+      toast.error("Pago e finalizado, mas falhou ao enviar para a impressora.");
     }
 
-    if (!orderToPay.isPaid) {
-      toggleOrderPaid(orderToPay.id);
-    }
-
-    if (orderToPay.status !== "entregue") {
-      updateOrderStatus(orderToPay.id, "entregue");
-    }
-
-    setOrderToPay(null);
-    toast.success("Pagamento confirmado com sucesso!");
-  };
-
-  const handleToggleVisibility = () => {
-    if (isFinancialDataVisible) {
-      setIsFinancialDataVisible(false);
-    } else {
-      setShowAuthModal(true);
-    }
+    setOrderToPayId(null);
   };
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
-
     try {
       const isValid = await verifyFinanceiroPassword(authPassword);
-
       if (isValid) {
         setIsFinancialDataVisible(true);
         setShowAuthModal(false);
@@ -302,16 +188,11 @@ export default function AdminDashboardPage() {
       } else {
         toast.error("Senha incorreta.");
       }
-    } catch (error) {
+    } catch {
       toast.error("Erro ao verificar senha.");
     } finally {
       setIsAuthenticating(false);
     }
-  };
-
-  const handlePrintOrder = () => {
-    if (!orderToPay) return;
-    window.print();
   };
 
   const getItemName = (id: string) => {
@@ -319,705 +200,429 @@ export default function AdminDashboardPage() {
     return item ? item.name : "Item";
   };
 
+  const handleWhatsApp = (phone: string) => {
+    if (!phone || phone === "Não informado") {
+      toast.error("Telefone não informado.");
+      return;
+    }
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length >= 10) {
+      window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+    } else {
+      toast.error("Número inválido.");
+    }
+  };
+
   return (
-    <div className="container max-w-[1600px] mx-auto p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-
-          .print-order-area,
-          .print-order-area * {
-            visibility: visible !important;
-          }
-
-          .print-order-area {
-            display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            background: white;
-            color: black;
-            font-family: Arial, Helvetica, sans-serif;
-            line-height: 1.35;
-          }
-
-          .print-order-area.paper-58 {
-            width: 58mm;
-            max-width: 58mm;
-          }
-
-          .print-order-area.paper-80 {
-            width: 80mm;
-            max-width: 80mm;
-          }
-
-          .print-order-area,
-          .print-order-area * {
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow-wrap: anywhere !important;
-            text-overflow: clip !important;
-            overflow: visible !important;
-            box-sizing: border-box !important;
-          }
-
-          .print-hide {
-            display: none !important;
-          }
-
-          .receipt-item {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-          @page {
-            margin: 0;
-          }
-        }
-      `}</style>
-
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print-hide">
+    <div className="flex flex-col h-screen w-full bg-stone-100 overflow-hidden font-sans">
+      
+      {/* CABEÇALHO GLOBAL */}
+      <div className="bg-white px-4 py-3 shrink-0 border-b border-stone-200 shadow-sm z-10 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-black text-stone-800 dark:text-stone-100 tracking-tight">
-            Centro de Comando
-          </h1>
-          <p className="text-stone-500 font-medium mt-1">
-            Acompanhe e gerencie a operação em tempo real.
-          </p>
+          <h1 className="text-xl font-black text-stone-800 tracking-tight">Centro de Comando</h1>
+          <p className="text-stone-500 font-medium text-xs">Visão geral da operação</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full md:w-auto">
-          <div className="flex items-center gap-3 bg-white dark:bg-stone-900 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm flex-1 md:flex-none justify-center">
-            <Switch
-              checked={settings.isOpen}
-              onCheckedChange={(checked) => updateSettings({ isOpen: checked })}
-              className="data-[state=checked]:bg-green-600"
-            />
-            <span
-              className={`text-sm font-black tracking-wider ${
-                settings.isOpen ? "text-green-600" : "text-red-500"
-              }`}
-            >
-              {settings.isOpen ? "🟢 ABERTA" : "🔴 FECHADA"}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 shadow-sm">
+            <Switch checked={settings.isOpen} onCheckedChange={(checked) => updateSettings({ isOpen: checked })} className="data-[state=checked]:bg-green-600 scale-75" />
+            <span className={`text-[10px] font-black tracking-wider ${settings.isOpen ? "text-green-600" : "text-red-500"}`}>
+              {settings.isOpen ? "ABERTA" : "FECHADA"}
             </span>
           </div>
-
-          <Button
-            variant="outline"
-            onClick={() => setIsMuted(!isMuted)}
-            className={`font-bold shadow-sm px-3 ${isMuted ? 'bg-stone-100' : 'bg-orange-50 border-orange-200'}`}
-            title={isMuted ? "Ativar som de novo pedido" : "Silenciar som"}
-          >
-            {isMuted ? <BellOff className="w-4 h-4 text-stone-400" /> : <Bell className="w-4 h-4 text-orange-600" />}
-          </Button>
-
-          <Button
-            variant={isFinancialDataVisible ? "destructive" : "outline"}
-            onClick={handleToggleVisibility}
-            className="font-bold shadow-sm flex-1 md:flex-none"
-          >
-            {isFinancialDataVisible ? (
-              <>
-                <EyeOff className="w-4 h-4 mr-2" /> Ocultar Valores
-              </>
-            ) : (
-              <>
-                <Eye className="w-4 h-4 mr-2" /> Revelar Valores
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3 print-hide">
-        <Card className="bg-gradient-to-br from-green-600 to-green-800 text-white shadow-lg border-none">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-green-100 font-medium mb-1">
-                  Vendas Hoje (Pagas)
-                </p>
-                <h3 className="text-3xl font-black">
-                  {isFinancialDataVisible
-                    ? formatCurrency(totalSales)
-                    : "R$ ****"}
-                </h3>
-              </div>
-              <div className="p-3 bg-white/20 rounded-xl">
-                <Wallet className="w-6 h-6 text-white" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-stone-900 shadow-sm border-stone-200 dark:border-stone-800">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-stone-500 font-medium mb-1">Mesas Abertas</p>
-                <h3 className="text-3xl font-black text-stone-800 dark:text-stone-100">
-                  {activeLocalOrders.length}
-                </h3>
-              </div>
-              <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
-                <Utensils className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-stone-900 shadow-sm border-stone-200 dark:border-stone-800">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-stone-500 font-medium mb-1">
-                  Saídas / Despesas
-                </p>
-                <h3 className="text-3xl font-black text-red-600">
-                  {isFinancialDataVisible
-                    ? formatCurrency(totalExpenses)
-                    : "R$ ****"}
-                </h3>
-              </div>
-              <div className="p-3 bg-red-100 text-red-600 rounded-xl">
-                <TrendingDown className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print-hide">
-        
-        {/* COLUNA DE MESAS ATIVAS */}
-        <div className="col-span-1 lg:col-span-4 space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-200 dark:border-blue-900">
-            <Utensils className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-stone-800 dark:text-stone-100">
-              Mesas Ativas
-            </h2>
-            <Badge
-              variant="secondary"
-              className="ml-auto bg-blue-100 text-blue-700"
-            >
-              {activeLocalOrders.length}
-            </Badge>
-          </div>
-
-          <div className="space-y-2">
-            {activeLocalOrders.length === 0 ? (
-              <div className="text-center p-6 border border-dashed rounded-xl border-stone-300 text-stone-400 text-sm">
-                Nenhuma mesa em atendimento.
-              </div>
-            ) : (
-              activeLocalOrders.map((order) => (
-                <Card
-                  key={order.id}
-                  className="border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all overflow-hidden"
-                >
-                  <div 
-                    onClick={() => toggleExpand(order.id)}
-                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0 pr-3">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="font-black text-sm text-blue-900 dark:text-blue-400 truncate max-w-[120px] sm:max-w-[200px]">
-                          {order.address}
-                        </h3>
-                        <Badge className={`text-[9px] px-1.5 py-0 h-4 uppercase ${
-                            order.status === "pronto" || order.status === "entregue"
-                              ? "bg-green-100 text-green-700"
-                              : order.status === "novo"
-                                ? "bg-stone-100 text-stone-700"
-                                : "bg-orange-100 text-orange-700"
-                          }`}
-                        >
-                          {order.status}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-stone-500 font-medium truncate">{order.customerName}</p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="font-black text-sm text-stone-800">
-                        {formatCurrency(order.total)}
-                      </span>
-                      {expandedOrders.includes(order.id) ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
-                    </div>
-                  </div>
-
-                  {expandedOrders.includes(order.id) && (
-                    <CardContent className="p-3 pt-0 bg-stone-50/50 border-t border-stone-100">
-                      {order.observation && (
-                        <div className="mb-2 bg-amber-50 p-2 rounded border border-amber-200 mt-2">
-                          <div className="flex items-center gap-1 text-amber-800 mb-0.5">
-                            <AlertCircle className="w-3 h-3" />
-                            <span className="text-[9px] font-black uppercase tracking-wider">Obs</span>
-                          </div>
-                          <p className="text-[11px] font-bold text-amber-900 italic">"{order.observation}"</p>
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-stone-200/50">
-                        {!order.isPaid ? (
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOrderToPay(order);
-                              setPaymentMethodFinal(order.paymentMethod);
-                              setAddTenPercent(false);
-                            }}
-                            className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 font-bold"
-                          >
-                            <Receipt className="w-3 h-3 mr-1" /> Fechar Conta
-                          </Button>
-                        ) : (
-                          <Badge className="bg-green-600 text-white px-2 py-0.5 text-[10px] h-7 flex items-center">
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Pago
-                          </Badge>
-                        )}
-
-                        {order.status === "novo" && (
-                          <Button
-                            onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "aprovado"); }}
-                            className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <Check className="w-3 h-3 mr-1" /> Aprovar
-                          </Button>
-                        )}
-                        {order.status === "aprovado" && (
-                          <Button
-                            onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "pronto"); }}
-                            className="h-7 px-2 text-[10px] bg-orange-600 hover:bg-orange-700 text-white"
-                          >
-                            <Utensils className="w-3 h-3 mr-1" /> Pronto
-                          </Button>
-                        )}
-                        {order.status === "pronto" && (
-                          <Button
-                            onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "entregue"); }}
-                            className="h-7 px-2 text-[10px] bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Servido
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "cancelado"); }}
-                          className="h-7 px-2 text-[10px] text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto"
-                        >
-                          <Ban className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* COLUNA DE ENTREGAS ATIVAS */}
-        <div className="col-span-1 lg:col-span-4 space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-200 dark:border-purple-900">
-            <Motorbike className="w-5 h-5 text-purple-600" />
-            <h2 className="text-lg font-bold text-stone-800 dark:text-stone-100">
-              Entregas Ativas
-            </h2>
-            <Badge
-              variant="secondary"
-              className="ml-auto bg-purple-100 text-purple-700"
-            >
-              {activeDeliveryOrders.length}
-            </Badge>
-          </div>
-
-          <div className="space-y-2">
-            {activeDeliveryOrders.length === 0 ? (
-              <div className="text-center p-6 border border-dashed rounded-xl border-stone-300 text-stone-400 text-sm">
-                Nenhuma entrega pendente.
-              </div>
-            ) : (
-              activeDeliveryOrders.map((order) => (
-                <Card
-                  key={order.id}
-                  className="border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-all overflow-hidden"
-                >
-                  <div 
-                    onClick={() => toggleExpand(order.id)}
-                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0 pr-3">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="font-bold text-sm text-stone-800 truncate max-w-[120px] sm:max-w-[200px]">
-                          {order.customerName}
-                        </h3>
-                        <Badge className={`text-[9px] px-1.5 py-0 h-4 uppercase ${
-                            order.status === "pronto"
-                              ? "bg-amber-100 text-amber-700"
-                              : order.status === "despachado"
-                                ? "bg-blue-100 text-blue-700"
-                                : order.status === "novo"
-                                  ? "bg-stone-100 text-stone-700"
-                                  : "bg-stone-100 text-stone-600"
-                          }`}
-                        >
-                          {order.status === "pronto" ? "MOTOBOY" : order.status === "despachado" ? "SAIU" : order.status}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-stone-500 font-medium truncate" title={order.address}>
-                        {order.address}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="font-black text-sm text-stone-800">
-                        {formatCurrency(order.total)}
-                      </span>
-                      {expandedOrders.includes(order.id) ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
-                    </div>
-                  </div>
-
-                  {expandedOrders.includes(order.id) && (
-                    <CardContent className="p-3 pt-0 bg-stone-50/50 border-t border-stone-100">
-                      <div className="bg-white p-1.5 rounded text-[10px] font-bold text-stone-600 flex items-center justify-between mb-2 border border-stone-200 mt-2">
-                        <span>Pagamento:</span>
-                        <span className="uppercase text-purple-700 flex items-center gap-1">
-                          {order.paymentMethod === "pix" && <QrCode className="w-3 h-3" />}
-                          {order.paymentMethod === "dinheiro" && <Banknote className="w-3 h-3" />}
-                          {order.paymentMethod === "cartao" && <CreditCard className="w-3 h-3" />}
-                          {order.paymentMethod}
-                        </span>
-                      </div>
-
-                      {order.observation && (
-                        <div className="mb-2 bg-amber-50 p-2 rounded border border-amber-200">
-                          <div className="flex items-center gap-1 text-amber-800 mb-0.5">
-                            <AlertCircle className="w-3 h-3" />
-                            <span className="text-[9px] font-black uppercase tracking-wider">Obs</span>
-                          </div>
-                          <p className="text-[11px] font-bold text-amber-900 italic">"{order.observation}"</p>
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-purple-50">
-                        <Button
-                          variant={order.isPaid ? "default" : "outline"}
-                          className={`h-7 px-2 text-[10px] ${order.isPaid ? "bg-green-600 text-white" : "text-stone-500 bg-white"}`}
-                          onClick={(e) => { e.stopPropagation(); toggleOrderPaid(order.id); }}
-                        >
-                          <DollarSign className="w-3 h-3 mr-1" /> {order.isPaid ? "Pago" : "Pagar"}
-                        </Button>
-
-                        {order.status === "novo" && (
-                          <Button onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "aprovado"); }} className="h-7 px-2 text-[10px] bg-blue-600 text-white"><Check className="w-3 h-3 mr-1" /> Aprovar</Button>
-                        )}
-                        {order.status === "aprovado" && (
-                          <Button onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "pronto"); }} className="h-7 px-2 text-[10px] bg-orange-600 text-white"><Utensils className="w-3 h-3 mr-1" /> Pronto</Button>
-                        )}
-                        {order.status === "pronto" && (
-                          <Button onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "despachado"); }} className="h-7 px-2 text-[10px] bg-purple-600 text-white"><Truck className="w-3 h-3 mr-1" /> Despachar</Button>
-                        )}
-                        {order.status === "despachado" && (
-                          <Button onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "entregue"); }} className="h-7 px-2 text-[10px] bg-green-600 text-white"><CheckCircle2 className="w-3 h-3 mr-1" /> Entregue</Button>
-                        )}
-                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, "cancelado"); }} className="h-7 px-2 text-[10px] text-red-500 hover:bg-red-50 ml-auto"><Ban className="w-3 h-3" /></Button>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* COLUNA CAIXA RÁPIDO */}
-        <div className="col-span-1 lg:col-span-4 space-y-6">
-          <div className="flex items-center gap-2 pb-2 border-b-2 border-stone-200 dark:border-stone-800">
-            <Wallet className="w-5 h-5 text-stone-600" />
-            <h2 className="text-lg font-bold text-stone-800 dark:text-stone-100">
-              Caixa Rápido
-            </h2>
-          </div>
-
-          <Card className="border-stone-200 shadow-sm">
-            <CardHeader className="pb-3 bg-stone-50/50">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-red-600" /> Lançar Despesa
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Motivo (Ex: Gás)"
-                  value={expenseDesc}
-                  onChange={(e) => setExpenseDesc(e.target.value)}
-                  className="h-9 text-sm"
-                />
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="R$"
-                  value={expenseAmount}
-                  onChange={(e) => setExpenseAmount(e.target.value)}
-                  className="w-20 h-9 text-sm"
-                />
-              </div>
-              <Button
-                onClick={handleAddExpense}
-                disabled={!expenseAmount || !expenseDesc}
-                className="w-full h-9 text-sm bg-stone-800 text-white font-bold"
-              >
-                Lançar Despesa
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-blue-100 shadow-sm dark:border-blue-900">
-            <CardHeader className="pb-3 bg-blue-50/50 dark:bg-blue-900/20">
-              <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300">
-                <HeartHandshake className="w-4 h-4" /> Lançar Gorjeta
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Origem (Ex: Balcão)"
-                  value={tipDesc}
-                  onChange={(e) => setTipDesc(e.target.value)}
-                  className="h-9 text-sm"
-                />
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="R$"
-                  value={tipAmount}
-                  onChange={(e) => setTipAmount(e.target.value)}
-                  className="w-20 h-9 text-sm"
-                />
-              </div>
-              <Button
-                onClick={handleAddTip}
-                disabled={!tipAmount || !tipDesc}
-                className="w-full h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold"
-              >
-                Adicionar Gorjeta
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Button
+          <Button 
+            variant={audioEnabled ? "default" : "outline"} 
+            size="icon" 
             onClick={() => {
-              if (window.confirm("Deseja realmente fechar o caixa de hoje?")) {
-                closeRegister();
+              setAudioEnabled(!audioEnabled);
+              if (!audioEnabled) {
+                try {
+                  const audio = new Audio("/bell.mp3");
+                  audio.play().then(() => audio.pause()); 
+                  toast.success("Campainha ativada!");
+                } catch(e){}
               }
-            }}
-            variant="outline"
-            className="w-full border-red-200 text-red-600 hover:bg-red-50 font-bold py-5 text-sm"
+            }} 
+            className={`h-8 w-8 ${audioEnabled ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-stone-100 text-stone-400'}`}
+            title={audioEnabled ? "Silenciar" : "Ativar Som"}
           >
-            <Lock className="w-4 h-4 mr-2" /> Encerrar Turno
+            {audioEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+          </Button>
+          <Button variant={isFinancialDataVisible ? "destructive" : "outline"} size="icon" onClick={() => isFinancialDataVisible ? setIsFinancialDataVisible(false) : setShowAuthModal(true)} className="h-8 w-8">
+            {isFinancialDataVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </Button>
         </div>
+      </div>
+
+      {/* CARDS DE RESUMO (Sem Scroll) */}
+      <div className="shrink-0 p-3 grid grid-cols-3 gap-3">
+        <Card className="bg-green-600 text-white shadow-sm border-none">
+          <CardContent className="p-3 flex justify-between items-center">
+            <div>
+              <p className="text-green-100 font-medium text-[10px] mb-0.5">Vendas Pagas</p>
+              <h3 className="text-lg sm:text-xl font-black">{isFinancialDataVisible ? formatCurrency(totalSales) : "****"}</h3>
+            </div>
+            <Wallet className="w-5 h-5 text-green-200 opacity-50 hidden sm:block" />
+          </CardContent>
+        </Card>
+        <Card className="bg-white shadow-sm border-stone-200">
+          <CardContent className="p-3 flex justify-between items-center">
+            <div>
+              <p className="text-stone-500 font-medium text-[10px] mb-0.5">Mesas Ativas</p>
+              <h3 className="text-lg sm:text-xl font-black text-stone-800">{activeLocalOrders.length}</h3>
+            </div>
+            <Utensils className="w-5 h-5 text-blue-200 hidden sm:block" />
+          </CardContent>
+        </Card>
+        <Card className="bg-white shadow-sm border-stone-200">
+          <CardContent className="p-3 flex justify-between items-center">
+            <div>
+              <p className="text-stone-500 font-medium text-[10px] mb-0.5">Despesas</p>
+              <h3 className="text-lg sm:text-xl font-black text-red-600">{isFinancialDataVisible ? formatCurrency(totalExpenses) : "****"}</h3>
+            </div>
+            <TrendingDown className="w-5 h-5 text-red-200 hidden sm:block" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ÁREA DAS COLUNAS */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-3 px-3 pb-3 min-h-0">
+        
+        {/* COLUNA: MESAS */}
+        <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-stone-200 min-h-0">
+          <div className="p-3 bg-blue-50/50 border-b border-stone-200 shrink-0 flex items-center justify-between">
+            <h2 className="text-xs font-black text-blue-900 flex items-center gap-1.5"><Utensils className="w-3.5 h-3.5" /> Mesas Ativas</h2>
+            <Badge className="bg-blue-600 text-[10px]">{activeLocalOrders.length}</Badge>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3">
+            {activeLocalOrders.length === 0 ? (
+               <div className="text-center p-4 border border-dashed rounded-lg border-stone-200 text-stone-400 text-xs">Vazio.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
+                {activeLocalOrders.map((order) => (
+                  <div key={order.id} className="bg-white border border-stone-200 rounded-lg shadow-sm flex flex-col overflow-hidden">
+                    <div onClick={() => toggleExpand(order.id)} className="p-2.5 cursor-pointer hover:bg-stone-50 transition-colors flex justify-between items-start gap-1">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <h3 className="font-black text-xs text-blue-900 truncate">{order.address}</h3>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${order.status === 'pronto' || order.status === 'entregue' ? 'bg-green-500' : order.status === 'novo' ? 'bg-stone-300' : 'bg-orange-500'}`} />
+                        </div>
+                        <p className="text-[9px] text-stone-500 truncate mt-0.5">{order.customerName}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="font-black text-xs text-stone-800">{formatCurrency(order.total)}</span>
+                        {expandedOrders.includes(order.id) ? <ChevronUp className="w-3.5 h-3.5 text-stone-400" /> : <ChevronDown className="w-3.5 h-3.5 text-stone-400" />}
+                      </div>
+                    </div>
+
+                    {expandedOrders.includes(order.id) && (
+                      <div className="p-2.5 pt-0 border-t border-stone-100 bg-stone-50/30">
+                        {order.observation && <p className="text-[9px] font-bold text-amber-700 bg-amber-50 p-1.5 rounded mb-2">Obs: {order.observation}</p>}
+                        <div className="space-y-1 mb-2">
+                          {order.items?.map((item: any) => {
+                            const size = sizes.find((s: any) => s.id === item.sizeId);
+                            return <div key={item.id} className="text-[9px] font-bold text-stone-600 bg-white p-1.5 border border-stone-100 rounded">1x Mac. {size?.name}</div>
+                          })}
+                          {order.products?.map((p: any, idx: number) => {
+                            const prodInfo = products.find(prod => prod.id === p.productId);
+                            return <div key={idx} className="text-[9px] font-bold text-stone-600 bg-white p-1.5 border border-stone-100 rounded">{p.quantity}x {prodInfo?.name || "Prod."}</div>
+                          })}
+                        </div>
+                        <Button onClick={() => setViewOrderId(order.id)} variant="outline" className="w-full h-7 text-[10px] font-bold border-blue-200 text-blue-700 hover:bg-blue-50">
+                          <Maximize2 className="w-3 h-3 mr-1.5" /> Gerenciar Pedido
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* COLUNA: ENTREGAS */}
+        <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-stone-200 min-h-0">
+          <div className="p-3 bg-purple-50/50 border-b border-stone-200 shrink-0 flex items-center justify-between">
+            <h2 className="text-xs font-black text-purple-900 flex items-center gap-1.5"><Motorbike className="w-3.5 h-3.5" /> Entregas Ativas</h2>
+            <Badge className="bg-purple-600 text-[10px]">{activeDeliveryOrders.length}</Badge>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3">
+            {activeDeliveryOrders.length === 0 ? (
+               <div className="text-center p-4 border border-dashed rounded-lg border-stone-200 text-stone-400 text-xs">Vazio.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
+                {activeDeliveryOrders.map((order) => (
+                  <div key={order.id} className="bg-white border border-stone-200 rounded-lg shadow-sm flex flex-col overflow-hidden">
+                    <div onClick={() => toggleExpand(order.id)} className="p-2.5 cursor-pointer hover:bg-stone-50 transition-colors flex justify-between items-start gap-1">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <h3 className="font-black text-xs text-stone-800 truncate">{order.customerName}</h3>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${order.status === 'pronto' ? 'bg-amber-500' : order.status === 'despachado' ? 'bg-blue-500' : order.status === 'novo' ? 'bg-stone-300' : 'bg-stone-500'}`} />
+                        </div>
+                        <p className="text-[9px] text-stone-500 truncate mt-0.5" title={order.address}>{order.address}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="font-black text-xs text-stone-800">{formatCurrency(order.total)}</span>
+                        {expandedOrders.includes(order.id) ? <ChevronUp className="w-3.5 h-3.5 text-stone-400" /> : <ChevronDown className="w-3.5 h-3.5 text-stone-400" />}
+                      </div>
+                    </div>
+
+                    {expandedOrders.includes(order.id) && (
+                      <div className="p-2.5 pt-0 border-t border-stone-100 bg-stone-50/30">
+                        {order.observation && <p className="text-[9px] font-bold text-amber-700 bg-amber-50 p-1.5 rounded mb-2">Obs: {order.observation}</p>}
+                        <div className="space-y-1 mb-2">
+                          {order.items?.map((item: any) => {
+                            const size = sizes.find((s: any) => s.id === item.sizeId);
+                            return <div key={item.id} className="text-[9px] font-bold text-stone-600 bg-white p-1.5 border border-stone-100 rounded">1x Mac. {size?.name}</div>
+                          })}
+                          {order.products?.map((p: any, idx: number) => {
+                            const prodInfo = products.find(prod => prod.id === p.productId);
+                            return <div key={idx} className="text-[9px] font-bold text-stone-600 bg-white p-1.5 border border-stone-100 rounded">{p.quantity}x {prodInfo?.name || "Prod."}</div>
+                          })}
+                        </div>
+                        <Button onClick={() => setViewOrderId(order.id)} variant="outline" className="w-full h-7 text-[10px] font-bold border-purple-200 text-purple-700 hover:bg-purple-50">
+                          <Maximize2 className="w-3 h-3 mr-1.5" /> Gerenciar Pedido
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* COLUNA: CAIXA RÁPIDO */}
+        <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-stone-200 lg:max-w-[280px] min-h-0">
+          <div className="p-3 bg-stone-50 border-b border-stone-200 shrink-0 flex items-center gap-1.5">
+            <Wallet className="w-3.5 h-3.5 text-stone-600" />
+            <h2 className="text-xs font-black text-stone-800">Caixa Rápido</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-5">
+            <div className="space-y-2">
+              <h3 className="text-[11px] font-bold text-red-600 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Nova Saída</h3>
+              <Input placeholder="Motivo" value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} className="h-8 text-xs" />
+              <Input type="number" placeholder="R$" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} className="h-8 text-xs" />
+              <Button onClick={handleAddExpense} disabled={!expenseAmount || !expenseDesc} className="w-full h-8 text-[11px] bg-stone-800 text-white font-bold">Lançar</Button>
+            </div>
+            <div className="space-y-2 border-t pt-3">
+              <h3 className="text-[11px] font-bold text-blue-600 flex items-center gap-1"><HeartHandshake className="w-3 h-3" /> Gorjeta</h3>
+              <Input placeholder="Origem" value={tipDesc} onChange={(e) => setTipDesc(e.target.value)} className="h-8 text-xs" />
+              <Input type="number" placeholder="R$" value={tipAmount} onChange={(e) => setTipAmount(e.target.value)} className="h-8 text-xs" />
+              <Button onClick={handleAddTip} disabled={!tipAmount || !tipDesc} className="w-full h-8 text-[11px] bg-blue-600 text-white font-bold">Lançar</Button>
+            </div>
+            <div className="border-t pt-3">
+              <Button onClick={() => { if (window.confirm("Fechar o caixa de hoje?")) closeRegister(); }} variant="outline" className="w-full border-red-200 text-red-600 hover:bg-red-50 text-[11px] h-9 font-bold">
+                <Lock className="w-3 h-3 mr-1.5" /> Encerrar Turno
+              </Button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       {/* AUTENTICAÇÃO */}
       {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/80 backdrop-blur-sm p-4 print-hide">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <Card className="w-full max-w-sm shadow-2xl animate-in zoom-in-95">
             <form onSubmit={handleAuthSubmit}>
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <div className="flex justify-between items-center">
-                  <CardTitle>Acesso Restrito</CardTitle>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowAuthModal(false)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+                  <CardTitle className="text-lg">Senha Financeira</CardTitle>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setShowAuthModal(false)} className="h-6 w-6"><X className="w-4 h-4" /></Button>
                 </div>
-                <CardDescription>
-                  Digite a senha financeira para ver os valores.
-                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  type="password"
-                  placeholder="Senha"
-                  autoFocus
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                />
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isAuthenticating}
-                >
-                  {isAuthenticating ? "Verificando..." : "Desbloquear"}
-                </Button>
+              <CardContent className="space-y-3">
+                <Input type="password" autoFocus value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="h-9" />
+                <Button type="submit" className="w-full h-9" disabled={isAuthenticating}>Desbloquear</Button>
               </CardContent>
             </form>
           </Card>
         </div>
       )}
 
-      {/* MODAL FECHAR CONTA */}
-      {orderToPay && (
-        <div className="fixed inset-0 z-[100] bg-stone-50 overflow-y-auto animate-in slide-in-from-bottom-8 duration-300 print-hide">
-          <div className="min-h-screen max-w-4xl mx-auto bg-white shadow-2xl flex flex-col relative border-x border-stone-200">
+      {/* MODAL: GERENCIAMENTO DO PEDIDO (REAL-TIME COMPACTO) */}
+      {viewOrder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
             
-            <div className="sticky top-0 z-20 bg-white border-b border-stone-200 px-6 py-5 flex items-center justify-between shadow-sm">
-              <div>
-                <h2 className="text-2xl font-black text-blue-900 leading-none mb-1">
-                  Fechar Conta
-                </h2>
-                <p className="font-bold text-stone-500 text-sm">
-                  {orderToPay.address} • {orderToPay.customerName}
-                </p>
+            <div className="bg-stone-50 px-4 py-3 border-b border-stone-200 flex items-center justify-between shrink-0">
+              <div className="min-w-0 pr-4">
+                <h2 className="text-base font-black text-stone-800 truncate">{viewOrder.customerName}</h2>
+                <p className="text-[11px] font-bold text-stone-500 truncate">{viewOrder.address}</p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setOrderToPay(null)}
-                className="rounded-full hover:bg-stone-100"
-              >
-                <X className="w-6 h-6 text-stone-600" />
-              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setViewOrderId(null)} className="h-7 w-7 rounded-full bg-stone-200 shrink-0 hover:bg-stone-300 transition-colors"><X className="w-4 h-4" /></Button>
             </div>
 
-            <div className="p-6 md:p-10 flex-1 space-y-8">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider text-stone-400">
-                    Resumo do Pedido
-                  </h3>
-                </div>
-
-                <div className="bg-stone-50 p-4 sm:p-6 rounded-2xl border border-stone-200 space-y-4">
-                  {orderToPay.items?.map((item: any) => {
-                    const size = sizes.find((s: any) => s.id === item.sizeId);
-                    return (
-                      <div key={item.id} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-2">
-                        <span className="font-black text-stone-800 text-base block border-b border-stone-100 pb-2 mb-2">
-                          Macarrão {size?.name}
-                        </span>
-                        <div className="text-[13px] text-stone-600 leading-relaxed space-y-1.5 pl-3 border-l-2 border-orange-300">
-                          {item.pastaId && <div><span className="font-bold text-stone-400">Massa:</span> {getItemName(item.pastaId)}</div>}
-                          {item.sauces?.length > 0 && <div><span className="font-bold text-stone-400">Molhos:</span> {item.sauces.map(getItemName).join(', ')}</div>}
-                          {item.temperos?.length > 0 && <div><span className="font-bold text-stone-400">Temperos:</span> {item.temperos.map(getItemName).join(', ')}</div>}
-                          {item.ingredients?.length > 0 && <div><span className="font-bold text-stone-400">Ingredientes:</span> {item.ingredients.map(getItemName).join(', ')}</div>}
-                          {item.extras?.length > 0 && <div className="text-amber-700"><span className="font-bold text-amber-500">Extras:</span> {item.extras.map(getItemName).join(', ')}</div>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {orderToPay.items?.length === 0 && <p className="text-sm text-stone-400 italic">Nenhum macarrão personalizado neste pedido.</p>}
-                  
-                  {orderToPay.products && orderToPay.products.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-stone-200">
-                      <h4 className="font-black text-stone-600 text-sm mb-3">Itens Avulsos / Bebidas</h4>
-                      {orderToPay.products.map((p: any, idx: number) => {
-                         const prodInfo = products.find(prod => prod.id === p.productId);
-                         return (
-                           <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-lg border border-stone-100 mb-2">
-                             <span className="text-sm font-bold text-stone-700">
-                               {p.quantity}x {prodInfo?.name || "Produto Removido"}
-                             </span>
-                           </div>
-                         )
-                      })}
-                    </div>
-                  )}
-                </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex justify-between items-center bg-white border border-stone-200 p-2 rounded-lg">
+                <Badge className={`uppercase text-[9px] px-2 py-0.5 ${viewOrder.status === 'pronto' ? 'bg-amber-100 text-amber-700' : viewOrder.status === 'despachado' ? 'bg-blue-100 text-blue-700' : viewOrder.status === 'novo' ? 'bg-stone-200 text-stone-700' : 'bg-green-100 text-green-700'}`}>
+                  Status: {viewOrder.status}
+                </Badge>
+                {viewOrder.isPaid ? (
+                  <Badge className="bg-green-600 text-[9px] px-2 py-0.5"><CheckCircle2 className="w-3 h-3 mr-1" /> PAGO</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-red-500 border-red-200 text-[9px] px-2 py-0.5">PENDENTE</Badge>
+                )}
               </div>
 
-              {orderToPay.observation && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-                  <p className="text-xs font-black uppercase tracking-wider text-amber-700 mb-2">
-                    Observação geral do pedido
-                  </p>
-                  <p className="text-base font-semibold text-amber-900">
-                    {orderToPay.observation}
-                  </p>
+              {viewOrder.observation && (
+                <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                  <p className="text-[9px] font-black uppercase text-amber-800 mb-0.5">Observação</p>
+                  <p className="text-xs font-bold text-amber-950">"{viewOrder.observation}"</p>
                 </div>
               )}
 
-              <div className="flex justify-between items-center text-xl bg-stone-100 p-6 rounded-2xl">
-                <span className="font-medium text-stone-600">
-                  Subtotal Consumido:
-                </span>
-                <span className="font-black text-stone-800">
-                  {formatCurrency(orderToPay.total)}
-                </span>
+              <div className="space-y-2">
+                <h3 className="text-[10px] font-black uppercase text-stone-400">Resumo do Pedido</h3>
+                {viewOrder.items?.map((item: any) => {
+                  const size = sizes.find((s: any) => s.id === item.sizeId);
+                  return (
+                    <div key={item.id} className="bg-stone-50 p-3 rounded-lg border border-stone-100">
+                      <span className="font-black text-stone-800 text-xs block mb-1.5">Macarrão {size?.name}</span>
+                      <div className="text-[11px] text-stone-600 space-y-0.5 pl-2 border-l-2 border-orange-300">
+                        {item.pastaId && <div><b>Massa:</b> {getItemName(item.pastaId)}</div>}
+                        {item.sauces?.length > 0 && <div><b>Molhos:</b> {item.sauces.map(getItemName).join(', ')}</div>}
+                        {item.temperos?.length > 0 && <div><b>Temp:</b> {item.temperos.map(getItemName).join(', ')}</div>}
+                        {item.ingredients?.length > 0 && <div><b>Ingr:</b> {item.ingredients.map(getItemName).join(', ')}</div>}
+                        {item.extras?.length > 0 && <div className="text-amber-700"><b>Extra:</b> {item.extras.map(getItemName).join(', ')}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+                {viewOrder.products && viewOrder.products.length > 0 && (
+                  <div className="mt-2">
+                    <h4 className="text-[10px] font-black uppercase text-stone-400 mb-1">Avulsos / Bebidas</h4>
+                    {viewOrder.products.map((p: any, idx: number) => {
+                       const prodInfo = products.find(prod => prod.id === p.productId);
+                       return <div key={idx} className="text-[11px] font-bold text-stone-700 bg-stone-50 p-2 rounded border border-stone-100 mb-1">{p.quantity}x {prodInfo?.name || "Prod."}</div>
+                    })}
+                  </div>
+                )}
               </div>
 
-              <div className="bg-blue-50 border-2 border-blue-100 rounded-2xl p-6 flex items-center justify-between gap-4">
+              <div className="flex justify-between items-center text-sm bg-stone-100 p-3 rounded-lg border border-stone-200">
+                <span className="font-bold text-stone-600">Total:</span>
+                <span className="font-black text-stone-900 text-base">{formatCurrency(viewOrder.total)}</span>
+              </div>
+            </div>
+
+            {/* CONTROLES (DINÂMICOS POR TIPO DE PEDIDO) */}
+            <div className="p-3 border-t border-stone-200 bg-stone-50 shrink-0">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                
+                {getOrderType(viewOrder.address) === "LOCAL" ? (
+                  <>
+                    {!viewOrder.isPaid && (
+                      <Button onClick={() => { setOrderToPayId(viewOrder.id); setPaymentMethodFinal(viewOrder.paymentMethod); setAddTenPercent(false); setViewOrderId(null); }} className="bg-stone-800 hover:bg-stone-900 text-white h-9 text-[11px] font-bold col-span-2 sm:col-span-4">
+                        <Receipt className="w-3.5 h-3.5 mr-1.5" /> Fechar Conta
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {!viewOrder.isPaid && (
+                      <Button variant="outline" onClick={() => toggleOrderPaid(viewOrder.id)} className="h-9 text-[11px] font-bold border-green-200 text-green-700 hover:bg-green-50 col-span-2">
+                        <DollarSign className="w-3.5 h-3.5 mr-1" /> Marcar Pago
+                      </Button>
+                    )}
+                    <Button onClick={() => handleWhatsApp(viewOrder.phone)} className="bg-[#25D366] hover:bg-[#1DA851] text-white h-9 text-[11px] font-bold col-span-2">
+                      <MessageCircle className="w-3.5 h-3.5 mr-1.5" /> WhatsApp
+                    </Button>
+                  </>
+                )}
+
+                {/* BOTÕES DE FLUXO */}
+                {viewOrder.status === "novo" && <Button onClick={() => updateOrderStatus(viewOrder.id, "aprovado")} className="bg-blue-600 text-white h-9 text-[11px] font-bold col-span-2"><Check className="w-3.5 h-3.5 mr-1" /> Aprovar</Button>}
+                {viewOrder.status === "aprovado" && <Button onClick={() => updateOrderStatus(viewOrder.id, "pronto")} className="bg-orange-500 text-white h-9 text-[11px] font-bold col-span-2"><Utensils className="w-3.5 h-3.5 mr-1" /> Pronto</Button>}
+                {viewOrder.status === "pronto" && <Button onClick={() => updateOrderStatus(viewOrder.id, getOrderType(viewOrder.address) === "LOCAL" ? "entregue" : "despachado")} className="bg-purple-600 text-white h-9 text-[11px] font-bold col-span-2"><Truck className="w-3.5 h-3.5 mr-1" /> {getOrderType(viewOrder.address) === "LOCAL" ? "Servir" : "Despachar"}</Button>}
+                {viewOrder.status === "despachado" && <Button onClick={() => updateOrderStatus(viewOrder.id, "entregue")} className="bg-green-600 text-white h-9 text-[11px] font-bold col-span-2"><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Entregue</Button>}
+                
+                <Button variant="outline" onClick={() => { updateOrderStatus(viewOrder.id, "cancelado"); setViewOrderId(null); }} className="text-red-500 border-red-200 hover:bg-red-50 h-9 text-[11px] font-bold col-span-2 sm:col-span-4 mt-1">
+                  <Ban className="w-3.5 h-3.5 mr-1.5" /> Cancelar Pedido
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: FECHAR CONTA (COM DETALHES DE CONSUMO) */}
+      {orderToPay && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            <div className="px-4 py-3 border-b border-stone-200 flex items-center justify-between shrink-0 bg-stone-50">
+              <div className="min-w-0 pr-4">
+                <h2 className="text-base font-black text-blue-900 truncate">Fechar Conta</h2>
+                <p className="font-bold text-stone-500 text-[10px] truncate">{orderToPay.address} • {orderToPay.customerName}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setOrderToPayId(null)} className="h-7 w-7 rounded-full bg-stone-200 shrink-0 hover:bg-stone-300"><X className="w-4 h-4 text-stone-600" /></Button>
+            </div>
+
+            <div className="p-4 flex-1 overflow-y-auto space-y-4">
+              
+              {/* LISTA COMPLETA DE ITENS NO FECHAMENTO */}
+              <div className="space-y-2">
+                <h3 className="text-[10px] font-black uppercase text-stone-400 border-b border-stone-100 pb-1">Detalhes do Consumo</h3>
+                {orderToPay.items?.map((item: any) => {
+                  const size = sizes.find((s: any) => s.id === item.sizeId);
+                  return (
+                    <div key={item.id} className="bg-stone-50 p-2.5 rounded-lg border border-stone-100">
+                      <span className="font-black text-stone-800 text-[11px] block mb-1">Macarrão {size?.name}</span>
+                      <div className="text-[10px] text-stone-600 space-y-0.5 pl-2 border-l-2 border-orange-300">
+                        {item.pastaId && <div><b>Massa:</b> {getItemName(item.pastaId)}</div>}
+                        {item.sauces?.length > 0 && <div><b>Molhos:</b> {item.sauces.map(getItemName).join(', ')}</div>}
+                        {item.temperos?.length > 0 && <div><b>Temp:</b> {item.temperos.map(getItemName).join(', ')}</div>}
+                        {item.ingredients?.length > 0 && <div><b>Ingr:</b> {item.ingredients.map(getItemName).join(', ')}</div>}
+                        {item.extras?.length > 0 && <div className="text-amber-700"><b>Extra:</b> {item.extras.map(getItemName).join(', ')}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+                {orderToPay.products && orderToPay.products.length > 0 && (
+                  <div className="mt-2">
+                    {orderToPay.products.map((p: any, idx: number) => {
+                       const prodInfo = products.find(prod => prod.id === p.productId);
+                       return <div key={idx} className="text-[10px] font-bold text-stone-700 bg-stone-50 p-1.5 rounded border border-stone-100 mb-1">{p.quantity}x {prodInfo?.name || "Prod."}</div>
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center text-sm bg-stone-100 p-3 rounded-lg border border-stone-200">
+                <span className="font-medium text-stone-600">Subtotal:</span>
+                <span className="font-black text-stone-800 text-base">{formatCurrency(orderToPay.total)}</span>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
                 <div>
-                  <Label className="text-lg font-black text-blue-900 cursor-pointer" onClick={() => setAddTenPercent(!addTenPercent)}>
-                    Incluir 10% de Serviço?
-                  </Label>
-                  <p className="text-base font-medium text-blue-700 mt-1">
-                    Gorjeta:{" "}
-                    <span className="font-black bg-blue-100 px-2 py-0.5 rounded-md">
-                      +{formatCurrency(orderToPay.total * 0.1)}
-                    </span>
-                  </p>
+                  <Label className="text-[11px] font-black text-blue-900 cursor-pointer" onClick={() => setAddTenPercent(!addTenPercent)}>Incluir 10% Serviço?</Label>
+                  <p className="text-[10px] font-bold text-blue-700 mt-0.5">Gorjeta: +{formatCurrency(orderToPay.total * 0.1)}</p>
                 </div>
-                <Switch
-                  checked={addTenPercent}
-                  onCheckedChange={setAddTenPercent}
-                  className="data-[state=checked]:bg-blue-600 scale-125 mr-2"
-                />
+                <Switch checked={addTenPercent} onCheckedChange={setAddTenPercent} className="data-[state=checked]:bg-blue-600 scale-75" />
               </div>
 
-              <div className="flex justify-between items-end border-t-2 border-stone-100 pt-8">
-                <span className="text-sm font-black uppercase text-stone-400 tracking-widest">
-                  Total a Receber
-                </span>
-                <span className="text-5xl font-black text-green-600 tracking-tighter">
-                  {formatCurrency(
-                    orderToPay.total +
-                      (addTenPercent ? orderToPay.total * 0.1 : 0),
-                  )}
-                </span>
+              <div className="flex justify-between items-end border-t border-stone-200 pt-3">
+                <span className="text-[10px] font-black uppercase text-stone-400">Total a Receber</span>
+                <span className="text-3xl font-black text-green-600 leading-none">{formatCurrency(orderToPay.total + (addTenPercent ? orderToPay.total * 0.1 : 0))}</span>
               </div>
 
-              <div className="space-y-4 pt-4">
-                <Label className="text-stone-500 font-bold uppercase tracking-wider text-xs">Selecione a Forma de Pagamento</Label>
-                <div className="grid grid-cols-3 gap-4">
-                  {[
-                    { id: "pix", label: "PIX", icon: QrCode },
-                    { id: "dinheiro", label: "Dinheiro", icon: Banknote },
-                    { id: "credito", label: "Cartão", icon: CreditCard },
-                  ].map((method) => (
-                    <button
-                      type="button"
-                      key={method.id}
-                      onClick={() => setPaymentMethodFinal(method.id)}
-                      className={`flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 transition-all ${
-                        paymentMethodFinal === method.id
-                          ? "border-green-600 bg-green-50 text-green-700 shadow-md scale-[1.02]"
-                          : "border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50"
-                      }`}
-                    >
-                      <method.icon className="w-8 h-8" />
-                      <span className="text-sm font-black uppercase tracking-wider">
-                        {method.label}
-                      </span>
+              <div className="space-y-2 pt-2 border-t border-stone-100">
+                <Label className="text-stone-500 font-bold uppercase text-[10px]">Forma de Pagamento</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[{ id: "pix", label: "PIX", icon: QrCode }, { id: "dinheiro", label: "Dinheiro", icon: Banknote }, { id: "credito", label: "Cartão", icon: CreditCard }].map((method) => (
+                    <button key={method.id} onClick={() => setPaymentMethodFinal(method.id)} className={`flex flex-col items-center gap-1.5 p-2.5 rounded-lg border-2 transition-all ${paymentMethodFinal === method.id ? "border-green-600 bg-green-50 text-green-700" : "border-stone-200 text-stone-500 hover:bg-stone-50"}`}>
+                      <method.icon className="w-5 h-5" />
+                      <span className="text-[10px] font-bold uppercase">{method.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
+            </div>
 
-              <div className="pt-8 pb-10">
-                <Button
-                  onClick={handleConfirmPayment}
-                  className="w-full py-8 text-xl font-black bg-green-600 hover:bg-green-700 text-white shadow-xl hover:scale-[1.01] transition-transform rounded-2xl"
-                >
-                  <CheckCircle2 className="w-7 h-7 mr-3" /> Confirmar Recebimento e Fechar Conta
-                </Button>
-              </div>
+            <div className="p-3 border-t border-stone-200 bg-stone-50 shrink-0">
+              <Button onClick={handleConfirmPayment} className="w-full h-10 text-xs font-black bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm">
+                <CheckCircle2 className="w-4 h-4 mr-2" /> Fechar Conta e Imprimir
+              </Button>
             </div>
           </div>
         </div>
