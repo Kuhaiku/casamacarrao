@@ -475,7 +475,7 @@ export default function FinanceiroPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-stone-50 p-5 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
                   <p className="text-stone-500 font-bold uppercase text-xs tracking-widest mb-1">Qtd. Entregas</p>
                   <p className="text-3xl font-black text-stone-800">{filteredDeliveries.length}</p>
@@ -483,17 +483,18 @@ export default function FinanceiroPage() {
                 <div className="bg-blue-50 p-5 rounded-2xl border border-blue-200 flex flex-col items-center justify-center text-center">
                   <p className="text-blue-600/70 font-bold uppercase text-xs tracking-widest mb-1">Soma das Taxas</p>
                   <p className="text-3xl font-black text-blue-700">
-                    {formatCurrency(filteredDeliveries.reduce((acc, o) => acc + (o.taxaEntrega || 0), 0))}
+                    {/* ADICIONADO O Number() PARA EVITAR CONCATENAÇÃO DE TEXTO */}
+                    {formatCurrency(filteredDeliveries.reduce((acc, o) => acc + (Number(o.taxaEntrega) || 0), 0))}
                   </p>
                 </div>
                 <div className="bg-green-50 p-5 rounded-2xl border border-green-200 flex flex-col items-center justify-center text-center">
                   <p className="text-green-600/70 font-bold uppercase text-xs tracking-widest mb-1">Total Faturado</p>
                   <p className="text-3xl font-black text-green-700">
-                    {formatCurrency(filteredDeliveries.reduce((acc, o) => acc + o.total, 0))}
+                    {/* ADICIONADO O Number() AQUI TAMBÉM POR SEGURANÇA */}
+                    {formatCurrency(filteredDeliveries.reduce((acc, o) => acc + (Number(o.total) || 0), 0))}
                   </p>
                 </div>
               </div>
-
               <div className="border rounded-xl overflow-hidden shadow-sm">
                 {renderOrdersTable(filteredDeliveries)}
               </div>

@@ -244,12 +244,15 @@ function OrderTrackingContent() {
               </div>
             )}
 
+         {/* BLOCO DA OBSERVAÇÃO COM QUEBRA DE TEXTO FORÇADA */}
             {order.observation && (
-              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-xs sm:text-sm">
-                <div className="font-black text-amber-900 mb-1 flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-amber-600" /> Observação
-                </div>
-                <p className="font-semibold text-stone-700 italic">"{order.observation}"</p>
+              <div className="bg-amber-50 p-3 sm:p-4 rounded-xl border border-amber-200 mt-4 w-full">
+                <span className="text-[10px] sm:text-xs font-black text-amber-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" /> Observação do Cliente
+                </span>
+                <p className="text-amber-900 font-medium text-xs sm:text-sm italic break-words whitespace-pre-wrap w-full">
+                  "{order.observation}"
+                </p>
               </div>
             )}
           </div>
