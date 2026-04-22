@@ -52,9 +52,6 @@ export default function AdminDashboardPage() {
   const [tipAmount, setTipAmount] = useState("");
   const [tipDesc, setTipDesc] = useState("");
 
-  // ==========================================
-  // LÓGICA DE ÁUDIO COM PROTEÇÃO CONTRA ERROS
-  // ==========================================
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
@@ -63,7 +60,7 @@ export default function AdminDashboardPage() {
     if (audioEnabled && currentPending > pendingOrdersCount) {
       const audio = new Audio("/bell.mp3");
       audio.play().catch(() => {
-        console.warn("Áudio /bell.mp3 não encontrado ou bloqueado pelo navegador.");
+        console.warn("Áudio não encontrado ou bloqueado.");
       });
     }
     setPendingOrdersCount(currentPending);
@@ -75,9 +72,6 @@ export default function AdminDashboardPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-  // ==========================================
-  // LÓGICA DE HORÁRIO AUTOMÁTICO
-  // ==========================================
   useEffect(() => {
     const checkSchedule = () => {
       if (!settings.deliverySchedule) return;
@@ -104,9 +98,6 @@ export default function AdminDashboardPage() {
     return () => { clearInterval(interval); clearTimeout(timeout); };
   }, [settings.deliverySchedule, settings.isOpen, updateSettings]);
 
-  // ==========================================
-  // FILTROS DE PEDIDOS
-  // ==========================================
   const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses, totalTips } = useMemo(() => {
     const currentShiftOrders = orders.filter((o) => !o.isAccounted);
     const currentShiftExpenses = expenses.filter((e) => !e.isAccounted);
@@ -122,9 +113,6 @@ export default function AdminDashboardPage() {
     };
   }, [orders, expenses, tips]);
 
-  // ==========================================
-  // FUNÇÕES DE AÇÃO
-  // ==========================================
   const toggleExpand = (id: string) => {
     setExpandedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
@@ -152,24 +140,29 @@ export default function AdminDashboardPage() {
     if (!orderToPay) return;
     
     const finalTotal = orderToPay.total + (addTenPercent ? orderToPay.total * 0.1 : 0);
+    const serviceFeeAmount = addTenPercent ? orderToPay.total * 0.1 : 0;
 
-    if (addTenPercent) addTip({ amount: orderToPay.total * 0.1, description: `10% Serviço - ${orderToPay.address}` });
+    // Guarda a imagem estática do pedido antes de mudar estados que renderizam a tela
+    const payloadData = {
+      ...orderToPay,
+      isPaid: true,
+      paymentMethod: paymentMethodFinal,
+      total: finalTotal,
+      serviceFee: serviceFeeAmount
+    };
+
+    if (addTenPercent) {
+        addTip({ amount: serviceFeeAmount, description: `10% Serviço - ${orderToPay.address}` });
+    }
     
     if (!orderToPay.isPaid) toggleOrderPaid(orderToPay.id);
     if (orderToPay.status !== "entregue") updateOrderStatus(orderToPay.id, "entregue");
 
-    // ENVIO PARA A FILA DE IMPRESSÃO
     try {
       await fetch('/api/print-queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...orderToPay,
-          isPaid: true,
-          paymentMethod: paymentMethodFinal,
-          total: finalTotal,
-          serviceFee: addTenPercent ? orderToPay.total * 0.1 : 0
-        })
+        body: JSON.stringify(payloadData)
       });
       toast.success("Pago, Finalizado e Enviado para Impressão!");
     } catch (error) {
@@ -241,9 +234,7 @@ export default function AdminDashboardPage() {
               setAudioEnabled(newAudioState);
               if (newAudioState) {
                 const audio = new Audio("/bell.mp3");
-                audio.play().then(() => audio.pause()).catch(() => {
-                  console.warn("Áudio não pôde pré-carregar. Certifique-se de que bell.mp3 está na raiz.");
-                }); 
+                audio.play().then(() => audio.pause()).catch(() => {}); 
                 toast.success("Campainha ativada!");
               }
             }} 
@@ -278,8 +269,6 @@ export default function AdminDashboardPage() {
             <Utensils className="w-5 h-5 text-blue-200 hidden sm:block" />
           </CardContent>
         </Card>
-        
-        {/* CARD DESPESAS E GORJETAS DIVIDIDO */}
         <Card className="bg-white shadow-sm border-stone-200 overflow-hidden">
           <div className="flex h-full">
             <div className="flex-1 p-3 border-r border-stone-100 flex flex-col justify-center bg-red-50/30">
@@ -338,7 +327,7 @@ export default function AdminDashboardPage() {
                           })}
                         </div>
                         <Button onClick={() => setViewOrderId(order.id)} variant="outline" className="w-full h-7 text-[10px] font-bold border-blue-200 text-blue-700 hover:bg-blue-50">
-                          <Maximize2 className="w-3 h-3 mr-1.5" /> Gerenciar Pedido
+                          <Maximize2 className="w-3 h-3 mr-1.5" /> Gerenciar
                         </Button>
                       </div>
                     )}
@@ -390,7 +379,7 @@ export default function AdminDashboardPage() {
                           })}
                         </div>
                         <Button onClick={() => setViewOrderId(order.id)} variant="outline" className="w-full h-7 text-[10px] font-bold border-purple-200 text-purple-700 hover:bg-purple-50">
-                          <Maximize2 className="w-3 h-3 mr-1.5" /> Gerenciar Pedido
+                          <Maximize2 className="w-3 h-3 mr-1.5" /> Gerenciar
                         </Button>
                       </div>
                     )}
@@ -516,7 +505,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* CONTROLES (DINÂMICOS POR TIPO DE PEDIDO) */}
+            {/* CONTROLES */}
             <div className="p-3 border-t border-stone-200 bg-stone-50 shrink-0">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 
@@ -541,7 +530,6 @@ export default function AdminDashboardPage() {
                   </>
                 )}
 
-                {/* BOTÕES DE FLUXO */}
                 {viewOrder.status === "novo" && <Button onClick={() => updateOrderStatus(viewOrder.id, "aprovado")} className="bg-blue-600 text-white h-9 text-[11px] font-bold col-span-2"><Check className="w-3.5 h-3.5 mr-1" /> Aprovar</Button>}
                 {viewOrder.status === "aprovado" && <Button onClick={() => updateOrderStatus(viewOrder.id, "pronto")} className="bg-orange-500 text-white h-9 text-[11px] font-bold col-span-2"><Utensils className="w-3.5 h-3.5 mr-1" /> Pronto</Button>}
                 {viewOrder.status === "pronto" && <Button onClick={() => updateOrderStatus(viewOrder.id, getOrderType(viewOrder.address) === "LOCAL" ? "entregue" : "despachado")} className="bg-purple-600 text-white h-9 text-[11px] font-bold col-span-2"><Truck className="w-3.5 h-3.5 mr-1" /> {getOrderType(viewOrder.address) === "LOCAL" ? "Servir" : "Despachar"}</Button>}
@@ -556,7 +544,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* MODAL: FECHAR CONTA (COM DETALHES DE CONSUMO) */}
+      {/* MODAL: FECHAR CONTA */}
       {orderToPay && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
@@ -570,7 +558,6 @@ export default function AdminDashboardPage() {
 
             <div className="p-4 flex-1 overflow-y-auto space-y-4">
               
-              {/* LISTA COMPLETA DE ITENS NO FECHAMENTO */}
               <div className="space-y-2">
                 <h3 className="text-[10px] font-black uppercase text-stone-400 border-b border-stone-100 pb-1">Detalhes do Consumo</h3>
                 {orderToPay.items?.map((item: any) => {

@@ -1,11 +1,29 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
-// Fila em memória global. Usamos "global" para evitar que o Next.js 
-// limpe o array a cada atualização (Fast Refresh) durante o desenvolvimento.
-const globalAny = global as any;
-if (!globalAny.receiptQueue) {
-  globalAny.receiptQueue = [];
+const QUEUE_FILE = path.join(os.tmpdir(), "casamacarrao_receipt_queue.json");
+
+function getReceiptQueue() {
+  try {
+    if (fs.existsSync(QUEUE_FILE)) {
+      const data = fs.readFileSync(QUEUE_FILE, "utf-8");
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error("Erro ler fila:", e);
+  }
+  return [];
+}
+
+function saveReceiptQueue(queue: any[]) {
+  try {
+    fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue), "utf-8");
+  } catch (e) {
+    console.error("Erro salvar fila:", e);
+  }
 }
 
 async function getFormattingData() {
@@ -29,7 +47,6 @@ function formatOrderForPrint(order: any, data: any) {
 
   const printItens: any[] = [];
 
-  // A. Traduz as Montagens
   parsedItems.forEach((item: any) => {
     const sizeData: any = sizesMap.get(item.sizeId);
     const sizeName = sizeData ? sizeData.name : "Tamanho Custom";
@@ -72,7 +89,6 @@ function formatOrderForPrint(order: any, data: any) {
     printItens.push({ quantidade: 1, nome: descricao, preco: itemTotal });
   });
 
-  // B. Traduz os Produtos Avulsos
   parsedProducts.forEach((prod: any) => {
     const productData: any = productsMap.get(prod.productId);
     const pName = productData ? productData.name : "Produto Avulso";
@@ -80,13 +96,11 @@ function formatOrderForPrint(order: any, data: any) {
     printItens.push({ quantidade: prod.quantity || 1, nome: pName, preco: pPrice });
   });
 
-  // C. Adiciona a Taxa de Serviço se houver
   if (order.serviceFee > 0) {
     printItens.push({ quantidade: 1, nome: "Taxa de Serviço (10%)", preco: order.serviceFee });
   }
 
   return {
-    // TRUQUE: Se for recibo, adiciona '-RECIBO' ao ID. O spooler vai achar que é um pedido inédito e vai forçar a impressão na Elgin I9.
     id: order.isReceipt ? `${order.id}-RECIBO` : order.id,
     idCurto: String(order.id).split('-')[0].toUpperCase(),
     tipoPedido: order.tipoPedido || "delivery",
@@ -97,23 +111,19 @@ function formatOrderForPrint(order: any, data: any) {
     total: Number(order.total || 0),
     itens: printItens,
     metodoPagamento: order.paymentMethod || "Não informado",
-    isPaid: order.isPaid === 1 || order.isPaid === true
+    isPaid: order.isPaid === 1 || order.isPaid === true,
+    isReceipt: order.isReceipt || false
   };
 }
 
 export async function GET() {
   try {
-    // 1. Puxa os pedidos normais
     const [ordersRows]: any = await pool.query(
       "SELECT * FROM orders WHERE status = 'aprovado' AND impresso = false ORDER BY createdAt ASC"
     );
 
-    // 2. Esvazia a fila de fechamentos de conta para imprimir
-    const receiptsToPrint = globalAny.receiptQueue.splice(0, globalAny.receiptQueue.length);
-
-    if ((!ordersRows || ordersRows.length === 0) && receiptsToPrint.length === 0) {
-      return NextResponse.json([]);
-    }
+    // Agora o GET só lê a fila, não a apaga! O Spooler vai apagá-la no mark-printed.
+    const receiptsToPrint = getReceiptQueue();
 
     const data = await getFormattingData();
     const formattedOrders = ordersRows.map((order: any) => formatOrderForPrint(order, data));
@@ -133,8 +143,13 @@ export async function POST(req: Request) {
     body.isReceipt = true;
     const formattedReceipt = formatOrderForPrint(body, data);
     
-    // Adiciona o fechamento na fila global em memória
-    globalAny.receiptQueue.push(formattedReceipt);
+    const queue = getReceiptQueue();
+    const alreadyExists = queue.find((r: any) => r.id === formattedReceipt.id);
+    
+    if (!alreadyExists) {
+        queue.push(formattedReceipt);
+        saveReceiptQueue(queue);
+    }
 
     return NextResponse.json({ success: true, message: "Enviado para a impressora!" });
   } catch (error) {
