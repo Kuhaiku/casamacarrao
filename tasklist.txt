@@ -1,24 +1,8 @@
 https://github.com/Kuhaiku/casamacarrao/tree/feature/pagamento-mercadopago
 
 🔴 Urgentes (Bugs e Fluxo Crítico)
-
-
-Sacola do mesa tem que ser fixa no topo e acompanhar a rolagem da tela
-
- 
 🟠 Média Prioridade (Funcionalidades e Ajustes Operacionais)
-
-
-no admin/financeiro depois de "caixa do turno" temos que ter "entregas do turno" onde vamos colocar todos os valores das entregas do dia e filtrar por bairros ou o total, sendo que no filtro vamos poder escolher multiplos bairros por vez para fazer a "soma" do dia
-
-Módulo de Mesas:
-     Arrumar a impressão geral do comprovante de mesa (desabilitar isso)
-     Ao "fechar a conta", exibir a descrição completa do pedido.
-     Adicionar botão de impressão no fechamento que abra direto o módulo de impressão (para a Elgin I9). (desabilitar isso)
-    Rastreabilidade no Painel Admin: Adicionar tags de auditoria nos pedidos: "Aprovado Automaticamente" e "Aprovado pelo Operador" (para controle e responsabilidade).
-
 🟡 Leve (Filtros e Controle)
-
 
 
 🔵 Ideias / Próximos Passos (Sem Prioridade Atual)

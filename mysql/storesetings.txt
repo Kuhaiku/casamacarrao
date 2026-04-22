@@ -1,0 +1,1 @@
+'1', '3.00', '8.00', 'Olá, {{nome}}, recebemos seu pedido!, Acompanhe o status aqui: {{link}} para efetuar pagamento o nosso pix é  22996196206 o seu total é: {{total}}', '2026-04-22 18:27:43', '0', '15.00', '10.00', '1', '2.00', '0', '5.00', '0.00', '0', NULL

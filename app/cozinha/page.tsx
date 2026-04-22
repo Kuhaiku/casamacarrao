@@ -3,9 +3,23 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useStore } from "@/lib/store";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarHeader as SidebarHeaderUI,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+  SidebarInset,
+  SidebarFooter,
+} from "@/components/ui/sidebar";
 import { 
   Check, 
   ChefHat, 
@@ -22,24 +36,23 @@ import {
   Utensils,
   Volume2,
   VolumeX,
-  BellRing
+  BellRing,
+  LayoutDashboard,
+  ShoppingCart,
+  UtensilsCrossed,
+  DollarSign,
+  LogOut
 } from "lucide-react";
-import Link from "next/link";
-
-// app/cozinha/page.tsx
 
 function normalizeDate(dateString: string) {
   if (!dateString) return new Date();
   
-  // Troca espaço por T para garantir o padrão ISO
   let isoString = dateString.replace(" ", "T");
   
-  // Se não tem a indicação de fuso (Z), nós forçamos o JavaScript a entender que essa data veio em UTC
   if (!isoString.includes("Z") && !isoString.match(/[+-]\d{2}:?\d{2}$/)) {
     isoString += "Z";
   }
   
-  // Não precisamos mais do "setHours(-3)" pois o navegador converte o "Z" automaticamente para o horário local (Brasil).
   return new Date(isoString);
 }
 
@@ -70,15 +83,12 @@ function getOrderType(address: string) {
   return isMesa ? "LOCAL" : "ENTREGA";
 }
 
-// NOVA FUNÇÃO: Sintetiza um som de campainha de balcão (Ding!)
 function playBell() {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
     
     const ctx = new AudioContextClass();
-
-    // Frequências que simulam o som metálico de uma campainha
     const frequencies = [1200, 1600, 2400];
 
     frequencies.forEach((freq) => {
@@ -91,10 +101,9 @@ function playBell() {
       osc.type = "sine";
       osc.frequency.setValueAtTime(freq, ctx.currentTime); 
       
-      // Efeito de "pancada" e decaimento (o som vai sumindo aos poucos)
       gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.02); // Ataque rápido
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5); // Sumindo lentamente
+      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.02); 
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5); 
       
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 1.5);
@@ -305,6 +314,7 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
 
 export default function KitchenPage() {
   const { orders, sync, sizes } = useStore();
+  const pathname = usePathname();
   const [splitView, setSplitView] = useState(false);
   
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
@@ -312,6 +322,14 @@ export default function KitchenPage() {
   
   const [knownOrders, setKnownOrders] = useState<string[]>([]);
   const [isSoundEnabled, setIsSoundEnabled] = useState(false);
+
+  const navItems = [
+    { href: "/cozinha", label: "Cozinha", icon: ChefHat },
+    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/orders", label: "Pedidos", icon: ShoppingCart },
+    { href: "/admin/menu", label: "Cardápio", icon: UtensilsCrossed },
+    { href: "/admin/financeiro", label: "Financeiro", icon: DollarSign },
+  ];
 
   useEffect(() => {
     sync();
@@ -321,16 +339,14 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-const approvedOrders = orders
+  const approvedOrders = orders
     .filter((o) => o.status === "aprovado")
     .sort((a, b) => {
-      // Prioridade absoluta: data de aprovação (approvedAt)
-      // Se não tiver (pedidos antigos), usa a data de criação (createdAt)
       const timeA = a.approvedAt ? normalizeDate(a.approvedAt).getTime() : normalizeDate(a.createdAt).getTime();
       const timeB = b.approvedAt ? normalizeDate(b.approvedAt).getTime() : normalizeDate(b.createdAt).getTime();
       return timeA - timeB;
     });
-  // LÓGICA DE ALERTA SONORO (Agora com som de campainha)
+
   useEffect(() => {
     const currentIds = approvedOrders.map(o => o.id);
     const hasNew = currentIds.some(id => !knownOrders.includes(id));
@@ -346,7 +362,7 @@ const approvedOrders = orders
 
   const handleEnableSound = () => {
     setIsSoundEnabled(true);
-    playBell(); // Toca a campainha para confirmar que ativou
+    playBell();
   };
 
   const productionSummary = useMemo(() => {
@@ -396,167 +412,242 @@ const approvedOrders = orders
   const deliveryOrders = approvedOrders.filter((o) => getOrderType(o.address) === "ENTREGA");
 
   return (
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-950">
-      <header className="border-b bg-white dark:bg-stone-900 sticky top-0 z-10 shadow-sm">
-        <div className="container flex flex-col md:flex-row h-auto md:h-20 py-4 md:py-0 items-center justify-between px-4 max-w-[1400px] mx-auto gap-4">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="bg-orange-100 dark:bg-orange-900/30 p-2.5 rounded-xl">
-              <ChefHat className="h-8 w-8 text-orange-600 dark:text-orange-500" />
+    <SidebarProvider>
+      <Sidebar 
+        collapsible="icon" 
+        className="border-r border-stone-800 text-stone-300 [&>[data-sidebar=sidebar]]:bg-stone-900 z-20"
+      >
+        <SidebarHeaderUI className="p-3 border-b border-stone-800 flex h-14 items-center justify-center">
+          <div className="flex items-center gap-3 group-data-[collapsible=icon]:hidden w-full px-1">
+            <div className="flex items-center justify-center w-8 h-8 rounded-md bg-orange-600 text-white font-bold flex-shrink-0 text-sm">
+              CM
             </div>
-            <div>
-              <h1 className="font-black text-2xl text-stone-800 dark:text-stone-100 leading-tight">
-                Cozinha
-              </h1>
-              <p className="text-sm font-bold text-stone-500">
-                Monitor de Preparo
+            <div className="flex flex-col">
+              <h2 className="text-stone-100 font-bold text-sm tracking-wide leading-tight">
+                Painel Admin
+              </h2>
+              <p className="text-[10px] text-stone-400 uppercase tracking-widest leading-tight mt-0.5">
+                Casa do Macarrão
               </p>
             </div>
-            <Badge
-              variant="secondary"
-              className="ml-4 text-lg px-4 py-1 bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300 font-black"
-            >
-              {approvedOrders.length} {approvedOrders.length === 1 ? "pedido" : "pedidos"}
-            </Badge>
           </div>
-          <nav className="flex flex-wrap items-center justify-center md:justify-end gap-3 w-full md:w-auto">
-            
-            {!isSoundEnabled ? (
-              <Button
-                variant="destructive"
-                onClick={handleEnableSound}
-                className="font-bold animate-pulse shadow-md"
+          
+          <div className="hidden group-data-[collapsible=icon]:flex w-full justify-center">
+            <div className="flex items-center justify-center w-8 h-8 rounded-md bg-orange-600 text-white font-bold text-sm">
+              CM
+            </div>
+          </div>
+        </SidebarHeaderUI>
+
+        <SidebarContent>
+          <SidebarMenu className="px-3 gap-1.5 mt-4">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              
+              return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.label}
+                    className={`h-10 transition-colors ${
+                      isActive 
+                        ? "bg-stone-800 text-white" 
+                        : "text-stone-400 hover:bg-stone-800 hover:text-white"
+                    }`}
+                  >
+                    <Link href={item.href} className="flex items-center gap-3">
+                      <item.icon 
+                        className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                          isActive ? "text-orange-500" : "text-stone-400 group-hover:text-orange-500"
+                        }`} 
+                      />
+                      <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
+                        {item.label}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarContent>
+
+        <SidebarFooter className="p-3 border-t border-stone-800">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                tooltip="Sair do Painel"
+                className="h-10 text-stone-400 hover:bg-stone-800 hover:text-red-400 hover:bg-red-950/30 transition-colors"
               >
-                <BellRing className="w-5 h-5 mr-2" /> Ativar Campainha
-              </Button>
-            ) : (
+                <Link href="/" className="flex items-center gap-3">
+                  <LogOut className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-medium group-data-[collapsible=icon]:hidden">
+                    Sair do Painel
+                  </span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
+
+      <SidebarInset className="flex-1 flex flex-col bg-stone-100 dark:bg-stone-950 w-full h-svh overflow-hidden">
+        <header className="border-b bg-white dark:bg-stone-900 shrink-0">
+          <div className="container flex flex-col md:flex-row h-auto md:h-20 py-4 md:py-0 items-center justify-between px-4 max-w-[1400px] mx-auto gap-4">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <SidebarTrigger className="text-stone-500 hover:text-stone-900 dark:hover:text-white mr-1" />
+              <div className="bg-orange-100 dark:bg-orange-900/30 p-2.5 rounded-xl">
+                <ChefHat className="h-8 w-8 text-orange-600 dark:text-orange-500" />
+              </div>
+              <div>
+                <h1 className="font-black text-2xl text-stone-800 dark:text-stone-100 leading-tight">
+                  Cozinha
+                </h1>
+                <p className="text-sm font-bold text-stone-500">
+                  Monitor de Preparo
+                </p>
+              </div>
+              <Badge
+                variant="secondary"
+                className="ml-4 text-lg px-4 py-1 bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300 font-black"
+              >
+                {approvedOrders.length} {approvedOrders.length === 1 ? "pedido" : "pedidos"}
+              </Badge>
+            </div>
+            <nav className="flex flex-wrap items-center justify-center md:justify-end gap-3 w-full md:w-auto">
+              
+              {!isSoundEnabled ? (
+                <Button
+                  variant="destructive"
+                  onClick={handleEnableSound}
+                  className="font-bold animate-pulse shadow-md"
+                >
+                  <BellRing className="w-5 h-5 mr-2" /> Ativar Campainha
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  disabled
+                  className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 font-bold opacity-100"
+                >
+                  <Volume2 className="w-5 h-5 mr-2" /> Som Ativado
+                </Button>
+              )}
+
               <Button
                 variant="outline"
-                disabled
-                className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 font-bold opacity-100"
+                onClick={handleCycleGlobalExpand}
+                className="bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-700 min-w-[210px] justify-center transition-all"
               >
-                <Volume2 className="w-5 h-5 mr-2" /> Som Ativado
+                {globalExpandMode === 'all_open' && <><ChevronsUp className="w-5 h-5 mr-2 text-stone-600" /> Recolher Todos</>}
+                {globalExpandMode === 'all_closed' && <><Flame className="w-5 h-5 mr-2 text-orange-600" /> Focar nos Próximos</>}
+                {globalExpandMode === 'oldest_open' && <><ChevronsDown className="w-5 h-5 mr-2 text-green-600" /> Expandir Todos</>}
               </Button>
-            )}
 
-            <Button
-              variant="outline"
-              onClick={handleCycleGlobalExpand}
-              className="bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-700 min-w-[210px] justify-center transition-all"
-            >
-              {globalExpandMode === 'all_open' && <><ChevronsUp className="w-5 h-5 mr-2 text-stone-600" /> Recolher Todos</>}
-              {globalExpandMode === 'all_closed' && <><Flame className="w-5 h-5 mr-2 text-orange-600" /> Focar nos Próximos</>}
-              {globalExpandMode === 'oldest_open' && <><ChevronsDown className="w-5 h-5 mr-2 text-green-600" /> Expandir Todos</>}
-            </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSplitView(!splitView)}
+                className="bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-700"
+                title={splitView ? "Ver Tudo" : "Dividir Tela"}
+              >
+                {splitView ? <LayoutGrid className="w-5 h-5" /> : <Columns className="w-5 h-5" />}
+              </Button>
+            </nav>
+          </div>
 
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setSplitView(!splitView)}
-              className="bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-700"
-              title={splitView ? "Ver Tudo" : "Dividir Tela"}
-            >
-              {splitView ? <LayoutGrid className="w-5 h-5" /> : <Columns className="w-5 h-5" />}
-            </Button>
-            
-            <Link
-              href="/admin"
-              className="text-sm font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white transition-colors bg-stone-200 dark:bg-stone-800 px-4 py-2 rounded-lg"
-            >
-              Voltar ao Admin
-            </Link>
-          </nav>
-        </div>
-
-        {productionSummary.totalItems > 0 && (
-          <div className="bg-orange-50 border-t border-orange-100 dark:bg-orange-950/30 dark:border-orange-900/50 py-2.5 px-4">
-            <div className="container max-w-[1400px] mx-auto flex items-center gap-4 overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-2 text-orange-800 dark:text-orange-500 font-black text-sm uppercase tracking-wider shrink-0">
-                <Utensils className="w-4 h-4" /> Em Produção:
-              </div>
-              <div className="flex gap-2">
-                {Object.entries(productionSummary.counts).map(([name, count]) => (
-                  <Badge key={name} variant="outline" className="bg-white dark:bg-stone-900 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-400 font-bold px-3 py-1 text-sm whitespace-nowrap">
-                    {count}x {name}
-                  </Badge>
-                ))}
+          {productionSummary.totalItems > 0 && (
+            <div className="bg-orange-50 border-t border-orange-100 dark:bg-orange-950/30 dark:border-orange-900/50 py-2.5 px-4">
+              <div className="container max-w-[1400px] mx-auto flex items-center gap-4 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-2 text-orange-800 dark:text-orange-500 font-black text-sm uppercase tracking-wider shrink-0">
+                  <Utensils className="w-4 h-4" /> Em Produção:
+                </div>
+                <div className="flex gap-2">
+                  {Object.entries(productionSummary.counts).map(([name, count]) => (
+                    <Badge key={name} variant="outline" className="bg-white dark:bg-stone-900 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-400 font-bold px-3 py-1 text-sm whitespace-nowrap">
+                      {count}x {name}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </header>
+          )}
+        </header>
 
-      <main className="container py-8 px-4 max-w-[1400px] mx-auto">
-        {approvedOrders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-stone-900 rounded-3xl border border-dashed border-stone-300 dark:border-stone-800">
-            <ChefHat className="h-28 w-28 text-stone-300 dark:text-stone-700 mb-6" />
-            <h2 className="text-3xl font-black text-stone-400 dark:text-stone-600 mb-2">
-              Nenhum pedido na fila
-            </h2>
-            <p className="text-lg text-stone-400 dark:text-stone-600 font-medium">
-              Os pedidos aprovados aparecerão aqui automaticamente.
-            </p>
-          </div>
-        ) : splitView ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-blue-100 border border-blue-300 dark:bg-blue-900/30 dark:border-blue-800 p-3 rounded-xl shadow-sm">
-                <span className="text-xl">🍽️</span>
-                <h2 className="text-xl font-black text-blue-900 dark:text-blue-100 uppercase">
-                  Consumo no Local
-                </h2>
-                <Badge variant="secondary" className="ml-auto bg-white/50 text-blue-900">{localOrders.length}</Badge>
+        <main className="flex-1 overflow-y-auto container py-8 px-4 max-w-[1400px] mx-auto">
+          {approvedOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-stone-900 rounded-3xl border border-dashed border-stone-300 dark:border-stone-800">
+              <ChefHat className="h-28 w-28 text-stone-300 dark:text-stone-700 mb-6" />
+              <h2 className="text-3xl font-black text-stone-400 dark:text-stone-600 mb-2">
+                Nenhum pedido na fila
+              </h2>
+              <p className="text-lg text-stone-400 dark:text-stone-600 font-medium">
+                Os pedidos aprovados aparecerão aqui automaticamente.
+              </p>
+            </div>
+          ) : splitView ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 bg-blue-100 border border-blue-300 dark:bg-blue-900/30 dark:border-blue-800 p-3 rounded-xl shadow-sm">
+                  <span className="text-xl">🍽️</span>
+                  <h2 className="text-xl font-black text-blue-900 dark:text-blue-100 uppercase">
+                    Consumo no Local
+                  </h2>
+                  <Badge variant="secondary" className="ml-auto bg-white/50 text-blue-900">{localOrders.length}</Badge>
+                </div>
+                <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
+                  {localOrders.map((order) => (
+                    <KitchenOrderCard 
+                      key={order.id} 
+                      order={order} 
+                      isExpanded={isExpanded(order.id)} 
+                      onToggle={() => toggleOrder(order.id)} 
+                    />
+                  ))}
+                  {localOrders.length === 0 && (
+                    <p className="text-stone-500 col-span-full text-center py-8">Nenhum pedido local na fila.</p>
+                  )}
+                </div>
               </div>
-              <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
-                {localOrders.map((order) => (
-                  <KitchenOrderCard 
-                    key={order.id} 
-                    order={order} 
-                    isExpanded={isExpanded(order.id)} 
-                    onToggle={() => toggleOrder(order.id)} 
-                  />
-                ))}
-                {localOrders.length === 0 && (
-                  <p className="text-stone-500 col-span-full text-center py-8">Nenhum pedido local na fila.</p>
-                )}
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 bg-purple-100 border border-purple-300 dark:bg-purple-900/30 dark:border-purple-800 p-3 rounded-xl shadow-sm">
+                  <span className="text-xl">🛵</span>
+                  <h2 className="text-xl font-black text-purple-900 dark:text-purple-100 uppercase">
+                    Entrega
+                  </h2>
+                  <Badge variant="secondary" className="ml-auto bg-white/50 text-purple-900">{deliveryOrders.length}</Badge>
+                </div>
+                <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
+                  {deliveryOrders.map((order) => (
+                    <KitchenOrderCard 
+                      key={order.id} 
+                      order={order} 
+                      isExpanded={isExpanded(order.id)} 
+                      onToggle={() => toggleOrder(order.id)} 
+                    />
+                  ))}
+                  {deliveryOrders.length === 0 && (
+                    <p className="text-stone-500 col-span-full text-center py-8">Nenhum pedido para entrega na fila.</p>
+                  )}
+                </div>
               </div>
             </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-purple-100 border border-purple-300 dark:bg-purple-900/30 dark:border-purple-800 p-3 rounded-xl shadow-sm">
-                <span className="text-xl">🛵</span>
-                <h2 className="text-xl font-black text-purple-900 dark:text-purple-100 uppercase">
-                  Entrega
-                </h2>
-                <Badge variant="secondary" className="ml-auto bg-white/50 text-purple-900">{deliveryOrders.length}</Badge>
-              </div>
-              <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
-                {deliveryOrders.map((order) => (
-                  <KitchenOrderCard 
-                    key={order.id} 
-                    order={order} 
-                    isExpanded={isExpanded(order.id)} 
-                    onToggle={() => toggleOrder(order.id)} 
-                  />
-                ))}
-                {deliveryOrders.length === 0 && (
-                  <p className="text-stone-500 col-span-full text-center py-8">Nenhum pedido para entrega na fila.</p>
-                )}
-              </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 items-start">
+              {approvedOrders.map((order) => (
+                <KitchenOrderCard 
+                  key={order.id} 
+                  order={order} 
+                  isExpanded={isExpanded(order.id)} 
+                  onToggle={() => toggleOrder(order.id)} 
+                />
+              ))}
             </div>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 items-start">
-            {approvedOrders.map((order) => (
-              <KitchenOrderCard 
-                key={order.id} 
-                order={order} 
-                isExpanded={isExpanded(order.id)} 
-                onToggle={() => toggleOrder(order.id)} 
-              />
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+          )}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
