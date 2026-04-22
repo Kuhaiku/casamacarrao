@@ -53,7 +53,7 @@ export default function AdminDashboardPage() {
   const [tipDesc, setTipDesc] = useState("");
 
   // ==========================================
-  // LÓGICA DE ÁUDIO
+  // LÓGICA DE ÁUDIO COM PROTEÇÃO CONTRA ERROS
   // ==========================================
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
@@ -62,7 +62,9 @@ export default function AdminDashboardPage() {
     const currentPending = orders.filter((o) => o.status === "novo").length;
     if (audioEnabled && currentPending > pendingOrdersCount) {
       const audio = new Audio("/bell.mp3");
-      audio.play().catch((e) => console.error("Erro ao tocar áudio:", e));
+      audio.play().catch(() => {
+        console.warn("Áudio /bell.mp3 não encontrado ou bloqueado pelo navegador.");
+      });
     }
     setPendingOrdersCount(currentPending);
   }, [orders, audioEnabled, pendingOrdersCount]);
@@ -105,9 +107,10 @@ export default function AdminDashboardPage() {
   // ==========================================
   // FILTROS DE PEDIDOS
   // ==========================================
-  const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses } = useMemo(() => {
+  const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses, totalTips } = useMemo(() => {
     const currentShiftOrders = orders.filter((o) => !o.isAccounted);
     const currentShiftExpenses = expenses.filter((e) => !e.isAccounted);
+    const currentShiftTips = tips.filter((t) => !t.isAccounted);
     const active = currentShiftOrders.filter((o) => o.status !== "cancelado" && !(o.status === "entregue" && o.isPaid));
 
     return {
@@ -115,8 +118,9 @@ export default function AdminDashboardPage() {
       activeDeliveryOrders: active.filter((o) => getOrderType(o.address) === "ENTREGA"),
       totalSales: currentShiftOrders.filter((o) => o.isPaid && o.status !== "cancelado").reduce((acc, o) => acc + o.total, 0),
       totalExpenses: currentShiftExpenses.reduce((acc, e) => acc + e.amount, 0),
+      totalTips: currentShiftTips.reduce((acc, t) => acc + t.amount, 0),
     };
-  }, [orders, expenses]);
+  }, [orders, expenses, tips]);
 
   // ==========================================
   // FUNÇÕES DE AÇÃO
@@ -233,13 +237,14 @@ export default function AdminDashboardPage() {
             variant={audioEnabled ? "default" : "outline"} 
             size="icon" 
             onClick={() => {
-              setAudioEnabled(!audioEnabled);
-              if (!audioEnabled) {
-                try {
-                  const audio = new Audio("/bell.mp3");
-                  audio.play().then(() => audio.pause()); 
-                  toast.success("Campainha ativada!");
-                } catch(e){}
+              const newAudioState = !audioEnabled;
+              setAudioEnabled(newAudioState);
+              if (newAudioState) {
+                const audio = new Audio("/bell.mp3");
+                audio.play().then(() => audio.pause()).catch(() => {
+                  console.warn("Áudio não pôde pré-carregar. Certifique-se de que bell.mp3 está na raiz.");
+                }); 
+                toast.success("Campainha ativada!");
               }
             }} 
             className={`h-8 w-8 ${audioEnabled ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-stone-100 text-stone-400'}`}
@@ -253,7 +258,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* CARDS DE RESUMO (Sem Scroll) */}
+      {/* CARDS DE RESUMO */}
       <div className="shrink-0 p-3 grid grid-cols-3 gap-3">
         <Card className="bg-green-600 text-white shadow-sm border-none">
           <CardContent className="p-3 flex justify-between items-center">
@@ -273,14 +278,19 @@ export default function AdminDashboardPage() {
             <Utensils className="w-5 h-5 text-blue-200 hidden sm:block" />
           </CardContent>
         </Card>
-        <Card className="bg-white shadow-sm border-stone-200">
-          <CardContent className="p-3 flex justify-between items-center">
-            <div>
-              <p className="text-stone-500 font-medium text-[10px] mb-0.5">Despesas</p>
-              <h3 className="text-lg sm:text-xl font-black text-red-600">{isFinancialDataVisible ? formatCurrency(totalExpenses) : "****"}</h3>
+        
+        {/* CARD DESPESAS E GORJETAS DIVIDIDO */}
+        <Card className="bg-white shadow-sm border-stone-200 overflow-hidden">
+          <div className="flex h-full">
+            <div className="flex-1 p-3 border-r border-stone-100 flex flex-col justify-center bg-red-50/30">
+              <p className="text-red-400 font-medium text-[10px] mb-0.5 flex items-center gap-1"><TrendingDown className="w-3 h-3"/> Despesas</p>
+              <h3 className="text-base sm:text-lg font-black text-red-600 leading-none">{isFinancialDataVisible ? formatCurrency(totalExpenses) : "****"}</h3>
             </div>
-            <TrendingDown className="w-5 h-5 text-red-200 hidden sm:block" />
-          </CardContent>
+            <div className="flex-1 p-3 flex flex-col justify-center bg-blue-50/30">
+              <p className="text-blue-400 font-medium text-[10px] mb-0.5 flex items-center gap-1"><HeartHandshake className="w-3 h-3"/> Gorjetas</p>
+              <h3 className="text-base sm:text-lg font-black text-blue-600 leading-none">{isFinancialDataVisible ? formatCurrency(totalTips) : "****"}</h3>
+            </div>
+          </div>
         </Card>
       </div>
 
