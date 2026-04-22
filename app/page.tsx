@@ -18,7 +18,6 @@ export default function CustomerHome() {
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Estado para controlar a animação de feedback
   const [cartBump, setCartBump] = useState(false);
 
   const [cartAvulsos, setCartAvulsos] = useState<any[]>([]);
@@ -35,16 +34,14 @@ export default function CustomerHome() {
     return () => clearTimeout(timer);
   }, [sync]);
 
-  // Lógica otimizada para o Feedback Visual
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (totalItemsCount > prevItemsCount.current) {
-      setCartBump(false); // Reseta para garantir que a animação reinicie se clicar rápido
+      setCartBump(false); 
       setTimeout(() => setCartBump(true), 10);
-      timer = setTimeout(() => setCartBump(false), 2000); // Fica na tela por 2 segundos
+      timer = setTimeout(() => setCartBump(false), 2000); 
     }
     prevItemsCount.current = totalItemsCount;
-    
     return () => clearTimeout(timer);
   }, [totalItemsCount]);
 
@@ -97,9 +94,9 @@ export default function CustomerHome() {
   };
 
   return (
-    <div className="flex h-[100dvh] bg-stone-50 font-sans overflow-hidden animate-in fade-in duration-500 relative">
+    <div className="flex flex-col lg:flex-row h-[100dvh] w-full bg-stone-50 font-sans overflow-hidden animate-in fade-in duration-500 relative">
       
-      {/* FEEDBACK VISUAL FLUTUANTE GLOBAL (Mobile & Desktop) */}
+      {/* FEEDBACK VISUAL FLUTUANTE */}
       <div 
         className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 pointer-events-none flex items-center justify-center
         ${cartBump ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-10 scale-95'}`}
@@ -112,52 +109,57 @@ export default function CustomerHome() {
         </div>
       </div>
 
-      <div className={`flex-1 flex flex-col h-full transition-all duration-300 ${isMobileCartOpen ? "hidden lg:flex" : "flex w-full"}`}>
+      {/* COLUNA PRINCIPAL: Exibida quando a sacola mobile está fechada */}
+      <div className={`flex-1 flex flex-col h-full w-full transition-all duration-300 relative ${isMobileCartOpen ? "hidden lg:flex" : "flex"}`}>
         
-        {settings.isOpen === false && (
-          <div className="bg-red-600 text-white px-4 py-3 flex items-center justify-center gap-2 font-bold text-sm z-30 shrink-0">
-            <AlertCircle className="w-5 h-5" /> Nosso delivery está fora de atendimento no momento
-          </div>
-        )}
+        {/* CABEÇALHOS (Fixos no topo no fluxo da coluna) */}
+        <div className="flex flex-col shrink-0 w-full z-20">
+          {settings.isOpen === false && (
+            <div className="bg-red-600 text-white px-4 py-3 flex items-center justify-center gap-2 font-bold text-sm">
+              <AlertCircle className="w-5 h-5" /> Nosso delivery está fora de atendimento no momento
+            </div>
+          )}
 
-        <div className="bg-stone-900 text-white px-4 sm:px-6 py-4 sm:py-6 shadow-md z-20 shrink-0">
-          <div className="max-w-3xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 bg-orange-700 rounded-full flex items-center justify-center shrink-0">
-                <ChefHat className="w-6 h-6 text-orange-100" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold tracking-tight">Casa do Macarrão</h1>
-                <p className="text-stone-400 text-[10px] uppercase tracking-widest">Apenas Delivery</p>
+          <div className="bg-stone-900 text-white px-4 sm:px-6 py-4 sm:py-6 shadow-md">
+            <div className="max-w-3xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-10 h-10 bg-orange-700 rounded-full flex items-center justify-center shrink-0">
+                  <ChefHat className="w-6 h-6 text-orange-100" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold tracking-tight">Casa do Macarrão</h1>
+                  <p className="text-stone-400 text-[10px] uppercase tracking-widest">Apenas Delivery</p>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* BOTÃO MOBILE DA SACOLA: Fixo no topo logo abaixo do header */}
+          <div className="lg:hidden w-full bg-stone-50 border-b border-stone-200 p-3 sm:p-4 shadow-sm z-10">
+            <button 
+              onClick={() => setIsMobileCartOpen(true)} 
+              className={`w-full rounded-2xl p-3 flex items-center justify-between transition-all duration-300 shadow-md border-2
+                ${cartBump 
+                  ? 'bg-green-600 border-green-500 text-white scale-[1.02]' 
+                  : 'bg-stone-900 border-stone-900 text-white'}`}
+            >
+              <div className="flex items-center gap-3">
+                <ShoppingBag className={`w-5 h-5 transition-transform duration-300 ${cartBump ? 'scale-125' : 'text-stone-200'}`} />
+                <span className="font-bold text-sm tracking-wide">
+                  {cartBump ? "Adicionado com Sucesso!" : `Minha Sacola (${totalItemsCount})`}
+                </span>
+              </div>
+              {cartTotal > 0 && !cartBump && (
+                <span className="font-black bg-white/10 px-2 py-1 rounded-lg text-xs tracking-wider">
+                  {formatCurrency(cartTotal)}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* BOTÃO MOBILE DA SACOLA COM FEEDBACK VISUAL */}
-        <div className="lg:hidden bg-stone-50 px-4 py-3 border-b border-stone-200 z-10 shadow-sm shrink-0">
-          <button 
-            onClick={() => setIsMobileCartOpen(true)} 
-            className={`w-full rounded-2xl p-3 flex items-center justify-between transition-all duration-300 shadow-md border-2
-              ${cartBump 
-                ? 'bg-green-600 border-green-500 text-white scale-[1.02]' 
-                : 'bg-stone-900 border-stone-900 text-white'}`}
-          >
-            <div className="flex items-center gap-3">
-              <ShoppingBag className={`w-5 h-5 transition-transform duration-300 ${cartBump ? 'scale-125' : 'text-stone-200'}`} />
-              <span className="font-bold text-sm tracking-wide">
-                {cartBump ? "Adicionado com Sucesso!" : `Minha Sacola (${totalItemsCount})`}
-              </span>
-            </div>
-            {cartTotal > 0 && !cartBump && (
-              <span className="font-black bg-white/10 px-2 py-1 rounded-lg text-xs tracking-wider">
-                {formatCurrency(cartTotal)}
-              </span>
-            )}
-          </button>
-        </div>
-
-        <main className="flex-1 max-w-3xl mx-auto w-full p-4 lg:p-8 overflow-y-auto pb-8">
+        {/* ÁREA CENTRAL ROLÁVEL (Adicionado pb-28 para desviar do botão de histórico) */}
+        <main className="flex-1 w-full max-w-3xl mx-auto p-4 lg:p-8 overflow-y-auto pb-28 lg:pb-8">
           {view === "menu" ? (
             <MenuView itemsBySection={itemsBySection} formatCurrency={formatCurrency} setView={setView} handleAddAvulso={handleAddAvulso} isOpen={settings.isOpen} />
           ) : (
@@ -169,40 +171,28 @@ export default function CustomerHome() {
             </div>
           )}
         </main>
+
+        {/* HISTÓRICO MOBILE: Fixo na Base */}
+        <div 
+          className="lg:hidden fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-stone-200 z-40 px-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,0.08)]"
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+        >
+          <OrderHistoryWidget isMobile={true} />
+        </div>
       </div>
 
-      <aside className="hidden lg:flex w-[380px] xl:w-[420px] h-full border-l border-stone-200 shadow-2xl z-20 flex-col bg-white shrink-0">
+      {/* SACOLA LATERAL DESKTOP (Ou tela cheia se aberta no mobile) */}
+      <aside className={`w-full lg:w-[380px] xl:w-[420px] h-[100dvh] bg-white shrink-0 z-50 flex-col shadow-2xl border-l border-stone-200 
+        ${isMobileCartOpen ? "flex fixed inset-0 lg:static" : "hidden lg:flex"}`}
+      >
         <CartSidebar {...cartProps} />
       </aside>
 
-      {/* TELA DA SACOLA NO MOBILE */}
-     {/* BOTÃO MOBILE DA SACOLA COM FEEDBACK VISUAL */}
-        <div className="lg:hidden bg-stone-50 px-4 py-3 border-b border-stone-200 z-10 shadow-sm shrink-0">
-          <button 
-            onClick={() => setIsMobileCartOpen(true)} 
-            className={`w-full rounded-2xl p-3 flex items-center justify-between transition-all duration-300 shadow-md border-2
-              ${cartBump 
-                ? 'bg-green-600 border-green-500 text-white scale-[1.02]' 
-                : 'bg-stone-900 border-stone-900 text-white'}`}
-          >
-            <div className="flex items-center gap-3">
-              <ShoppingBag className={`w-5 h-5 transition-transform duration-300 ${cartBump ? 'scale-125' : 'text-stone-200'}`} />
-              <span className="font-bold text-sm tracking-wide">
-                {cartBump ? "Adicionado com Sucesso!" : `Minha Sacola (${totalItemsCount})`}
-              </span>
-            </div>
-            {cartTotal > 0 && !cartBump && (
-              <span className="font-black bg-white/10 px-2 py-1 rounded-lg text-xs tracking-wider">
-                {formatCurrency(cartTotal)}
-              </span>
-            )}
-          </button>
-          
-          {/* AQUI ENTRA O HISTÓRICO NO CELULAR (isMobile ativado) */}
-          <OrderHistoryWidget isMobile={true} />
-        </div>
-        {/* BOTÃO DO HISTÓRICO LOCAL NO DESKTOP */}
-      <OrderHistoryWidget />
+      {/* BOTÃO FLUTUANTE DE HISTÓRICO NO DESKTOP */}
+      <div className="hidden lg:block">
+        <OrderHistoryWidget />
+      </div>
+
     </div>
   );
 }

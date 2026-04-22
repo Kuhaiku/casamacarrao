@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { verifyAdminPassword } from "@/lib/actions";
 import {
   Package,
@@ -11,9 +11,22 @@ import {
   UtensilsCrossed,
   ShoppingCart,
   LayoutDashboard,
-  ArrowLeft,
   ChefHat,
+  LogOut,
 } from "lucide-react";
+
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+  SidebarInset,
+  SidebarFooter,
+} from "@/components/ui/sidebar";
 
 export default function AdminLayout({
   children,
@@ -22,28 +35,25 @@ export default function AdminLayout({
 }>) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Verifica se a sessão atual já foi autenticada antes
       const isAuth = sessionStorage.getItem("casamacarrao_admin_auth");
       if (isAuth === "true") {
         setIsAuthenticated(true);
         return;
       }
 
-      // Dispara o alerta padrão do navegador solicitando a senha
       const password = window.prompt(
         "🔒 Acesso Restrito. Digite a senha do administrador:",
       );
 
-      // Se cancelar o alerta ou deixar vazio, volta pro site
       if (!password) {
         router.push("/");
         return;
       }
 
-      // Valida a senha no servidor (via lib/actions.ts)
       const isValid = await verifyAdminPassword(password);
 
       if (isValid) {
@@ -67,7 +77,6 @@ export default function AdminLayout({
     // { href: "/admin/produtos", label: "Produtos", icon: Package },
   ];
 
-  // Tela de bloqueio temporária enquanto verifica a senha
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center text-stone-500 font-medium">
@@ -77,52 +86,109 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-stone-50 flex-col md:flex-row animate-in fade-in duration-500">
-      <aside className="w-full md:w-64 bg-stone-900 text-stone-300 border-r border-stone-800 md:min-h-screen p-4 flex flex-col">
-        <div className="mb-6 md:mb-8 flex items-center justify-between md:block">
-          <div>
-            <h2 className="text-orange-500 font-bold text-xl tracking-wide">
-              Painel Admin
-            </h2>
-            <p className="text-xs text-stone-500 uppercase tracking-widest mt-0.5">
-              Casa do Macarrão
-            </p>
+    <SidebarProvider>
+      {/* A barra lateral agora recebe a cor escura diretamente no contêiner interno via Tailwind 
+        para não sofrer interferência de variáveis de cor globais.
+      */}
+      <Sidebar 
+        collapsible="icon" 
+        className="border-r border-stone-800 text-stone-300 [&>[data-sidebar=sidebar]]:bg-stone-900"
+      >
+        {/* CABEÇALHO (h-14 para alinhar com o cabeçalho branco) */}
+        <SidebarHeader className="p-3 border-b border-stone-800 flex h-14 items-center justify-center">
+          {/* Visão Aberta */}
+          <div className="flex items-center gap-3 group-data-[collapsible=icon]:hidden w-full px-1">
+            <div className="flex items-center justify-center w-8 h-8 rounded-md bg-orange-600 text-white font-bold flex-shrink-0 text-sm">
+              CM
+            </div>
+            <div className="flex flex-col">
+              <h2 className="text-stone-100 font-bold text-sm tracking-wide leading-tight">
+                Painel Admin
+              </h2>
+              <p className="text-[10px] text-stone-400 uppercase tracking-widest leading-tight mt-0.5">
+                Casa do Macarrão
+              </p>
+            </div>
           </div>
-          <Link
-            href="/"
-            className="md:hidden text-stone-400 p-2 hover:bg-stone-800 rounded-lg"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-        </div>
+          
+          {/* Visão Fechada (Apenas Ícone) */}
+          <div className="hidden group-data-[collapsible=icon]:flex w-full justify-center">
+            <div className="flex items-center justify-center w-8 h-8 rounded-md bg-orange-600 text-white font-bold text-sm">
+              CM
+            </div>
+          </div>
+        </SidebarHeader>
 
-        <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-stone-800 hover:text-white transition-colors whitespace-nowrap"
-            >
-              <item.icon className="w-5 h-5 text-orange-600 flex-shrink-0" />
-              <span className="text-sm font-medium">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
+        {/* MENUS */}
+        <SidebarContent>
+          <SidebarMenu className="px-3 gap-1.5 mt-4">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              
+              return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.label}
+                    className={`h-10 transition-colors ${
+                      isActive 
+                        ? "bg-stone-800 text-white" 
+                        : "text-stone-400 hover:bg-stone-800 hover:text-white"
+                    }`}
+                  >
+                    <Link href={item.href} className="flex items-center gap-3">
+                      <item.icon 
+                        className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                          isActive ? "text-orange-500" : "text-stone-400 group-hover:text-orange-500"
+                        }`} 
+                      />
+                      <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
+                        {item.label}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarContent>
 
-        <div className="mt-auto pt-8 hidden md:block">
-          <Link
-            href="/"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-stone-800 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar ao Site
-          </Link>
-        </div>
-      </aside>
+        {/* RODAPÉ */}
+        <SidebarFooter className="p-3 border-t border-stone-800">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                tooltip="Sair do Painel"
+                className="h-10 text-stone-400 hover:bg-stone-800 hover:text-red-400 hover:bg-red-950/30 transition-colors"
+              >
+                <Link href="/" className="flex items-center gap-3">
+                  <LogOut className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-medium group-data-[collapsible=icon]:hidden">
+                    Sair do Painel
+                  </span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
 
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="max-w-5xl mx-auto w-full">{children}</div>
-      </main>
-    </div>
+      {/* ÁREA DE CONTEÚDO (h-svh e overflow-hidden forçam a rolagem apenas no <main>) */}
+      <SidebarInset className="flex-1 flex flex-col bg-stone-50 w-full animate-in fade-in duration-500 h-svh overflow-hidden">
+        <header className="flex h-14 items-center gap-3 border-b border-stone-200 px-4 bg-white shadow-sm shrink-0">
+          <SidebarTrigger className="text-stone-500 hover:text-stone-900" />
+          <div className="w-px h-4 bg-stone-200 mx-1"></div>
+          <h1 className="text-sm font-semibold text-stone-600">
+            {navItems.find(item => item.href === pathname)?.label || "Gerenciamento"}
+          </h1>
+        </header>
+        
+        {/* Aqui é onde a rolagem acontece (overflow-y-auto) */}
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+          <div className="max-w-6xl mx-auto w-full">{children}</div>
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

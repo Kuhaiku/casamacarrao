@@ -9,8 +9,13 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 // NOVO: Configuração de cor do tema para o navegador/PWA
+// Substitua a constante viewport existente por esta:
 export const viewport: Viewport = {
   themeColor: "#ea580c",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export const metadata: Metadata = {
