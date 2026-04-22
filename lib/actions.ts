@@ -24,7 +24,7 @@ const mapBooleans = (obj: any) => {
           "autoApprove",
           "autoApproveMesa",
           "ativo",
-          "acceptCard", // ADICIONADO AQUI
+          "acceptCard",
         ].includes(key)
       ) {
         newObj[key] = newObj[key] === 1;
@@ -50,7 +50,9 @@ export async function getStoreData() {
   try {
     const [sizes] = await pool.query("SELECT * FROM sizes");
     const [menuItems] = await pool.query("SELECT * FROM menu_items");
-    const [productCategories] = await pool.query("SELECT * FROM product_categories ORDER BY orderIndex ASC, id ASC");
+    const [productCategories] = await pool.query(
+      "SELECT * FROM product_categories ORDER BY orderIndex ASC, id ASC",
+    );
     const [products] = await pool.query("SELECT * FROM products");
     const [bairros] = await pool.query(
       "SELECT * FROM bairros_atendidos ORDER BY nome ASC",
@@ -111,6 +113,10 @@ export async function getStoreData() {
       orders: (orders as any[]).map(mapBooleans).map((o) => ({
         ...o,
         total: Number(o.total),
+        subtotal: Number(o.subtotal || 0),
+        taxaEntrega: Number(o.taxaEntrega || 0),
+        taxaEmbalagem: Number(o.taxaEmbalagem || 0),
+        taxaCartao: Number(o.taxaCartao || 0),
         createdAt: new Date(o.createdAt).toISOString(),
         deliveredAt: o.deliveredAt
           ? new Date(o.deliveredAt).toISOString()
@@ -147,7 +153,6 @@ export async function dbDispatch(action: string, payload: any) {
     case "UPDATE_SETTINGS": {
       const validPayload = { ...payload };
 
-      // Converte horários para string JSON e enraiza a segunda-feira
       if (validPayload.deliverySchedule) {
         if (validPayload.deliverySchedule["1"]) {
           validPayload.deliverySchedule["1"].active = false;
@@ -157,7 +162,6 @@ export async function dbDispatch(action: string, payload: any) {
         );
       }
 
-      // Converte booleanos para 1 ou 0
       for (const key in validPayload) {
         if (typeof validPayload[key] === "boolean") {
           validPayload[key] = validPayload[key] ? 1 : 0;
@@ -165,9 +169,7 @@ export async function dbDispatch(action: string, payload: any) {
       }
 
       delete validPayload.bairros;
-      // Removido o 'delete validPayload.acceptCard' para que ele possa ser salvo no banco.
 
-      // Proteção: Se não sobrar nada para atualizar, apenas sai sem dar erro
       if (Object.keys(validPayload).length === 0) break;
 
       await pool.query("UPDATE store_settings SET ? WHERE id = 1", [
@@ -177,7 +179,10 @@ export async function dbDispatch(action: string, payload: any) {
     }
     case "REORDER_CATEGORIES":
       for (const cat of payload.categories) {
-        await pool.query("UPDATE product_categories SET orderIndex = ? WHERE id = ?", [cat.orderIndex, cat.id]);
+        await pool.query(
+          "UPDATE product_categories SET orderIndex = ? WHERE id = ?",
+          [cat.orderIndex, cat.id],
+        );
       }
       break;
     case "ADD_BAIRRO":
@@ -191,7 +196,6 @@ export async function dbDispatch(action: string, payload: any) {
         ],
       );
       break;
-    // === CARDÁPIO (MENU ITEMS) ===
     case "ADD_MENU_ITEM":
       await pool.query(
         "INSERT INTO menu_items (id, name, category, isActive, price) VALUES (?, ?, ?, ?, ?)",
@@ -219,8 +223,6 @@ export async function dbDispatch(action: string, payload: any) {
     case "DELETE_MENU_ITEM":
       await pool.query("DELETE FROM menu_items WHERE id = ?", [payload.id]);
       break;
-
-    // === TAMANHOS (SIZES) ===
     case "ADD_SIZE":
       await pool.query(
         "INSERT INTO sizes (id, name, price, maxPastas, strictMaxPastas, maxIngredients, strictMaxIngredients, maxSauces, strictMaxSauces, taxaEmbalagem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -240,7 +242,6 @@ export async function dbDispatch(action: string, payload: any) {
       break;
     case "UPDATE_SIZE": {
       const validSizeUpdates = { ...payload.updates };
-      // Garantir conversão de booleano para TINYINT(1) do banco
       if (typeof validSizeUpdates.strictMaxPastas === "boolean")
         validSizeUpdates.strictMaxPastas = validSizeUpdates.strictMaxPastas
           ? 1
@@ -261,8 +262,6 @@ export async function dbDispatch(action: string, payload: any) {
     case "DELETE_SIZE":
       await pool.query("DELETE FROM sizes WHERE id = ?", [payload.id]);
       break;
-
-    // === CATEGORIAS DE PRODUTOS ===
     case "ADD_PRODUCT_CATEGORY":
       await pool.query(
         "INSERT INTO product_categories (id, name, isActive) VALUES (?, ?, ?)",
@@ -280,8 +279,6 @@ export async function dbDispatch(action: string, payload: any) {
         payload.id,
       ]);
       break;
-
-    // === PRODUTOS ===
     case "ADD_PRODUCT":
       await pool.query(
         "INSERT INTO products (id, name, price, categoryId, isActive, tipoEmbalagem, taxaEmbalagem) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -328,6 +325,10 @@ export async function dbDispatch(action: string, payload: any) {
         [payload.id],
       );
       break;
+
+    // =========================================
+    // CORREÇÃO: COLUNAS ADICIONADAS AO INSERT
+    // =========================================
     case "ADD_ORDER": {
       const [settingRows]: any = await pool.query(
         "SELECT * FROM store_settings WHERE id = 1",
@@ -339,12 +340,11 @@ export async function dbDispatch(action: string, payload: any) {
       const isAutoMesa =
         settingRows[0].autoApproveMesa === 1 ||
         settingRows[0].autoApproveMesa === true;
-      const isAutoDelivery =7
+      const isAutoDelivery =
         settingRows[0].autoApprove === 1 || settingRows[0].autoApprove === true;
 
       let isAuto = isMesa ? isAutoMesa : isAutoDelivery;
 
-      // REGRA: Ignora o Auto-Aprovar se o pagamento for em Cartão
       const method = payload.paymentMethod?.toLowerCase() || "";
       if (
         method.includes("cartão") ||
@@ -358,7 +358,11 @@ export async function dbDispatch(action: string, payload: any) {
       const approvedAt = isAuto ? new Date() : null;
 
       await pool.query(
-        "INSERT INTO orders (id, customerName, phone, address, paymentMethod, status, isPaid, total, items, products, observation, approvedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        `INSERT INTO orders (
+          id, customerName, phone, address, paymentMethod, status, isPaid, 
+          subtotal, taxaEmbalagem, taxaEntrega, taxaCartao, total, 
+          items, products, observation, approvedAt, tipoPedido
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           payload.id || randomUUID(),
           payload.customerName,
@@ -367,20 +371,24 @@ export async function dbDispatch(action: string, payload: any) {
           payload.paymentMethod || "PIX",
           status,
           payload.isPaid ? 1 : 0,
-          payload.total,
-          JSON.stringify(payload.items),
+          payload.subtotal || 0,
+          payload.taxaEmbalagem || 0,
+          payload.taxaEntrega || 0,
+          payload.taxaCartao || 0,
+          payload.total || 0,
+          JSON.stringify(payload.items || []),
           JSON.stringify(payload.products || []),
           payload.observation || "",
           approvedAt,
+          payload.tipoPedido || "delivery",
         ],
       );
       break;
     }
     case "CONFIRM_ONLINE_PAYMENT":
-      // Atualiza o pedido para aprovado e pago simultaneamente
       await pool.query(
-        "UPDATE orders SET status = 'aprovado', isPaid = 1, approvedAt = ? WHERE id = ? AND isPaid = 0", 
-        [new Date(), payload.id]
+        "UPDATE orders SET status = 'aprovado', isPaid = 1, approvedAt = ? WHERE id = ? AND isPaid = 0",
+        [new Date(), payload.id],
       );
       break;
     case "UPDATE_ORDER_STATUS":
