@@ -3,8 +3,9 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { verifyAdminPassword } from "@/lib/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -315,6 +316,9 @@ function KitchenOrderCard({ order, isExpanded, onToggle }: { order: any; isExpan
 export default function KitchenPage() {
   const { orders, sync, sizes } = useStore();
   const pathname = usePathname();
+  const router = useRouter();
+
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [splitView, setSplitView] = useState(false);
   
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
@@ -330,6 +334,37 @@ export default function KitchenPage() {
     { href: "/admin/menu", label: "Cardápio", icon: UtensilsCrossed },
     { href: "/admin/financeiro", label: "Financeiro", icon: DollarSign },
   ];
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuth = sessionStorage.getItem("casamacarrao_admin_auth");
+      if (isAuth === "true") {
+        setIsAuthenticated(true);
+        return;
+      }
+
+      const password = window.prompt(
+        "🔒 Acesso Restrito. Digite a senha do administrador:"
+      );
+
+      if (!password) {
+        router.push("/");
+        return;
+      }
+
+      const isValid = await verifyAdminPassword(password);
+
+      if (isValid) {
+        sessionStorage.setItem("casamacarrao_admin_auth", "true");
+        setIsAuthenticated(true);
+      } else {
+        alert("Senha incorreta!");
+        router.push("/");
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   useEffect(() => {
     sync();
@@ -410,6 +445,14 @@ export default function KitchenPage() {
 
   const localOrders = approvedOrders.filter((o) => getOrderType(o.address) === "LOCAL");
   const deliveryOrders = approvedOrders.filter((o) => getOrderType(o.address) === "ENTREGA");
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center text-stone-500 font-medium">
+        Verificando segurança...
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
