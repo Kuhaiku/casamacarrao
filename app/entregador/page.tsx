@@ -27,13 +27,17 @@ function normalizeString(str: string) {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
 }
 
-// Extrai o bairro pegando tudo que estiver após o último hífen no endereço
+// Extrai o bairro (texto após o último hífen) e limpa caracteres indesejados
 function extractBairro(address: string) {
   if (!address) return ""
+  
   const parts = address.split("-")
   if (parts.length > 1) {
-    return parts.pop()?.trim() || ""
+    const bairroBruto = parts.pop() || ""
+    // Remove vírgulas, parênteses e espaços extras nas pontas
+    return bairroBruto.replace(/[(),]/g, '').trim()
   }
+  
   return ""
 }
 
@@ -65,8 +69,12 @@ export default function EntregadorPage() {
     })
   }, [deliveries, selectedBairro])
 
-  const openMaps = (address: string) => {
-    window.open(`https://www.google.com/maps/search/?api=1&query=$?q=${encodeURIComponent(address)}`, "_blank")
+ const openMaps = (address: string) => {
+    // Remove vírgulas no final do endereço que podem atrapalhar a busca
+    const cleanAddress = address.replace(/,\s*$/, '').trim()
+    
+    // URL oficial do Google Maps para busca precisa de endereços
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanAddress)}`, "_blank")
   }
 
   const openWhatsApp = (phone: string, name: string) => {
