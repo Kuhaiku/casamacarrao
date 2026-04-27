@@ -99,22 +99,32 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // ==========================================
-  // LÓGICA DE ÁUDIO (MESA VS DELIVERY)
+ // ==========================================
+  // LÓGICA DE ÁUDIO (MESA VS DELIVERY VS CANCELADO)
   // ==========================================
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [pendingLocalCount, setPendingLocalCount] = useState(0);
   const [pendingDeliveryCount, setPendingDeliveryCount] = useState(0);
+  const [canceledDeliveryCount, setCanceledDeliveryCount] = useState(0);
 
   useEffect(() => {
     const currentLocalPending = orders.filter((o) => o.status === "novo" && getOrderType(o.address) === "LOCAL").length;
     const currentDeliveryPending = orders.filter((o) => o.status === "novo" && getOrderType(o.address) === "ENTREGA").length;
+    const currentCanceledDelivery = orders.filter((o) => o.status === "cancelado" && getOrderType(o.address) === "ENTREGA").length;
 
     if (audioEnabled) {
-      if (currentDeliveryPending > pendingDeliveryCount) {
+      // Prioridade 1: Tocar som de cancelamento se houver um novo cancelado
+      if (currentCanceledDelivery > canceledDeliveryCount) {
+        const audio = new Audio("/cancel.mp3"); // Nome do seu arquivo de som
+        audio.play().catch(() => console.warn("Áudio cancel bloqueado."));
+      } 
+      // Prioridade 2: Tocar som de delivery
+      else if (currentDeliveryPending > pendingDeliveryCount) {
         const audio = new Audio("/delivery.mp3");
         audio.play().catch(() => console.warn("Áudio delivery bloqueado."));
-      } else if (currentLocalPending > pendingLocalCount) {
+      } 
+      // Prioridade 3: Tocar campainha da mesa
+      else if (currentLocalPending > pendingLocalCount) {
         const audio = new Audio("/bell.mp3");
         audio.play().catch(() => console.warn("Áudio bell bloqueado."));
       }
@@ -122,7 +132,8 @@ export default function AdminDashboardPage() {
     
     setPendingLocalCount(currentLocalPending);
     setPendingDeliveryCount(currentDeliveryPending);
-  }, [orders, audioEnabled, pendingLocalCount, pendingDeliveryCount]);
+    setCanceledDeliveryCount(currentCanceledDelivery);
+  }, [orders, audioEnabled, pendingLocalCount, pendingDeliveryCount, canceledDeliveryCount]);
 
   useEffect(() => {
     sync();
