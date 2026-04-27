@@ -759,7 +759,7 @@ export default function AdminDashboardPage() {
                           {order.status === 'aprovado' && <Utensils className="w-3.5 h-3.5" />}
                           {order.status === 'pronto' && <Truck className="w-3.5 h-3.5" />}
                           {order.status === 'despachado' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                          {order.status === 'entregue' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                          {/*{order.status === 'entregue' && <CheckCircle2 className="w-3.5 h-3.5" />}*/}
                         </Button>
 
                         <Button
@@ -933,7 +933,9 @@ export default function AdminDashboardPage() {
                 {viewOrder.status === "novo" && <Button onClick={() => updateOrderStatus(viewOrder.id, "aprovado")} className="bg-blue-600 text-white h-9 text-[11px] font-bold col-span-2"><Check className="w-3.5 h-3.5 mr-1" /> Aprovar</Button>}
                 {viewOrder.status === "aprovado" && <Button onClick={() => updateOrderStatus(viewOrder.id, "pronto")} className="bg-orange-500 text-white h-9 text-[11px] font-bold col-span-2"><Utensils className="w-3.5 h-3.5 mr-1" /> Pronto</Button>}
                 {viewOrder.status === "pronto" && <Button onClick={() => updateOrderStatus(viewOrder.id, getOrderType(viewOrder.address) === "LOCAL" ? "entregue" : "despachado")} className="bg-purple-600 text-white h-9 text-[11px] font-bold col-span-2"><Truck className="w-3.5 h-3.5 mr-1" /> {getOrderType(viewOrder.address) === "LOCAL" ? "Servir" : "Despachar"}</Button>}
-                {viewOrder.status === "despachado" && <Button onClick={() => updateOrderStatus(viewOrder.id, "entregue")} className="bg-green-600 text-white h-9 text-[11px] font-bold col-span-2"><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Entregue</Button>}
+
+                {/* SE FOR MESA (LOCAL), PERMITE MARCAR COMO ENTREGUE/SERVIDO APÓS PRONTO. SE FOR DELIVERY, SOME O BOTÃO. */}
+                {viewOrder.status === "despachado" && getOrderType(viewOrder.address) === "LOCAL" && <Button onClick={() => updateOrderStatus(viewOrder.id, "entregue")} className="bg-green-600 text-white h-9 text-[11px] font-bold col-span-2"><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Entregue</Button>}
                 
                 <Button variant="outline" onClick={() => { updateOrderStatus(viewOrder.id, "cancelado"); setViewOrderId(null); }} className="text-red-500 border-red-200 hover:bg-red-50 h-9 text-[11px] font-bold col-span-2 sm:col-span-4 mt-1">
                   <Ban className="w-3.5 h-3.5 mr-1.5" /> Cancelar Pedido
