@@ -729,61 +729,61 @@ export default function AdminDashboardPage() {
                       </div>
                     )}
                     
-                    <div className="flex justify-between items-center p-1.5 border-t border-stone-100 bg-stone-50 shrink-0">
-                      <div className="flex gap-1.5">
-                        {!(["cartão", "cartao", "credito", "mercado pago", "mercadopago"].some(m => order.paymentMethod?.toLowerCase().includes(m))) || order.isPaid ? (
-                          <Button
-                            variant={order.isPaid ? "default" : "outline"}
-                            size="icon"
-                            className={`h-7 w-7 ${order.isPaid ? 'bg-green-600 text-white' : 'text-stone-400 bg-white'}`}
-                            onClick={(e) => { e.stopPropagation(); toggleOrderPaid(order.id); }}
-                            title={order.isPaid ? "Pago" : "Marcar como Pago"}
-                          >
-                            <DollarSign className="w-3.5 h-3.5" />
-                          </Button>
-                        ) : null}
+<div className="flex justify-between items-center p-1.5 border-t border-stone-100 bg-stone-50 shrink-0">
+  <div className="flex gap-1.5">
+    {!(["cartão", "cartao", "credito", "mercado pago", "mercadopago"].some(m => order.paymentMethod?.toLowerCase().includes(m))) || order.isPaid ? (
+      <Button
+        variant={order.isPaid ? "default" : "outline"}
+        size="icon"
+        className={`h-7 w-7 ${order.isPaid ? 'bg-green-600 text-white' : 'text-stone-400 bg-white'}`}
+        onClick={(e) => { e.stopPropagation(); toggleOrderPaid(order.id); }}
+        title={order.isPaid ? "Pago" : "Marcar como Pago"}
+      >
+        <DollarSign className="w-3.5 h-3.5" />
+      </Button>
+    ) : null}
 
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (order.status === 'novo') updateOrderStatus(order.id, 'aprovado');
-                            else if (order.status === 'aprovado') updateOrderStatus(order.id, 'pronto');
-                            else if (order.status === 'pronto') updateOrderStatus(order.id, 'despachado');
-                            {/*else if (order.status === 'despachado') updateOrderStatus(order.id, 'entregue')*/};
-                          }}
-                          title="Avançar Status"
-                        >
-                          {order.status === 'novo' && <Check className="w-3.5 h-3.5" />}
-                          {order.status === 'aprovado' && <Utensils className="w-3.5 h-3.5" />}
-                          {order.status === 'pronto' && <Truck className="w-3.5 h-3.5" />}
-                          {order.status === 'despachado' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                          {/*{order.status === 'entregue' && <CheckCircle2 className="w-3.5 h-3.5" />}*/}
-                        </Button>
+    {/* O BOTÃO DE AVANÇAR AGORA FICA ESCONDIDO SE O STATUS FOR 'DESPACHADO' OU 'ENTREGUE' */}
+    {order.status !== 'despachado' && order.status !== 'entregue' && (
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-7 w-7 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (order.status === 'novo') updateOrderStatus(order.id, 'aprovado');
+          else if (order.status === 'aprovado') updateOrderStatus(order.id, 'pronto');
+          else if (order.status === 'pronto') updateOrderStatus(order.id, 'despachado');
+        }}
+        title="Avançar Status"
+      >
+        {order.status === 'novo' && <Check className="w-3.5 h-3.5" />}
+        {order.status === 'aprovado' && <Utensils className="w-3.5 h-3.5" />}
+        {order.status === 'pronto' && <Truck className="w-3.5 h-3.5" />}
+      </Button>
+    )}
 
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7 bg-[#25D366]/10 text-[#25D366] border-[#25D366]/30 hover:bg-[#25D366]/20"
-                          onClick={(e) => { e.stopPropagation(); handleWhatsApp(order); }}
-                          title="WhatsApp"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-7 w-7 bg-[#25D366]/10 text-[#25D366] border-[#25D366]/30 hover:bg-[#25D366]/20"
+      onClick={(e) => { e.stopPropagation(); handleWhatsApp(order); }}
+      title="WhatsApp"
+    >
+      <MessageCircle className="w-3.5 h-3.5" />
+    </Button>
+  </div>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-stone-400 hover:text-stone-700"
-                        onClick={(e) => { e.stopPropagation(); setViewOrderId(order.id); }}
-                        title="Ver Detalhes Expandidos"
-                      >
-                        <Maximize2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-7 w-7 text-stone-400 hover:text-stone-700"
+    onClick={(e) => { e.stopPropagation(); setViewOrderId(order.id); }}
+    title="Ver Detalhes Expandidos"
+  >
+    <Maximize2 className="w-3.5 h-3.5" />
+  </Button>
+</div>
                   </div>
                   );
                 })}
