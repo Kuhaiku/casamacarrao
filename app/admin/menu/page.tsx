@@ -40,7 +40,9 @@ import {
   ChevronUp,
   ChevronDown,
   MousePointer2,
-  MessageSquare
+  MessageSquare,
+  Music, 
+  Upload 
 } from "lucide-react";
 import { toast } from "sonner";
 import type { MenuItem, Size, Product, ProductCategory } from "@/lib/types";
@@ -1634,6 +1636,32 @@ function OperationsTabContent() {
     toast.success("Mensagem do WhatsApp salva com sucesso!");
   };
 
+  // FUNÇÃO DE UPLOAD DA MÚSICA DE FUNDO
+  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    toast.info("Fazendo upload da música...");
+    try {
+      const res = await fetch('/api/settings/music', {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        toast.success("Música de fundo atualizada com sucesso!");
+        // O "as any" evita erro de tipagem no build
+        updateSettings({ bgMusicUrl: '/bg-music.mp3?v=' + new Date().getTime() } as any); 
+      } else {
+        toast.error("Erro ao fazer upload da música.");
+      }
+    } catch (error) {
+      toast.error("Erro na comunicação com o servidor.");
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div>
@@ -1655,6 +1683,56 @@ function OperationsTabContent() {
                 </div>
              </div>
           </CardHeader>
+        </Card>
+
+        {/* ========================================== */}
+        {/* SEÇÃO DA MÚSICA DE FUNDO NO APP            */}
+        {/* ========================================== */}
+        <Card className="md:col-span-2 border-purple-200 shadow-sm">
+          <CardHeader className="bg-purple-50/30 pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Music className="w-5 h-5 text-purple-600" /> Música do Cardápio (App)
+            </CardTitle>
+            <CardDescription>
+              Gerencie a música de fundo que toca automaticamente no celular do cliente.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/50">
+              <div className="space-y-0.5">
+                <Label className="font-bold text-sm">Status da Música</Label>
+                <p className="text-[10px] text-stone-500">Se desligado, o player some para o cliente.</p>
+              </div>
+              <Switch 
+                checked={(settings as any).bgMusicActive || false} 
+                onCheckedChange={(checked) => updateSettings({ bgMusicActive: checked } as any)}
+                className="data-[state=checked]:bg-purple-600"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-xl border bg-muted/50 items-center">
+              <div className="flex-1 w-full space-y-1">
+                <Label className="font-bold text-sm">Arquivo MP3 Atual</Label>
+                <Input 
+                  readOnly 
+                  value={(settings as any).bgMusicUrl ? 'Arquivo enviado com sucesso' : 'Nenhuma música enviada'} 
+                  className="bg-white/50 text-stone-500 h-9"
+                />
+              </div>
+              <div className="relative shrink-0 sm:mt-5">
+                <Label htmlFor="upload-musica" className="flex items-center justify-center h-9 px-4 bg-stone-800 hover:bg-stone-900 text-white font-bold rounded-md cursor-pointer transition-colors shadow-sm gap-2 text-sm">
+                  <Upload className="w-4 h-4" /> Enviar MP3
+                </Label>
+                <input 
+                  id="upload-musica" 
+                  type="file" 
+                  accept="audio/mp3,audio/mpeg" 
+                  className="hidden" 
+                  onChange={handleMusicUpload}
+                />
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
         {/* REGRAS DE APROVAÇÃO */}
@@ -1813,98 +1891,6 @@ function OperationsTabContent() {
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
-}
-
-export default function AdminMenuPage() {
-  return (
-    <div className="container max-w-[1600px] mx-auto p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-black text-stone-800 dark:text-stone-100 tracking-tight">
-          Gestão da Loja
-        </h1>
-        <p className="text-stone-500 font-medium mt-1">
-          Configure o cardápio, produtos, taxas de entrega e regras de
-          aprovação.
-        </p>
-      </div>
-
-      <Tabs defaultValue="cardapio" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2 bg-transparent h-auto mb-6">
-          <TabsTrigger
-            value="cardapio"
-            className="rounded-lg font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white h-12"
-          >
-            <UtensilsCrossed className="w-4 h-4 mr-2" /> Cardápio
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="produtos"
-            className="rounded-lg font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white h-12"
-          >
-            <PackageOpen className="w-4 h-4 mr-2" /> Produtos
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="entregas"
-            className="rounded-lg font-bold data-[state=active]:bg-purple-600 data-[state=active]:text-white h-12"
-          >
-            <MapPin className="w-4 h-4 mr-2" /> Entregas
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="regras"
-            className="rounded-lg font-bold data-[state=active]:bg-stone-800 data-[state=active]:text-white h-12"
-          >
-            <Box className="w-4 h-4 mr-2" /> Regras
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="operacao"
-            className="rounded-lg font-bold data-[state=active]:bg-green-600 data-[state=active]:text-white h-12"
-          >
-            <Settings2 className="w-4 h-4 mr-2" /> Operação
-          </TabsTrigger>
-        </TabsList>
-
-        <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-800 p-6 min-h-[60vh]">
-          <TabsContent
-            value="cardapio"
-            className="m-0 focus-visible:outline-none"
-          >
-            <MenuTabContent />
-          </TabsContent>
-
-          <TabsContent
-            value="produtos"
-            className="m-0 focus-visible:outline-none"
-          >
-            <ProductsTabContent />
-          </TabsContent>
-
-          <TabsContent
-            value="entregas"
-            className="m-0 focus-visible:outline-none"
-          >
-            <DeliveryTabContent />
-          </TabsContent>
-
-          <TabsContent
-            value="regras"
-            className="m-0 focus-visible:outline-none"
-          >
-            <RulesTabContent />
-          </TabsContent>
-
-          <TabsContent
-            value="operacao"
-            className="m-0 focus-visible:outline-none"
-          >
-            <OperationsTabContent />
-          </TabsContent>
-        </div>
-      </Tabs>
     </div>
   );
 }
