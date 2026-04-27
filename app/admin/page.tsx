@@ -104,13 +104,21 @@ export default function AdminDashboardPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-  // ==========================================
+// ==========================================
   // CANCELAMENTO AUTOMÁTICO (CARTÃO NÃO PAGO EM 5 MIN)
   // ==========================================
+  const ordersRef = useRef(orders);
+
+  // Mantém a referência sempre atualizada sem disparar re-render no robô
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
   useEffect(() => {
     const checkExpiredCardOrders = () => {
       const now = new Date().getTime();
-      orders.forEach(order => {
+      
+      ordersRef.current.forEach(order => {
         const type = getOrderType(order.address);
         const method = order.paymentMethod?.toLowerCase() || "";
         const isCard = method.includes("cartão") || method.includes("cartao") || method.includes("credito") || method.includes("mercado pago") || method.includes("mercadopago");
@@ -122,16 +130,16 @@ export default function AdminDashboardPage() {
           
           if (diffMinutes >= 5) {
             updateOrderStatus(order.id, "cancelado");
-            toast.error(`Pedido de ${order.customerName} cancelado automaticamente (Tempo limite de pagamento de 5 min excedido).`);
+            toast.error(`Pedido de ${order.customerName} cancelado (5 min sem pagamento).`);
           }
         }
       });
     };
 
-    const interval = setInterval(checkExpiredCardOrders, 30000); // Checa a cada 30 segundos
+    // Roda a verificação a cada 15 segundos de forma independente
+    const interval = setInterval(checkExpiredCardOrders, 15000); 
     return () => clearInterval(interval);
-  }, [orders, updateOrderStatus]);
-
+  }, [updateOrderStatus]);
   useEffect(() => {
     const checkSchedule = () => {
       if (!settings.deliverySchedule) return;
