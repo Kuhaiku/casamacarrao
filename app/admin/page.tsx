@@ -103,37 +103,54 @@ export default function AdminDashboardPage() {
   // LÓGICA DE ÁUDIO (MESA VS DELIVERY VS CANCELADO)
   // ==========================================
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [pendingLocalCount, setPendingLocalCount] = useState(0);
-  const [pendingDeliveryCount, setPendingDeliveryCount] = useState(0);
-  const [canceledDeliveryCount, setCanceledDeliveryCount] = useState(0);
+  
+  // Usamos Set para gravar os IDs dos pedidos que já tocaram som, imune a pisca-pisca de sincronização
+  const notifiedDeliveries = useRef(new Set<string>());
+  const notifiedLocais = useRef(new Set<string>());
+  const notifiedCanceled = useRef(new Set<string>());
 
   useEffect(() => {
-    const currentLocalPending = orders.filter((o) => o.status === "novo" && getOrderType(o.address) === "LOCAL").length;
-    const currentDeliveryPending = orders.filter((o) => o.status === "novo" && getOrderType(o.address) === "ENTREGA").length;
-    const currentCanceledDelivery = orders.filter((o) => o.status === "cancelado" && getOrderType(o.address) === "ENTREGA").length;
+    if (!audioEnabled) return;
 
-    if (audioEnabled) {
-      // Prioridade 1: Tocar som de cancelamento se houver um novo cancelado
-      if (currentCanceledDelivery > canceledDeliveryCount) {
-        const audio = new Audio("/cancel.mp3"); // Nome do seu arquivo de som
-        audio.play().catch(() => console.warn("Áudio cancel bloqueado."));
+    let playedCancel = false;
+    let playedDelivery = false;
+    let playedBell = false;
+
+    orders.forEach((order) => {
+      const type = getOrderType(order.address);
+
+      // Checa Cancelados
+      if (order.status === "cancelado" && type === "ENTREGA") {
+        if (!notifiedCanceled.current.has(order.id)) {
+          notifiedCanceled.current.add(order.id);
+          playedCancel = true;
+        }
       } 
-      // Prioridade 2: Tocar som de delivery
-      else if (currentDeliveryPending > pendingDeliveryCount) {
-        const audio = new Audio("/delivery.mp3");
-        audio.play().catch(() => console.warn("Áudio delivery bloqueado."));
+      // Checa Novos Deliveries
+      else if (order.status === "novo" && type === "ENTREGA") {
+        if (!notifiedDeliveries.current.has(order.id)) {
+          notifiedDeliveries.current.add(order.id);
+          playedDelivery = true;
+        }
       } 
-      // Prioridade 3: Tocar campainha da mesa
-      else if (currentLocalPending > pendingLocalCount) {
-        const audio = new Audio("/bell.mp3");
-        audio.play().catch(() => console.warn("Áudio bell bloqueado."));
+      // Checa Novas Mesas
+      else if (order.status === "novo" && type === "LOCAL") {
+        if (!notifiedLocais.current.has(order.id)) {
+          notifiedLocais.current.add(order.id);
+          playedBell = true;
+        }
       }
+    });
+
+    // Toca apenas o som com maior prioridade naquele instante
+    if (playedCancel) {
+      new Audio("/cancel.mp3").play().catch(() => {});
+    } else if (playedDelivery) {
+      new Audio("/delivery.mp3").play().catch(() => {});
+    } else if (playedBell) {
+      new Audio("/bell.mp3").play().catch(() => {});
     }
-    
-    setPendingLocalCount(currentLocalPending);
-    setPendingDeliveryCount(currentDeliveryPending);
-    setCanceledDeliveryCount(currentCanceledDelivery);
-  }, [orders, audioEnabled, pendingLocalCount, pendingDeliveryCount, canceledDeliveryCount]);
+  }, [orders, audioEnabled]);
 
   useEffect(() => {
     sync();
