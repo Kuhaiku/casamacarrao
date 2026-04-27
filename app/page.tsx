@@ -45,36 +45,37 @@ export default function CustomerHome() {
   // LÓGICA DO PLAYER DE MÚSICA DE FUNDO
   // ==========================================
   useEffect(() => {
-    // Forçamos o type as any temporariamente para acessar as configs de áudio sem erro no TS
     const bgSettings = settings as any;
     const url = bgSettings?.bgMusicUrl;
-    const isActiveByDefault = bgSettings?.bgMusicActive;
+    const isActive = bgSettings?.bgMusicActive;
 
-    if (!url) return;
+    // Se a função foi desativada no Admin, pausa a música imediatamente se estiver tocando
+    if (!isActive && audioRef.current) {
+      audioRef.current.pause();
+      setIsMusicPlaying(false);
+      return; 
+    }
 
-    // Se o áudio não existir, criamos a instância
+    if (!url || !isActive) return;
+
     if (!audioRef.current) {
       const audio = new Audio(url);
-      audio.loop = true; // Define para tocar em loop eternamente
+      audio.loop = true;
       audioRef.current = audio;
     } else if (audioRef.current.src !== window.location.origin + url) {
-      // Atualiza o arquivo caso mude a URL no Admin
       audioRef.current.src = url;
     }
 
     const handleFirstInteraction = () => {
       if (interactionDone.current) return;
-      
-      interactionDone.current = true; // Marca que o usuário já tocou na tela
+      interactionDone.current = true; 
 
-      // Se estiver configurada para tocar por padrão, tenta dar o play no primeiro toque
-      if (isActiveByDefault && audioRef.current) {
+      if (isActive && audioRef.current) {
         audioRef.current.play()
           .then(() => setIsMusicPlaying(true))
           .catch((e) => console.log("Autoplay bloqueado pelo navegador:", e));
       }
 
-      // Removemos os ouvintes para não pesar a memória
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
       window.removeEventListener('scroll', handleFirstInteraction);
@@ -240,14 +241,14 @@ export default function CustomerHome() {
             </div>
           )}
 
-          {/* BOTÃO FLUTUANTE DA MÚSICA DO CLIENTE */}
-          {(settings as any)?.bgMusicUrl && (
+     {/* BOTÃO FLUTUANTE DA MÚSICA DO CLIENTE (SÓ MOSTRA SE ESTIVER ATIVADO NO ADMIN) */}
+          {(settings as any)?.bgMusicUrl && (settings as any)?.bgMusicActive && (
             <button 
               onClick={toggleMusic}
               title={isMusicPlaying ? "Pausar música" : "Tocar música"}
-              className="fixed bottom-[88px] lg:bottom-6 left-4 z-40 bg-white/80 backdrop-blur-md p-2.5 rounded-full shadow-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors"
+              className="fixed bottom-[88px] lg:bottom-6 left-4 z-40 bg-white/90 backdrop-blur-md p-3 rounded-full shadow-xl border border-stone-200 text-stone-700 hover:bg-stone-100 hover:scale-110 transition-all duration-300"
             >
-              {isMusicPlaying ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 opacity-50" />}
+              {isMusicPlaying ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-500" />}
             </button>
           )}
         </main>
