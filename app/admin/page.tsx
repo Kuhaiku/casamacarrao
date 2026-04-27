@@ -14,7 +14,7 @@ import {
   Wallet, Utensils, Motorbike, Banknote, CreditCard, QrCode, Receipt,
   TrendingDown, Lock, X, CheckCircle2, AlertCircle, Check, Truck, Ban,
   DollarSign, Eye, EyeOff, HeartHandshake, Bell, BellOff, MessageCircle,
-  ChevronDown, ChevronUp, Maximize2, ChevronsUp, ChevronsDown, Music // <- Adicionado aqui
+  ChevronDown, ChevronUp, Maximize2, ChevronsUp, ChevronsDown, Music
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Order } from "@/lib/types";
@@ -37,6 +37,7 @@ function getPaymentMethodColor(method: string) {
   if (m.includes("cartão") || m.includes("cartao") || m.includes("credito") || m.includes("mercado")) return { border: "border-l-indigo-400", bg: "bg-indigo-50/50" };
   return { border: "border-l-stone-200", bg: "bg-white" };
 }
+
 function OrderTimer({ createdAt }: { createdAt: string }) {
   const [timeLeft, setTimeLeft] = useState(0);
 
@@ -64,6 +65,7 @@ function OrderTimer({ createdAt }: { createdAt: string }) {
     </span>
   );
 }
+
 export default function AdminDashboardPage() {
   const {
     orders, expenses, tips, sync, toggleOrderPaid, updateOrderStatus,
@@ -99,12 +101,11 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
- // ==========================================
+  // ==========================================
   // LÓGICA DE ÁUDIO (MESA VS DELIVERY VS CANCELADO)
   // ==========================================
   const [audioEnabled, setAudioEnabled] = useState(false);
   
-  // Usamos Set para gravar os IDs dos pedidos que já tocaram som, imune a pisca-pisca de sincronização
   const notifiedDeliveries = useRef(new Set<string>());
   const notifiedLocais = useRef(new Set<string>());
   const notifiedCanceled = useRef(new Set<string>());
@@ -119,21 +120,18 @@ export default function AdminDashboardPage() {
     orders.forEach((order) => {
       const type = getOrderType(order.address);
 
-      // Checa Cancelados
       if (order.status === "cancelado" && type === "ENTREGA") {
         if (!notifiedCanceled.current.has(order.id)) {
           notifiedCanceled.current.add(order.id);
           playedCancel = true;
         }
       } 
-      // Checa Novos Deliveries
       else if (order.status === "novo" && type === "ENTREGA") {
         if (!notifiedDeliveries.current.has(order.id)) {
           notifiedDeliveries.current.add(order.id);
           playedDelivery = true;
         }
       } 
-      // Checa Novas Mesas
       else if (order.status === "novo" && type === "LOCAL") {
         if (!notifiedLocais.current.has(order.id)) {
           notifiedLocais.current.add(order.id);
@@ -142,7 +140,6 @@ export default function AdminDashboardPage() {
       }
     });
 
-    // Toca apenas o som com maior prioridade naquele instante
     if (playedCancel) {
       new Audio("/cancel.mp3").play().catch(() => {});
     } else if (playedDelivery) {
@@ -158,12 +155,11 @@ export default function AdminDashboardPage() {
     return () => clearInterval(interval);
   }, [sync]);
 
-// ==========================================
+  // ==========================================
   // CANCELAMENTO AUTOMÁTICO (CARTÃO NÃO PAGO EM 5 MIN)
   // ==========================================
   const ordersRef = useRef(orders);
 
-  // Mantém a referência sempre atualizada sem disparar re-render no robô
   useEffect(() => {
     ordersRef.current = orders;
   }, [orders]);
@@ -177,7 +173,6 @@ export default function AdminDashboardPage() {
         const method = order.paymentMethod?.toLowerCase() || "";
         const isCard = method.includes("cartão") || method.includes("cartao") || method.includes("credito") || method.includes("mercado pago") || method.includes("mercadopago");
         
-        // Verifica se é delivery, em cartão, não foi pago e se não está cancelado
         if (type === "ENTREGA" && isCard && !order.isPaid && order.status !== "cancelado") {
           const createdAt = new Date(order.createdAt).getTime();
           const diffMinutes = (now - createdAt) / (1000 * 60);
@@ -189,37 +184,11 @@ export default function AdminDashboardPage() {
         }
       });
     };
-    // ==========================================
-  // UPLOAD DA MÚSICA DE FUNDO
-  // ==========================================
-  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    toast.info("Fazendo upload da música...");
-    try {
-      const res = await fetch('/api/settings/music', {
-        method: 'POST',
-        body: formData
-      });
-      if (res.ok) {
-        toast.success("Música de fundo atualizada com sucesso!");
-        // Salva a preferência no banco garantindo que a URL existe
-        updateSettings({ bgMusicUrl: '/bg-music.mp3?v=' + new Date().getTime() }); 
-      } else {
-        toast.error("Erro ao fazer upload da música.");
-      }
-    } catch (error) {
-      toast.error("Erro na comunicação com o servidor.");
-    }
-  };
-    // Roda a verificação a cada 15 segundos de forma independente
     const interval = setInterval(checkExpiredCardOrders, 15000); 
     return () => clearInterval(interval);
   }, [updateOrderStatus]);
+
   useEffect(() => {
     const checkSchedule = () => {
       if (!settings.deliverySchedule) return;
@@ -245,6 +214,34 @@ export default function AdminDashboardPage() {
     const timeout = setTimeout(checkSchedule, 3000);
     return () => { clearInterval(interval); clearTimeout(timeout); };
   }, [settings.deliverySchedule, settings.isOpen, updateSettings]);
+
+  // ==========================================
+  // UPLOAD DA MÚSICA DE FUNDO
+  // ==========================================
+  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    toast.info("Fazendo upload da música...");
+    try {
+      const res = await fetch('/api/settings/music', {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        toast.success("Música de fundo atualizada com sucesso!");
+        // O "as any" aqui evita que a tipagem falhe no build
+        updateSettings({ bgMusicUrl: '/bg-music.mp3?v=' + new Date().getTime() } as any); 
+      } else {
+        toast.error("Erro ao fazer upload da música.");
+      }
+    } catch (error) {
+      toast.error("Erro na comunicação com o servidor.");
+    }
+  };
 
   const { activeLocalOrders, activeDeliveryOrders, totalSales, totalExpenses, totalTips } = useMemo(() => {
     const currentShiftOrders = orders.filter((o) => !o.isAccounted);
@@ -399,33 +396,10 @@ export default function AdminDashboardPage() {
       
       {/* CABEÇALHO GLOBAL */}
       <div className="bg-white px-4 py-3 shrink-0 border-b border-stone-200 shadow-sm z-10 flex justify-between items-center">
-        {/* BOTÃO E SWITCH DA MÚSICA DE FUNDO DO CLIENTE */}
-          <div className="flex items-center gap-2 bg-stone-50 px-2 py-1.5 rounded-lg border border-stone-200 shadow-sm ml-1 hidden sm:flex">
-            <Music className="w-3.5 h-3.5 text-stone-500" />
-            
-            <Label htmlFor="bg-music-upload" className="cursor-pointer text-[10px] font-bold text-stone-600 hover:bg-stone-200 border border-stone-200 px-2 py-1 rounded bg-white transition-colors">
-              MP3
-            </Label>
-            <input 
-              id="bg-music-upload" 
-              type="file" 
-              accept="audio/mp3,audio/mpeg" 
-              className="hidden" 
-              onChange={handleMusicUpload} 
-            />
-            
-            <Switch 
-              checked={settings.bgMusicActive || false} 
-              onCheckedChange={(checked) => updateSettings({ bgMusicActive: checked })} 
-              className="data-[state=checked]:bg-blue-600 scale-75" 
-              title="Ativar/Desativar Música de Fundo no Cardápio"
-            />
-          </div>
         <div>
           <h1 className="text-xl font-black text-stone-800 tracking-tight">Centro de Comando</h1>
           <p className="text-stone-500 font-medium text-xs">Visão geral da operação</p>
         </div>
-        
         <div className="flex items-center gap-2">
           
           <Button 
@@ -444,6 +418,29 @@ export default function AdminDashboardPage() {
               {settings.isOpen ? "ABERTA" : "FECHADA"}
             </span>
           </div>
+
+          {/* BOTÃO E SWITCH DA MÚSICA DE FUNDO DO CLIENTE */}
+          <div className="flex items-center gap-2 bg-stone-50 px-2 py-1.5 rounded-lg border border-stone-200 shadow-sm ml-1 hidden sm:flex">
+            <Music className="w-3.5 h-3.5 text-stone-500" />
+            
+            <Label htmlFor="bg-music-upload" className="cursor-pointer text-[10px] font-bold text-stone-600 hover:bg-stone-200 border border-stone-200 px-2 py-1 rounded bg-white transition-colors">
+              MP3
+            </Label>
+            <input 
+              id="bg-music-upload" 
+              type="file" 
+              accept="audio/mp3,audio/mpeg" 
+              className="hidden" 
+              onChange={handleMusicUpload} 
+            />
+            
+            <Switch 
+              checked={(settings as any).bgMusicActive || false} 
+              onCheckedChange={(checked) => updateSettings({ bgMusicActive: checked } as any)} 
+              className="data-[state=checked]:bg-blue-600 scale-75" 
+              title="Ativar/Desativar Música de Fundo no Cardápio"
+            />
+          </div>
           
          <Button 
             variant={audioEnabled ? "default" : "outline"} 
@@ -452,10 +449,9 @@ export default function AdminDashboardPage() {
               const newAudioState = !audioEnabled;
               setAudioEnabled(newAudioState);
               if (newAudioState) {
-                // Tenta engatilhar os sons no navegador para liberar as permissões
                 const audio1 = new Audio("/bell.mp3");
                 const audio2 = new Audio("/delivery.mp3");
-                const audio3 = new Audio("/cancel.mp3"); // Engatilha o novo som
+                const audio3 = new Audio("/cancel.mp3");
                 audio1.play().then(() => audio1.pause()).catch(() => {}); 
                 audio2.play().then(() => audio2.pause()).catch(() => {}); 
                 audio3.play().then(() => audio3.pause()).catch(() => {}); 
@@ -670,14 +666,12 @@ export default function AdminDashboardPage() {
                 <Badge className="bg-purple-600 text-[10px]">{activeDeliveryOrders.length}</Badge>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {/* LEGENDA STATUS */}
                 <div className="flex items-center gap-2 text-[8px] uppercase font-bold text-stone-500 bg-white px-2 py-1 rounded-md border border-purple-100 shadow-sm">
                    <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-300"></div>Novo</span>
                    <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-500"></div>Prep</span>
                    <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>Pronto</span>
                    <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>Saiu</span>
                 </div>
-                {/* LEGENDA PAGAMENTO */}
                 <div className="flex items-center gap-2 text-[8px] uppercase font-bold text-stone-500 bg-white px-2 py-1 rounded-md border border-purple-100 shadow-sm">
                    <span className="flex items-center gap-1"><div className="w-1.5 h-3 rounded-sm bg-teal-400"></div>Pix</span>
                    <span className="flex items-center gap-1"><div className="w-1.5 h-3 rounded-sm bg-green-400"></div>Dinh</span>
@@ -704,7 +698,6 @@ export default function AdminDashboardPage() {
                           <h3 className="font-black text-xs text-stone-800 truncate">{order.customerName}</h3>
                           <div className={`w-2 h-2 rounded-full shrink-0 ${order.status === 'pronto' ? 'bg-amber-500' : order.status === 'despachado' ? 'bg-blue-500' : order.status === 'novo' ? 'bg-stone-300' : 'bg-stone-500'}`} />
                           
-                          {/* BADGE COM O TIMER PARA CARTÕES PENDENTES */}
                           {isCardPending && (
                              <div className="flex items-center gap-0.5 ml-1 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200 text-[9px] shadow-sm">
                                 ⏳ <OrderTimer createdAt={order.createdAt} />
@@ -735,7 +728,6 @@ export default function AdminDashboardPage() {
                       </div>
                     )}
                     
-                    {/* BARRA DE AÇÕES RÁPIDAS (DELIVERY) */}
                     <div className="flex justify-between items-center p-1.5 border-t border-stone-100 bg-stone-50 shrink-0">
                       <div className="flex gap-1.5">
                         {!(["cartão", "cartao", "credito", "mercado pago", "mercadopago"].some(m => order.paymentMethod?.toLowerCase().includes(m))) || order.isPaid ? (
