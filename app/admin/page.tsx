@@ -623,7 +623,7 @@ export default function AdminDashboardPage() {
                           {order.status === 'novo' && <Check className="w-3.5 h-3.5" />}
                           {order.status === 'aprovado' && <Utensils className="w-3.5 h-3.5" />}
                           {order.status === 'pronto' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                          {order.status === 'entregue' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                          {/* {order.status === 'entregue' && <CheckCircle2 className="w-3.5 h-3.5" />}*/}
                         </Button>
 
                         <Button
