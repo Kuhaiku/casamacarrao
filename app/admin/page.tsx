@@ -608,23 +608,24 @@ export default function AdminDashboardPage() {
                           {order.isPaid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
                         </Button>
 
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (order.status === 'novo') updateOrderStatus(order.id, 'aprovado');
-                            else if (order.status === 'aprovado') updateOrderStatus(order.id, 'pronto');
-                            else if (order.status === 'pronto') updateOrderStatus(order.id, 'entregue');
-                          }}
-                          title="Avançar Status"
-                        >
-                          {order.status === 'novo' && <Check className="w-3.5 h-3.5" />}
-                          {order.status === 'aprovado' && <Utensils className="w-3.5 h-3.5" />}
-                          {order.status === 'pronto' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                          {/* {order.status === 'entregue' && <CheckCircle2 className="w-3.5 h-3.5" />}*/}
-                        </Button>
+                      {order.status !== 'despachado' && order.status !== 'entregue' && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (order.status === 'novo') updateOrderStatus(order.id, 'aprovado');
+                          else if (order.status === 'aprovado') updateOrderStatus(order.id, 'pronto');
+                          else if (order.status === 'pronto') updateOrderStatus(order.id, 'despachado');
+                        }}
+                        title="Avançar Status"
+                      >
+                        {order.status === 'novo' && <Check className="w-3.5 h-3.5" />}
+                        {order.status === 'aprovado' && <Utensils className="w-3.5 h-3.5" />}
+                        {order.status === 'pronto' && <Truck className="w-3.5 h-3.5" />}
+                      </Button>
+                    )}
 
                         <Button
                           variant="outline"
