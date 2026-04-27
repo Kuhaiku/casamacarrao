@@ -57,8 +57,8 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
     };
   }, []);
 
-  // --- LÓGICA DE ARRASTAR E SOLTAR NATIVA ---
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  // --- LÓGICA DE ARRASTAR E SOLTAR NATIVA APLICADA DIRETO NO BOTÃO ---
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current.startX = e.clientX - pos.x;
     dragRef.current.startY = e.clientY - pos.y;
@@ -67,40 +67,41 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
     dragRef.current.isDragging = false;
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     
     // Verifica o quanto moveu desde o clique inicial
     const moveX = Math.abs(e.clientX - dragRef.current.initialX);
     const moveY = Math.abs(e.clientY - dragRef.current.initialY);
     
-    // Tolerância: Se moveu mais que 10 pixels, consideramos que está arrastando de verdade e não só clicando
+    // Tolerância: Se moveu mais que 10 pixels, consideramos que está arrastando
     if (moveX > 10 || moveY > 10) {
       dragRef.current.isDragging = true;
     }
     
-    const newX = e.clientX - dragRef.current.startX;
-    const newY = e.clientY - dragRef.current.startY;
-    setPos({ x: newX, y: newY });
+    setPos({ 
+      x: e.clientX - dragRef.current.startX, 
+      y: e.clientY - dragRef.current.startY 
+    });
   };
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
-  };
-
-  const handleToggleOpen = (e: React.MouseEvent) => {
-    // Se for detectado um arraste de fato, não abre o histórico
-    if (dragRef.current.isDragging) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
+    
+    // Se não for um arraste (foi apenas um clique), abre ou fecha o menu!
+    if (!dragRef.current.isDragging) {
+      setIsOpen((prev) => !prev);
     }
-    setIsOpen(!isOpen);
+    
+    // Zera o estado para o próximo clique
+    setTimeout(() => {
+      dragRef.current.isDragging = false;
+    }, 50);
   };
 
   if (orders.length === 0) return null;
 
-  // LAYOUT PARA CELULAR: Fixo abaixo da sacola (Não precisa arrastar)
+  // LAYOUT PARA CELULAR: Fixo abaixo da sacola (Não arrasta)
   if (isMobile) {
     return (
       <div className="mt-3">
@@ -148,10 +149,6 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
     <div 
       className="fixed bottom-10 right-4 z-[60] flex flex-col items-end touch-none"
       style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
     >
       {/* Menu popup */}
       {isOpen && (
@@ -180,9 +177,13 @@ export function OrderHistoryWidget({ isMobile }: { isMobile?: boolean }) {
         </div>
       )}
 
+      {/* O Botão agora controla o próprio clique E o arrastar */}
       <button
         type="button"
-        onClick={handleToggleOpen}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         className="bg-orange-600 text-white p-3.5 rounded-full shadow-2xl hover:bg-orange-700 transition-transform flex items-center gap-2 border-2 border-white cursor-grab active:cursor-grabbing select-none"
       >
         <Package className="w-6 h-6 animate-pulse pointer-events-none" />
