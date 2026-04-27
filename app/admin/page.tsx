@@ -189,7 +189,33 @@ export default function AdminDashboardPage() {
         }
       });
     };
+    // ==========================================
+  // UPLOAD DA MÚSICA DE FUNDO
+  // ==========================================
+  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
+    const formData = new FormData();
+    formData.append('file', file);
+
+    toast.info("Fazendo upload da música...");
+    try {
+      const res = await fetch('/api/settings/music', {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        toast.success("Música de fundo atualizada com sucesso!");
+        // Salva a preferência no banco garantindo que a URL existe
+        updateSettings({ bgMusicUrl: '/bg-music.mp3?v=' + new Date().getTime() }); 
+      } else {
+        toast.error("Erro ao fazer upload da música.");
+      }
+    } catch (error) {
+      toast.error("Erro na comunicação com o servidor.");
+    }
+  };
     // Roda a verificação a cada 15 segundos de forma independente
     const interval = setInterval(checkExpiredCardOrders, 15000); 
     return () => clearInterval(interval);
@@ -373,10 +399,33 @@ export default function AdminDashboardPage() {
       
       {/* CABEÇALHO GLOBAL */}
       <div className="bg-white px-4 py-3 shrink-0 border-b border-stone-200 shadow-sm z-10 flex justify-between items-center">
+        {/* BOTÃO E SWITCH DA MÚSICA DE FUNDO DO CLIENTE */}
+          <div className="flex items-center gap-2 bg-stone-50 px-2 py-1.5 rounded-lg border border-stone-200 shadow-sm ml-1 hidden sm:flex">
+            <Music className="w-3.5 h-3.5 text-stone-500" />
+            
+            <Label htmlFor="bg-music-upload" className="cursor-pointer text-[10px] font-bold text-stone-600 hover:bg-stone-200 border border-stone-200 px-2 py-1 rounded bg-white transition-colors">
+              MP3
+            </Label>
+            <input 
+              id="bg-music-upload" 
+              type="file" 
+              accept="audio/mp3,audio/mpeg" 
+              className="hidden" 
+              onChange={handleMusicUpload} 
+            />
+            
+            <Switch 
+              checked={settings.bgMusicActive || false} 
+              onCheckedChange={(checked) => updateSettings({ bgMusicActive: checked })} 
+              className="data-[state=checked]:bg-blue-600 scale-75" 
+              title="Ativar/Desativar Música de Fundo no Cardápio"
+            />
+          </div>
         <div>
           <h1 className="text-xl font-black text-stone-800 tracking-tight">Centro de Comando</h1>
           <p className="text-stone-500 font-medium text-xs">Visão geral da operação</p>
         </div>
+        
         <div className="flex items-center gap-2">
           
           <Button 
