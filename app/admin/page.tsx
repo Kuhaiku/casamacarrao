@@ -37,7 +37,33 @@ function getPaymentMethodColor(method: string) {
   if (m.includes("cartão") || m.includes("cartao") || m.includes("credito") || m.includes("mercado")) return { border: "border-l-indigo-400", bg: "bg-indigo-50/50" };
   return { border: "border-l-stone-200", bg: "bg-white" };
 }
+function OrderTimer({ createdAt }: { createdAt: string }) {
+  const [timeLeft, setTimeLeft] = useState(0);
 
+  useEffect(() => {
+    const calculateTime = () => {
+      const now = new Date().getTime();
+      const createdTime = new Date(createdAt).getTime();
+      const diffSeconds = Math.floor((5 * 60 * 1000 - (now - createdTime)) / 1000);
+      return diffSeconds > 0 ? diffSeconds : 0;
+    };
+
+    setTimeLeft(calculateTime());
+    const interval = setInterval(() => setTimeLeft(calculateTime()), 1000);
+    return () => clearInterval(interval);
+  }, [createdAt]);
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+
+  if (timeLeft <= 0) return <span>00:00</span>;
+
+  return (
+    <span className={`font-mono font-black ${timeLeft <= 60 ? 'animate-pulse text-red-600' : 'text-amber-700'}`}>
+      {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+    </span>
+  );
+}
 export default function AdminDashboardPage() {
   const {
     orders, expenses, tips, sync, toggleOrderPaid, updateOrderStatus,
@@ -586,8 +612,10 @@ export default function AdminDashboardPage() {
                <div className="text-center p-4 border border-dashed rounded-lg border-stone-200 text-stone-400 text-xs">Vazio.</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
-                {activeDeliveryOrders.map((order) => {
+               {activeDeliveryOrders.map((order) => {
                   const pmColor = getPaymentMethodColor(order.paymentMethod);
+                  const isCardPending = !order.isPaid && ["cartão", "cartao", "credito", "mercado pago", "mercadopago"].some(m => (order.paymentMethod || "").toLowerCase().includes(m));
+                  
                   return (
                   <div key={order.id} className={`bg-white border border-stone-200 border-l-4 ${pmColor.border} rounded-lg shadow-sm flex flex-col overflow-hidden`}>
                     <div onClick={() => toggleExpand(order.id)} className={`p-2.5 cursor-pointer hover:bg-stone-50 transition-colors flex justify-between items-start gap-1 ${pmColor.bg}`}>
@@ -595,6 +623,13 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center gap-1">
                           <h3 className="font-black text-xs text-stone-800 truncate">{order.customerName}</h3>
                           <div className={`w-2 h-2 rounded-full shrink-0 ${order.status === 'pronto' ? 'bg-amber-500' : order.status === 'despachado' ? 'bg-blue-500' : order.status === 'novo' ? 'bg-stone-300' : 'bg-stone-500'}`} />
+                          
+                          {/* BADGE COM O TIMER PARA CARTÕES PENDENTES */}
+                          {isCardPending && (
+                             <div className="flex items-center gap-0.5 ml-1 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200 text-[9px] shadow-sm">
+                                ⏳ <OrderTimer createdAt={order.createdAt} />
+                             </div>
+                          )}
                         </div>
                         <p className="text-[9px] text-stone-500 truncate mt-0.5" title={order.address}>{order.address}</p>
                       </div>
