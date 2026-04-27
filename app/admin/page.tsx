@@ -30,6 +30,14 @@ function getOrderType(address: string) {
   return isMesa ? "LOCAL" : "ENTREGA";
 }
 
+function getPaymentMethodColor(method: string) {
+  const m = (method || "").toLowerCase();
+  if (m.includes("pix")) return { border: "border-l-teal-400", bg: "bg-teal-50/50" };
+  if (m.includes("dinheiro")) return { border: "border-l-green-400", bg: "bg-green-50/50" };
+  if (m.includes("cartão") || m.includes("cartao") || m.includes("credito") || m.includes("mercado")) return { border: "border-l-indigo-400", bg: "bg-indigo-50/50" };
+  return { border: "border-l-stone-200", bg: "bg-white" };
+}
+
 export default function AdminDashboardPage() {
   const {
     orders, expenses, tips, sync, toggleOrderPaid, updateOrderStatus,
@@ -77,7 +85,6 @@ export default function AdminDashboardPage() {
     const currentDeliveryPending = orders.filter((o) => o.status === "novo" && getOrderType(o.address) === "ENTREGA").length;
 
     if (audioEnabled) {
-      // Prioriza tocar som de delivery se ambos chegarem juntos
       if (currentDeliveryPending > pendingDeliveryCount) {
         const audio = new Audio("/delivery.mp3");
         audio.play().catch(() => console.warn("Áudio delivery bloqueado."));
@@ -96,6 +103,34 @@ export default function AdminDashboardPage() {
     const interval = setInterval(() => sync(), 5000);
     return () => clearInterval(interval);
   }, [sync]);
+
+  // ==========================================
+  // CANCELAMENTO AUTOMÁTICO (CARTÃO NÃO PAGO EM 5 MIN)
+  // ==========================================
+  useEffect(() => {
+    const checkExpiredCardOrders = () => {
+      const now = new Date().getTime();
+      orders.forEach(order => {
+        const type = getOrderType(order.address);
+        const method = order.paymentMethod?.toLowerCase() || "";
+        const isCard = method.includes("cartão") || method.includes("cartao") || method.includes("credito") || method.includes("mercado pago") || method.includes("mercadopago");
+        
+        // Verifica se é delivery, em cartão, não foi pago e se não está cancelado
+        if (type === "ENTREGA" && isCard && !order.isPaid && order.status !== "cancelado") {
+          const createdAt = new Date(order.createdAt).getTime();
+          const diffMinutes = (now - createdAt) / (1000 * 60);
+          
+          if (diffMinutes >= 5) {
+            updateOrderStatus(order.id, "cancelado");
+            toast.error(`Pedido de ${order.customerName} cancelado automaticamente (Tempo limite de pagamento de 5 min excedido).`);
+          }
+        }
+      });
+    };
+
+    const interval = setInterval(checkExpiredCardOrders, 30000); // Checa a cada 30 segundos
+    return () => clearInterval(interval);
+  }, [orders, updateOrderStatus]);
 
   useEffect(() => {
     const checkSchedule = () => {
@@ -230,9 +265,6 @@ export default function AdminDashboardPage() {
     return item ? item.name : "Item";
   };
 
-  // ==========================================
-  // FUNÇÃO WHATSAPP COM TAGS INTELIGENTES
-  // ==========================================
   const handleWhatsApp = (order: any) => {
     const phone = order.phone;
     if (!phone || phone === "Não informado") {
@@ -245,7 +277,6 @@ export default function AdminDashboardPage() {
     if (cleanPhone.length >= 10) {
       let baseMessage = settings.whatsappMessage || "Olá {{nome}}! Tudo bem? Somos da Casa do Macarrão.";
       
-      // Compila os itens para a tag {{itens}}
       let itensText: string[] = [];
       if (order.items) {
          order.items.forEach((item: any) => {
@@ -260,7 +291,6 @@ export default function AdminDashboardPage() {
          });
       }
       
-      // Expressão Regular avançada: Funciona com 1 ou 2 chaves {tag} ou {{tag}}, ignorando maiúsculas e minúsculas (/gi)
       let finalMessage = baseMessage
         .replace(/\{\{?nome\}\}?/gi, order.customerName || "Cliente")
         .replace(/\{\{?pedido_id\}\}?/gi, String(order.id).split('-')[0].toUpperCase())
@@ -311,7 +341,6 @@ export default function AdminDashboardPage() {
               const newAudioState = !audioEnabled;
               setAudioEnabled(newAudioState);
               if (newAudioState) {
-                // Tenta engatilhar os sons no navegador para liberar as permissões
                 const audio1 = new Audio("/bell.mp3");
                 const audio2 = new Audio("/delivery.mp3");
                 audio1.play().then(() => audio1.pause()).catch(() => {}); 
@@ -373,7 +402,6 @@ export default function AdminDashboardPage() {
           <div className="p-3 bg-blue-50/50 border-b border-stone-200 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xs font-black text-blue-900 flex items-center gap-1.5"><Utensils className="w-3.5 h-3.5" /> Mesas Ativas</h2>
-              {/* LEGENDA DE CORES */}
               <div className="flex items-center gap-2 text-[8px] uppercase font-bold text-stone-500 bg-white px-2 py-1 rounded-md border border-blue-100 shadow-sm">
                  <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-300"></div>Novo</span>
                  <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>Prep</span>
@@ -381,7 +409,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             
-            {/* OCUPAÇÃO N/N COM DONUT CHART */}
             <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-blue-100 shadow-sm">
                <div className="flex items-center gap-1 text-xs font-bold text-blue-900">
                   <span>{activeLocalOrders.length} /</span>
@@ -523,17 +550,27 @@ export default function AdminDashboardPage() {
         {/* COLUNA: ENTREGAS */}
         <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-stone-200 min-h-0">
           <div className="p-3 bg-purple-50/50 border-b border-stone-200 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xs font-black text-purple-900 flex items-center gap-1.5"><Motorbike className="w-3.5 h-3.5" /> Entregas</h2>
-              {/* LEGENDA DE CORES */}
-              <div className="flex items-center gap-2 text-[8px] uppercase font-bold text-stone-500 bg-white px-2 py-1 rounded-md border border-purple-100 shadow-sm">
-                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-300"></div>Novo</span>
-                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-500"></div>Prep</span>
-                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>Pronto</span>
-                 <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>Saiu</span>
+            <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-black text-purple-900 flex items-center gap-1.5"><Motorbike className="w-3.5 h-3.5" /> Entregas</h2>
+                <Badge className="bg-purple-600 text-[10px]">{activeDeliveryOrders.length}</Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* LEGENDA STATUS */}
+                <div className="flex items-center gap-2 text-[8px] uppercase font-bold text-stone-500 bg-white px-2 py-1 rounded-md border border-purple-100 shadow-sm">
+                   <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-300"></div>Novo</span>
+                   <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-stone-500"></div>Prep</span>
+                   <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>Pronto</span>
+                   <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>Saiu</span>
+                </div>
+                {/* LEGENDA PAGAMENTO */}
+                <div className="flex items-center gap-2 text-[8px] uppercase font-bold text-stone-500 bg-white px-2 py-1 rounded-md border border-purple-100 shadow-sm">
+                   <span className="flex items-center gap-1"><div className="w-1.5 h-3 rounded-sm bg-teal-400"></div>Pix</span>
+                   <span className="flex items-center gap-1"><div className="w-1.5 h-3 rounded-sm bg-green-400"></div>Dinh</span>
+                   <span className="flex items-center gap-1"><div className="w-1.5 h-3 rounded-sm bg-indigo-400"></div>Cartão</span>
+                </div>
               </div>
             </div>
-            <Badge className="bg-purple-600 text-[10px]">{activeDeliveryOrders.length}</Badge>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3">
@@ -541,9 +578,11 @@ export default function AdminDashboardPage() {
                <div className="text-center p-4 border border-dashed rounded-lg border-stone-200 text-stone-400 text-xs">Vazio.</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
-                {activeDeliveryOrders.map((order) => (
-                  <div key={order.id} className="bg-white border border-stone-200 rounded-lg shadow-sm flex flex-col overflow-hidden">
-                    <div onClick={() => toggleExpand(order.id)} className="p-2.5 cursor-pointer hover:bg-stone-50 transition-colors flex justify-between items-start gap-1">
+                {activeDeliveryOrders.map((order) => {
+                  const pmColor = getPaymentMethodColor(order.paymentMethod);
+                  return (
+                  <div key={order.id} className={`bg-white border border-stone-200 border-l-4 ${pmColor.border} rounded-lg shadow-sm flex flex-col overflow-hidden`}>
+                    <div onClick={() => toggleExpand(order.id)} className={`p-2.5 cursor-pointer hover:bg-stone-50 transition-colors flex justify-between items-start gap-1 ${pmColor.bg}`}>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1">
                           <h3 className="font-black text-xs text-stone-800 truncate">{order.customerName}</h3>
@@ -576,15 +615,17 @@ export default function AdminDashboardPage() {
                     {/* BARRA DE AÇÕES RÁPIDAS (DELIVERY) */}
                     <div className="flex justify-between items-center p-1.5 border-t border-stone-100 bg-stone-50 shrink-0">
                       <div className="flex gap-1.5">
-                        <Button
-                          variant={order.isPaid ? "default" : "outline"}
-                          size="icon"
-                          className={`h-7 w-7 ${order.isPaid ? 'bg-green-600 text-white' : 'text-stone-400 bg-white'}`}
-                          onClick={(e) => { e.stopPropagation(); toggleOrderPaid(order.id); }}
-                          title={order.isPaid ? "Pago" : "Marcar como Pago"}
-                        >
-                          <DollarSign className="w-3.5 h-3.5" />
-                        </Button>
+                        {!(["cartão", "cartao", "credito", "mercado pago", "mercadopago"].some(m => order.paymentMethod?.toLowerCase().includes(m))) || order.isPaid ? (
+                          <Button
+                            variant={order.isPaid ? "default" : "outline"}
+                            size="icon"
+                            className={`h-7 w-7 ${order.isPaid ? 'bg-green-600 text-white' : 'text-stone-400 bg-white'}`}
+                            onClick={(e) => { e.stopPropagation(); toggleOrderPaid(order.id); }}
+                            title={order.isPaid ? "Pago" : "Marcar como Pago"}
+                          >
+                            <DollarSign className="w-3.5 h-3.5" />
+                          </Button>
+                        ) : null}
 
                         <Button
                           variant="outline"
@@ -628,7 +669,8 @@ export default function AdminDashboardPage() {
                       </Button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -762,7 +804,7 @@ export default function AdminDashboardPage() {
                   </>
                 ) : (
                   <>
-                    {!viewOrder.isPaid && (
+                    {!viewOrder.isPaid && !["cartão", "cartao", "credito", "mercado pago", "mercadopago"].some(m => viewOrder.paymentMethod?.toLowerCase().includes(m)) && (
                       <Button variant="outline" onClick={() => toggleOrderPaid(viewOrder.id)} className="h-9 text-[11px] font-bold border-green-200 text-green-700 hover:bg-green-50 col-span-2">
                         <DollarSign className="w-3.5 h-3.5 mr-1" /> Marcar Pago
                       </Button>
