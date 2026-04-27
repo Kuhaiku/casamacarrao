@@ -751,7 +751,7 @@ export default function AdminDashboardPage() {
                             if (order.status === 'novo') updateOrderStatus(order.id, 'aprovado');
                             else if (order.status === 'aprovado') updateOrderStatus(order.id, 'pronto');
                             else if (order.status === 'pronto') updateOrderStatus(order.id, 'despachado');
-                            else if (order.status === 'despachado') updateOrderStatus(order.id, 'entregue');
+                            {/*else if (order.status === 'despachado') updateOrderStatus(order.id, 'entregue')*/};
                           }}
                           title="Avançar Status"
                         >
