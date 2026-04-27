@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChefHat, ShoppingBag, ArrowLeft, AlertCircle, Check } from "lucide-react";
+import { ChefHat, ShoppingBag, ArrowLeft, AlertCircle, Check, Volume2, VolumeX } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { MenuView } from "@/components/customer/menu-view";
 import { OrderBuilder } from "@/components/customer/order-builder";
@@ -23,6 +23,13 @@ export default function CustomerHome() {
   const [cartAvulsos, setCartAvulsos] = useState<any[]>([]);
   const [cartSelfService, setCartSelfService] = useState<any[]>([]);
 
+  // ==========================================
+  // ESTADOS E REFS DA MÚSICA DE FUNDO
+  // ==========================================
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const interactionDone = useRef(false);
+
   const cartTotal = calculateOrderTotal(cartSelfService, cartAvulsos);
   const totalItemsCount = cartAvulsos.reduce((acc, i) => acc + i.quantity, 0) + cartSelfService.length;
   const prevItemsCount = useRef(totalItemsCount);
@@ -33,6 +40,70 @@ export default function CustomerHome() {
     const timer = setTimeout(() => setIsLoading(false), 3000);
     return () => clearTimeout(timer);
   }, [sync]);
+
+  // ==========================================
+  // LÓGICA DO PLAYER DE MÚSICA DE FUNDO
+  // ==========================================
+  useEffect(() => {
+    // Forçamos o type as any temporariamente para acessar as configs de áudio sem erro no TS
+    const bgSettings = settings as any;
+    const url = bgSettings?.bgMusicUrl;
+    const isActiveByDefault = bgSettings?.bgMusicActive;
+
+    if (!url) return;
+
+    // Se o áudio não existir, criamos a instância
+    if (!audioRef.current) {
+      const audio = new Audio(url);
+      audio.loop = true; // Define para tocar em loop eternamente
+      audioRef.current = audio;
+    } else if (audioRef.current.src !== window.location.origin + url) {
+      // Atualiza o arquivo caso mude a URL no Admin
+      audioRef.current.src = url;
+    }
+
+    const handleFirstInteraction = () => {
+      if (interactionDone.current) return;
+      
+      interactionDone.current = true; // Marca que o usuário já tocou na tela
+
+      // Se estiver configurada para tocar por padrão, tenta dar o play no primeiro toque
+      if (isActiveByDefault && audioRef.current) {
+        audioRef.current.play()
+          .then(() => setIsMusicPlaying(true))
+          .catch((e) => console.log("Autoplay bloqueado pelo navegador:", e));
+      }
+
+      // Removemos os ouvintes para não pesar a memória
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('scroll', handleFirstInteraction);
+    };
+
+    window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+    window.addEventListener('scroll', handleFirstInteraction);
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('scroll', handleFirstInteraction);
+    };
+  }, [(settings as any)?.bgMusicUrl, (settings as any)?.bgMusicActive]);
+
+  // Função para o botão manual do cliente
+  const toggleMusic = () => {
+    if (!audioRef.current) return;
+    
+    if (isMusicPlaying) {
+      audioRef.current.pause();
+      setIsMusicPlaying(false);
+    } else {
+      audioRef.current.play()
+        .then(() => setIsMusicPlaying(true))
+        .catch(() => console.log("Erro ao forçar play."));
+    }
+  };
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -109,10 +180,10 @@ export default function CustomerHome() {
         </div>
       </div>
 
-      {/* COLUNA PRINCIPAL: Exibida quando a sacola mobile está fechada */}
+      {/* COLUNA PRINCIPAL */}
       <div className={`flex-1 flex flex-col h-full w-full transition-all duration-300 relative ${isMobileCartOpen ? "hidden lg:flex" : "flex"}`}>
         
-        {/* CABEÇALHOS (Fixos no topo no fluxo da coluna) */}
+        {/* CABEÇALHOS */}
         <div className="flex flex-col shrink-0 w-full z-20">
           {settings.isOpen === false && (
             <div className="bg-red-600 text-white px-4 py-3 flex items-center justify-center gap-2 font-bold text-sm">
@@ -134,7 +205,6 @@ export default function CustomerHome() {
             </div>
           </div>
 
-          {/* BOTÃO MOBILE DA SACOLA: Fixo no topo logo abaixo do header */}
           <div className="lg:hidden w-full bg-stone-50 border-b border-stone-200 p-3 sm:p-4 shadow-sm z-10">
             <button 
               onClick={() => setIsMobileCartOpen(true)} 
@@ -158,8 +228,7 @@ export default function CustomerHome() {
           </div>
         </div>
 
-        {/* ÁREA CENTRAL ROLÁVEL (Adicionado pb-28 para desviar do botão de histórico) */}
-        <main className="flex-1 w-full max-w-3xl mx-auto p-4 lg:p-8 overflow-y-auto pb-28 lg:pb-8">
+        <main className="flex-1 w-full max-w-3xl mx-auto p-4 lg:p-8 overflow-y-auto pb-28 lg:pb-8 relative">
           {view === "menu" ? (
             <MenuView itemsBySection={itemsBySection} formatCurrency={formatCurrency} setView={setView} handleAddAvulso={handleAddAvulso} isOpen={settings.isOpen} />
           ) : (
@@ -170,9 +239,19 @@ export default function CustomerHome() {
               <OrderBuilder db={{ sizes, menuItems, settings }} onFinish={handleAddSelfService} formatCurrency={formatCurrency} />
             </div>
           )}
+
+          {/* BOTÃO FLUTUANTE DA MÚSICA DO CLIENTE */}
+          {(settings as any)?.bgMusicUrl && (
+            <button 
+              onClick={toggleMusic}
+              title={isMusicPlaying ? "Pausar música" : "Tocar música"}
+              className="fixed bottom-[88px] lg:bottom-6 left-4 z-40 bg-white/80 backdrop-blur-md p-2.5 rounded-full shadow-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors"
+            >
+              {isMusicPlaying ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 opacity-50" />}
+            </button>
+          )}
         </main>
 
-        {/* HISTÓRICO MOBILE: Fixo na Base */}
         <div 
           className="lg:hidden fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-stone-200 z-40 px-4 pt-3 shadow-[0_-10px_30px_rgba(0,0,0,0.08)]"
           style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
@@ -181,14 +260,12 @@ export default function CustomerHome() {
         </div>
       </div>
 
-      {/* SACOLA LATERAL DESKTOP (Ou tela cheia se aberta no mobile) */}
       <aside className={`w-full lg:w-[380px] xl:w-[420px] h-[100dvh] bg-white shrink-0 z-50 flex-col shadow-2xl border-l border-stone-200 
         ${isMobileCartOpen ? "flex fixed inset-0 lg:static" : "hidden lg:flex"}`}
       >
         <CartSidebar {...cartProps} />
       </aside>
 
-      {/* BOTÃO FLUTUANTE DE HISTÓRICO NO DESKTOP */}
       <div className="hidden lg:block">
         <OrderHistoryWidget />
       </div>
