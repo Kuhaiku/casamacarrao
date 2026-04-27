@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, Suspense, useRef } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useStore } from "@/lib/store"
 import { dbDispatch } from "@/lib/actions"
@@ -18,7 +18,9 @@ import {
   Ban,
   MapPin,
   Star,
-  Loader2
+  Loader2,
+  Volume2,
+  VolumeX
 } from "lucide-react"
 
 function formatCurrency(value: number) {
@@ -40,9 +42,14 @@ function OrderTrackingContent() {
   const orderId = params.id as string
   const statusPagamento = searchParams.get("status")
   
-  const { orders, sync, sizes, menuItems, products } = useStore()
+  const { orders, sync, sizes, menuItems, products, settings } = useStore()
   const [isMounted, setIsMounted] = useState(false)
-  const [retryCount, setRetryCount] = useState(0) // Contador para a inteligência de espera
+  const [retryCount, setRetryCount] = useState(0)
+
+  // ESTADOS DA MÚSICA DE FUNDO
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const interactionDone = useRef(false)
 
   const order = orders.find(o => o.id === orderId)
 
@@ -62,7 +69,6 @@ function OrderTrackingContent() {
     return () => clearInterval(interval)
   }, [sync, statusPagamento, orderId])
 
-  // LÓGICA DE ESPERA: Se não achou o pedido ainda, tenta buscar de novo a cada 1 segundo (até 5x)
   useEffect(() => {
     if (!order && retryCount < 5) {
       const timer = setTimeout(() => {
@@ -73,9 +79,68 @@ function OrderTrackingContent() {
     }
   }, [order, retryCount, sync])
 
+  // LÓGICA DO PLAYER DE MÚSICA DE FUNDO
+  useEffect(() => {
+    const bgSettings = settings as any;
+    const url = bgSettings?.bgMusicUrl;
+    const isActive = bgSettings?.bgMusicActive;
+
+    if (!isActive && audioRef.current) {
+      audioRef.current.pause();
+      setIsMusicPlaying(false);
+      return; 
+    }
+
+    if (!url || !isActive) return;
+
+    if (!audioRef.current) {
+      const audio = new Audio(url);
+      audio.loop = true;
+      audioRef.current = audio;
+    } else if (audioRef.current.src !== window.location.origin + url) {
+      audioRef.current.src = url;
+    }
+
+    const handleFirstInteraction = () => {
+      if (interactionDone.current) return;
+      interactionDone.current = true; 
+
+      if (isActive && audioRef.current) {
+        audioRef.current.play()
+          .then(() => setIsMusicPlaying(true))
+          .catch((e) => console.log("Autoplay bloqueado:", e));
+      }
+
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('scroll', handleFirstInteraction);
+    };
+
+    window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+    window.addEventListener('scroll', handleFirstInteraction);
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('scroll', handleFirstInteraction);
+    };
+  }, [(settings as any)?.bgMusicUrl, (settings as any)?.bgMusicActive]);
+
+  const toggleMusic = () => {
+    if (!audioRef.current) return;
+    if (isMusicPlaying) {
+      audioRef.current.pause();
+      setIsMusicPlaying(false);
+    } else {
+      audioRef.current.play()
+        .then(() => setIsMusicPlaying(true))
+        .catch(() => console.log("Erro ao forçar play."));
+    }
+  };
+
   if (!isMounted) return null
 
-  // Se ainda não achou e está dentro das 5 tentativas, mostra tela de carregamento (Impede o erro visual)
   if (!order && retryCount < 5) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-4 text-center">
@@ -86,7 +151,6 @@ function OrderTrackingContent() {
     )
   }
 
-  // Se já tentou 5 vezes e o pedido realmente não existe, aí sim mostra erro.
   if (!order) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-4 text-center">
@@ -129,11 +193,20 @@ function OrderTrackingContent() {
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans pb-10">
+      
+      {/* BOTÃO FLUTUANTE DA MÚSICA DO CLIENTE */}
+      {(settings as any)?.bgMusicUrl && (settings as any)?.bgMusicActive && (
+        <button 
+          onClick={toggleMusic}
+          title={isMusicPlaying ? "Pausar música" : "Tocar música"}
+          className="fixed bottom-6 left-4 z-40 bg-white/90 backdrop-blur-md p-3 rounded-full shadow-xl border border-stone-200 text-stone-700 hover:bg-stone-100 hover:scale-110 transition-all duration-300"
+        >
+          {isMusicPlaying ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-500" />}
+        </button>
+      )}
+
       <div className="bg-stone-900 text-white px-4 sm:px-6 py-6 shadow-md rounded-b-3xl">
         <div className="max-w-md mx-auto flex items-center gap-4">
-          {/* <button onClick={() => router.push("/")} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors shrink-0">
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button> */}
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">Acompanhar Pedido</h1>
             <p className="text-orange-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5">ID: #{order.id.slice(0,8)}</p>
@@ -244,7 +317,6 @@ function OrderTrackingContent() {
               </div>
             )}
 
-         {/* BLOCO DA OBSERVAÇÃO COM QUEBRA DE TEXTO FORÇADA */}
             {order.observation && (
               <div className="bg-amber-50 p-3 sm:p-4 rounded-xl border border-amber-200 mt-4 w-full">
                 <span className="text-[10px] sm:text-xs font-black text-amber-800 uppercase tracking-wider mb-1 flex items-center gap-1">
