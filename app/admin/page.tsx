@@ -14,7 +14,7 @@ import {
   Wallet, Utensils, Motorbike, Banknote, CreditCard, QrCode, Receipt,
   TrendingDown, Lock, X, CheckCircle2, AlertCircle, Check, Truck, Ban,
   DollarSign, Eye, EyeOff, HeartHandshake, Bell, BellOff, MessageCircle,
-  ChevronDown, ChevronUp, Maximize2, ChevronsUp, ChevronsDown
+  ChevronDown, ChevronUp, Maximize2, ChevronsUp, ChevronsDown, Music // <- Adicionado aqui
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Order } from "@/lib/types";
