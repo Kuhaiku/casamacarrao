@@ -1894,3 +1894,94 @@ function OperationsTabContent() {
     </div>
   );
 }
+export default function AdminMenuPage() {
+  return (
+    <div className="container max-w-[1600px] mx-auto p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
+      <div>
+        <h1 className="text-3xl font-black text-stone-800 dark:text-stone-100 tracking-tight">
+          Gestão da Loja
+        </h1>
+        <p className="text-stone-500 font-medium mt-1">
+          Configure o cardápio, produtos, taxas de entrega e regras de
+          aprovação.
+        </p>
+      </div>
+
+      <Tabs defaultValue="cardapio" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2 bg-transparent h-auto mb-6">
+          <TabsTrigger
+            value="cardapio"
+            className="rounded-lg font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white h-12"
+          >
+            <UtensilsCrossed className="w-4 h-4 mr-2" /> Cardápio
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="produtos"
+            className="rounded-lg font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white h-12"
+          >
+            <PackageOpen className="w-4 h-4 mr-2" /> Produtos
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="entregas"
+            className="rounded-lg font-bold data-[state=active]:bg-purple-600 data-[state=active]:text-white h-12"
+          >
+            <MapPin className="w-4 h-4 mr-2" /> Entregas
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="regras"
+            className="rounded-lg font-bold data-[state=active]:bg-stone-800 data-[state=active]:text-white h-12"
+          >
+            <Box className="w-4 h-4 mr-2" /> Regras
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="operacao"
+            className="rounded-lg font-bold data-[state=active]:bg-green-600 data-[state=active]:text-white h-12"
+          >
+            <Settings2 className="w-4 h-4 mr-2" /> Operação
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-800 p-6 min-h-[60vh]">
+          <TabsContent
+            value="cardapio"
+            className="m-0 focus-visible:outline-none"
+          >
+            <MenuTabContent />
+          </TabsContent>
+
+          <TabsContent
+            value="produtos"
+            className="m-0 focus-visible:outline-none"
+          >
+            <ProductsTabContent />
+          </TabsContent>
+
+          <TabsContent
+            value="entregas"
+            className="m-0 focus-visible:outline-none"
+          >
+            <DeliveryTabContent />
+          </TabsContent>
+
+          <TabsContent
+            value="regras"
+            className="m-0 focus-visible:outline-none"
+          >
+            <RulesTabContent />
+          </TabsContent>
+
+          <TabsContent
+            value="operacao"
+            className="m-0 focus-visible:outline-none"
+          >
+            <OperationsTabContent />
+          </TabsContent>
+        </div>
+      </Tabs>
+    </div>
+  );
+}
