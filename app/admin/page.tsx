@@ -379,18 +379,21 @@ export default function AdminDashboardPage() {
             </span>
           </div>
           
-          <Button 
+         <Button 
             variant={audioEnabled ? "default" : "outline"} 
             size="icon" 
             onClick={() => {
               const newAudioState = !audioEnabled;
               setAudioEnabled(newAudioState);
               if (newAudioState) {
+                // Tenta engatilhar os sons no navegador para liberar as permissões
                 const audio1 = new Audio("/bell.mp3");
                 const audio2 = new Audio("/delivery.mp3");
+                const audio3 = new Audio("/cancel.mp3"); // Engatilha o novo som
                 audio1.play().then(() => audio1.pause()).catch(() => {}); 
                 audio2.play().then(() => audio2.pause()).catch(() => {}); 
-                toast.success("Campainha ativada para Delivery e Salão!");
+                audio3.play().then(() => audio3.pause()).catch(() => {}); 
+                toast.success("Áudio ativado para Mesa, Delivery e Cancelamentos!");
               }
             }} 
             className={`h-8 w-8 ${audioEnabled ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-stone-100 text-stone-400'}`}
