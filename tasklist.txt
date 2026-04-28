@@ -13,3 +13,5 @@ https://github.com/Kuhaiku/casamacarrao/tree/feature/pagamento-mercadopago
      Painel de Métricas.
      Módulo de Estoque de Suprimentos.
      Gerenciador de estoque com baixa automática/aproximada dos insumos a cada pedido efetuado.
+
+     //adicionando alguns trecos do mercado pago
