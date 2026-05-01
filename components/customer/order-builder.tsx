@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Check, AlertCircle, Star, ShoppingBag } from "lucide-react";
 
-// 1. Tipagem das propriedades (resolvendo o erro do TypeScript)
 interface OrderBuilderProps {
   db: {
     sizes: any[];
@@ -53,7 +52,24 @@ export function OrderBuilder({ db, onFinish, formatCurrency }: OrderBuilderProps
     });
   }
 
-  const massas = db.menuItems.filter((i: any) => i.isActive && i.category === "pasta");
+  // --- Lógica de Validação de Nhoque ---
+  const isNhoqueSize = selectedSize?.name.toLowerCase().includes('nhoque');
+
+  const massas = db.menuItems
+    .filter((i: any) => i.isActive && i.category === "pasta")
+    .map((massa: any) => {
+      const isNhoquePasta = massa.name.toLowerCase().startsWith('nhoque');
+      const isValid = isNhoqueSize ? isNhoquePasta : !isNhoquePasta;
+      
+      return {
+        ...massa,
+        isDisabled: !isValid,
+        disabledReason: !isValid 
+          ? (isNhoqueSize ? 'Selecione uma opção de Nhoque' : 'Exclusivo para tamanho Nhoque') 
+          : null
+      };
+    });
+
   const molhos = db.menuItems.filter((i: any) => i.isActive && i.category === "sauce");
   const temperos = db.menuItems.filter((i: any) => i.isActive && i.category === "seasoning");
   const ingredientes = db.menuItems.filter((i: any) => i.isActive && i.category === "ingredient");
@@ -103,7 +119,12 @@ export function OrderBuilder({ db, onFinish, formatCurrency }: OrderBuilderProps
               {db.sizes.map((sz: any) => (
                 <button
                   key={sz.id}
-                  onClick={() => setOrd({ sizeId: sz.id })}
+                  onClick={() => {
+                    if (order.sizeId !== sz.id) {
+                      // Reseta a massa ao trocar de tamanho para evitar massa inválida selecionada
+                      setOrd({ sizeId: sz.id, pastaId: null });
+                    }
+                  }}
                   className={`w-full text-left p-3 sm:p-4 rounded-xl border-2 transition-all ${
                     order.sizeId === sz.id ? "border-orange-600 bg-orange-50" : "border-stone-200 hover:border-orange-300 bg-white"
                   }`}
@@ -132,15 +153,27 @@ export function OrderBuilder({ db, onFinish, formatCurrency }: OrderBuilderProps
               {massas.map((m: any) => (
                 <button
                   key={m.id}
+                  disabled={m.isDisabled}
                   onClick={() => setOrd({ pastaId: m.id })}
-                  className={`p-3 sm:p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[90px] ${
-                    order.pastaId === m.id ? "border-orange-600 bg-orange-50" : "border-stone-200 hover:border-orange-300 bg-white"
+                  className={`p-3 sm:p-4 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center min-h-[90px] relative ${
+                    m.isDisabled 
+                      ? "opacity-40 cursor-not-allowed bg-stone-50 border-stone-200" 
+                      : order.pastaId === m.id 
+                        ? "border-orange-600 bg-orange-50" 
+                        : "border-stone-200 hover:border-orange-300 bg-white"
                   }`}
                 >
-                  <span className="text-xl sm:text-2xl block mb-1 sm:mb-2">🍝</span>
-                  <span className={`text-[11px] sm:text-sm font-bold leading-tight ${order.pastaId === m.id ? "text-orange-900" : "text-stone-700"}`}>
+                  <span className={`text-xl sm:text-2xl block mb-1 sm:mb-2 ${m.isDisabled ? 'grayscale opacity-50' : ''}`}>🍝</span>
+                  <span className={`text-[11px] sm:text-sm font-bold leading-tight ${m.isDisabled ? "text-stone-400" : order.pastaId === m.id ? "text-orange-900" : "text-stone-700"}`}>
                     {m.name}
                   </span>
+                  
+                  {/* Feedback Visual de Indisponibilidade */}
+                  {m.isDisabled && (
+                    <span className="absolute -top-2 text-[8px] sm:text-[9px] bg-stone-200 text-stone-600 px-2 py-0.5 rounded-full border border-stone-300 whitespace-nowrap shadow-sm">
+                      {m.disabledReason}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
