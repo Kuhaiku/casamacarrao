@@ -15,3 +15,4 @@ https://github.com/Kuhaiku/casamacarrao/tree/feature/pagamento-mercadopago
      Gerenciador de estoque com baixa automática/aproximada dos insumos a cada pedido efetuado.
 
      //adicionando alguns trecos do mercado pago
+     //ramificando impressao-wifi 
