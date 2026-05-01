@@ -241,16 +241,16 @@ export default function CustomerHome() {
             </div>
           )}
 
-     {/* BOTÃO FLUTUANTE DA MÚSICA DO CLIENTE (SÓ MOSTRA SE ESTIVER ATIVADO NO ADMIN) */}
-          {(settings as any)?.bgMusicUrl && (settings as any)?.bgMusicActive && (
-            <button 
-              onClick={toggleMusic}
-              title={isMusicPlaying ? "Pausar música" : "Tocar música"}
-              className="fixed bottom-[88px] lg:bottom-6 left-4 z-40 bg-white/90 backdrop-blur-md p-3 rounded-full shadow-xl border border-stone-200 text-stone-700 hover:bg-stone-100 hover:scale-110 transition-all duration-300"
-            >
-              {isMusicPlaying ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-500" />}
-            </button>
-          )}
+  {/* BOTÃO FLUTUANTE DA MÚSICA DO CLIENTE (SÓ MOSTRA SE ESTIVER ATIVADO NO ADMIN) */}
+{((settings as any)?.bgMusicUrl && (settings as any)?.bgMusicActive) ? (
+  <button 
+    onClick={toggleMusic}
+    title={isMusicPlaying ? "Pausar música" : "Tocar música"}
+    className="fixed bottom-[88px] lg:bottom-6 left-4 z-40 bg-white/90 backdrop-blur-md p-3 rounded-full shadow-xl border border-stone-200 text-stone-700 hover:bg-stone-100 hover:scale-110 transition-all duration-300"
+  >
+    {isMusicPlaying ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-500" />}
+  </button>
+) : null}
         </main>
 
         <div 
